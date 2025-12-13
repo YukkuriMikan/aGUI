@@ -1,0 +1,18 @@
+{
+    "name": "aGuiEditor",
+    "rootNamespace": "ANest.UI.Editor",
+    "references": [
+        "GUID:f553b3589f0daf14493c4e73e4d9375f"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

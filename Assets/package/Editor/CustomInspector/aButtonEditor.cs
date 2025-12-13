@@ -23,7 +23,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty onLongPressProp;
 		private SerializedProperty onLongPressCancelProp;
 		private SerializedProperty useMultipleInputGuardProp;
-		private SerializedProperty clickDebounceIntervalProp;
+		private SerializedProperty multipleInputGuardIntervalProp;
 		private SerializedProperty targetTextProp;
 		private SerializedProperty textTransitionProp;
 		private SerializedProperty textColorsProp;
@@ -56,7 +56,7 @@ namespace ANest.UI.Editor {
 			onLongPressProp = serializedObject.FindProperty("onLongPress");
 			onLongPressCancelProp = serializedObject.FindProperty("onLongPressCancel");
 			useMultipleInputGuardProp = serializedObject.FindProperty("useMultipleInputGuard");
-			clickDebounceIntervalProp = serializedObject.FindProperty("clickDebounceInterval");
+			multipleInputGuardIntervalProp = serializedObject.FindProperty("multipleInputGuardInterval");
 			targetTextProp = serializedObject.FindProperty("targetText");
 			textTransitionProp = serializedObject.FindProperty("textTransition");
 			textColorsProp = serializedObject.FindProperty("textColors");
@@ -92,7 +92,7 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 			EditorGUILayout.PropertyField(useMultipleInputGuardProp, new GUIContent("Use Multiple Input Guard"));
 			if(useMultipleInputGuardProp.boolValue) {
-				EditorGUILayout.PropertyField(clickDebounceIntervalProp, new GUIContent("Guard Interval"));
+				EditorGUILayout.PropertyField(multipleInputGuardIntervalProp, new GUIContent("Guard Interval"));
 			}
 
 			EditorGUILayout.Space();

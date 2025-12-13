@@ -45,13 +45,24 @@ namespace ANest.UI {
 		public async UniTask<Tween> DoAnimate(RectTransform caller, RectTransformValues original) {
 			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
 
-			m_tween?.Complete();    // 既存Tweenを完了させ競合を防止
+			m_tween?.Complete(); // 既存Tweenを完了させ競合を防止
 
 			// 位置リセットは他アニメーション（Moveなど）と干渉するため行わない
 
 			m_canvasGroup.alpha = m_startValue;
 
-			m_tween = m_canvasGroup.DOFade(m_endValue, m_duration); // アルファを補間
+			if(UseCurve) {
+				m_tween = DOTween
+					.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
+					.SetEase(Curve)
+					.SetLink(caller.gameObject); // アルファを補間
+			} else {
+				m_tween = DOTween
+					.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
+					.SetEase(Ease)
+					.SetLink(caller.gameObject); // アルファを補間
+			}
+
 
 			return m_tween;
 		}

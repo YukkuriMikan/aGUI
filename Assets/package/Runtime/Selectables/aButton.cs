@@ -30,6 +30,10 @@ namespace ANest.UI {
 		#region SerializeField
 		[SerializeField] private UnityEvent onRightClick = new(); // 右クリック用イベント
 
+		[Header("Shared Parameters")]
+		[SerializeField] private bool useSharedParameters;                  // 共通パラメータを使用するか
+		[SerializeField] private aButtonSharedParameters sharedParameters;  // 共通パラメータの参照
+
 		[Header("Initial Guard")]
 		[SerializeField] private bool useInitialGuard = true;      // 有効化直後の入力を抑制するか
 		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
@@ -54,6 +58,31 @@ namespace ANest.UI {
 		[SerializeField] private Animator textAnimator;                                            // テキスト用アニメーター
 		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
+		#endregion
+
+		#region Shared Apply
+		/// <summary> 共通パラメータを使用している場合に値を反映する </summary>
+		private void ApplySharedParametersIfNeeded() {
+			if(!useSharedParameters) return;
+			if(sharedParameters == null) return;
+
+			useInitialGuard = sharedParameters.useInitialGuard;
+			initialGuardDuration = sharedParameters.initialGuardDuration;
+
+			enableLongPress = sharedParameters.enableLongPress;
+			longPressDuration = sharedParameters.longPressDuration;
+
+			useMultipleInputGuard = sharedParameters.useMultipleInputGuard;
+			multipleInputGuardInterval = sharedParameters.multipleInputGuardInterval;
+
+			textTransition = sharedParameters.textTransition;
+			textColors = sharedParameters.textColors;
+			textSwapState = sharedParameters.textSwapState;
+			textAnimationTriggers = sharedParameters.textAnimationTriggers;
+
+			m_useCustomAnimation = sharedParameters.useCustomAnimation;
+			m_clickAnimations = sharedParameters.clickAnimations;
+		}
 		#endregion
 
 		#region Properties
@@ -92,6 +121,7 @@ namespace ANest.UI {
 		#region Unity Methods
 		/// <summary> 有効化時に初期化とRectTransformの初期値取得を行う </summary>
 		protected override async void OnEnable() {
+			ApplySharedParametersIfNeeded();
 			base.OnEnable();
 
 			m_rectTransform = transform as RectTransform;
@@ -120,6 +150,12 @@ namespace ANest.UI {
 				}
 			}
 		}
+
+		#if UNITY_EDITOR
+		private void OnValidate() {
+			ApplySharedParametersIfNeeded();
+		}
+		#endif
 
 		/// <summary> 無効化時に状態リセットと長押しキャンセルを実行 </summary>
 		protected override void OnDisable() {

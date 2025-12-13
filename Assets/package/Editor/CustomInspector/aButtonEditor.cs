@@ -16,6 +16,8 @@ namespace ANest.UI.Editor {
 		private SerializedProperty navigationProp;
 
 		private SerializedProperty onRightClickProp;
+		private SerializedProperty useSharedParametersProp;
+		private SerializedProperty sharedParametersProp;
 		private SerializedProperty useInitialGuardProp;
 		private SerializedProperty initialGuardDurationProp;
 		private SerializedProperty enableLongPressProp;
@@ -49,6 +51,8 @@ namespace ANest.UI.Editor {
 			animTriggerProp = serializedObject.FindProperty("m_AnimationTriggers");
 			navigationProp = serializedObject.FindProperty("m_Navigation");
 			onRightClickProp = serializedObject.FindProperty("onRightClick");
+			useSharedParametersProp = serializedObject.FindProperty("useSharedParameters");
+			sharedParametersProp = serializedObject.FindProperty("sharedParameters");
 			useInitialGuardProp = serializedObject.FindProperty("useInitialGuard");
 			initialGuardDurationProp = serializedObject.FindProperty("initialGuardDuration");
 			enableLongPressProp = serializedObject.FindProperty("enableLongPress");
@@ -74,39 +78,83 @@ namespace ANest.UI.Editor {
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
+			bool hasSharedAsset = sharedParametersProp.objectReferenceValue != null;
+			bool isSharedEnabled = useSharedParametersProp.boolValue && hasSharedAsset;
+			SerializedObject sharedSerializedObject = null;
+			if(isSharedEnabled) {
+				sharedSerializedObject = new SerializedObject(sharedParametersProp.objectReferenceValue);
+				sharedSerializedObject.Update();
+			}
+
+			EditorGUILayout.LabelField("Shared Parameters", EditorStyles.boldLabel);
+			EditorGUILayout.PropertyField(useSharedParametersProp, new GUIContent("Use Shared"));
+			EditorGUILayout.PropertyField(sharedParametersProp, new GUIContent("Shared Parameters"));
+			if(useSharedParametersProp.boolValue && !hasSharedAsset) {
+				EditorGUILayout.HelpBox("Shared Parameters が設定されていません", MessageType.Warning);
+			}
+
 			DrawSelectableTransitionSection();
 
 			EditorGUILayout.Space();
-			DrawTextTransitionSection();
+			using(new EditorGUI.DisabledScope(isSharedEnabled)) {
+				DrawTextTransitionSection(isSharedEnabled, sharedSerializedObject);
+			}
 
 			EditorGUILayout.Space();
 			DrawNavigationSection();
 
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Initial Guard", EditorStyles.boldLabel);
-			EditorGUILayout.PropertyField(useInitialGuardProp, new GUIContent("Use Initial Guard"));
-			if(useInitialGuardProp.boolValue) {
-				EditorGUILayout.PropertyField(initialGuardDurationProp, new GUIContent("Guard Duration"));
+			{
+				SerializedProperty useInitialGuardToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("useInitialGuard") : useInitialGuardProp;
+				SerializedProperty guardDurationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("initialGuardDuration") : initialGuardDurationProp;
+				using(new EditorGUI.DisabledScope(isSharedEnabled)) {
+					EditorGUILayout.PropertyField(useInitialGuardToShow, new GUIContent("Use Initial Guard"));
+					if(useInitialGuardToShow != null && useInitialGuardToShow.boolValue) {
+						EditorGUILayout.PropertyField(guardDurationToShow, new GUIContent("Guard Duration"));
+					}
+				}
 			}
 
 			EditorGUILayout.Space();
-			EditorGUILayout.PropertyField(useMultipleInputGuardProp, new GUIContent("Use Multiple Input Guard"));
-			if(useMultipleInputGuardProp.boolValue) {
-				EditorGUILayout.PropertyField(multipleInputGuardIntervalProp, new GUIContent("Guard Interval"));
+			{
+				SerializedProperty useMultipleGuardToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("useMultipleInputGuard") : useMultipleInputGuardProp;
+				SerializedProperty guardIntervalToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("multipleInputGuardInterval") : multipleInputGuardIntervalProp;
+				using(new EditorGUI.DisabledScope(isSharedEnabled)) {
+					EditorGUILayout.PropertyField(useMultipleGuardToShow, new GUIContent("Use Multiple Input Guard"));
+					if(useMultipleGuardToShow != null && useMultipleGuardToShow.boolValue) {
+						EditorGUILayout.PropertyField(guardIntervalToShow, new GUIContent("Guard Interval"));
+					}
+				}
 			}
 
 			EditorGUILayout.Space();
-			EditorGUILayout.PropertyField(enableLongPressProp);
+			{
+				SerializedProperty enableLongPressToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("enableLongPress") : enableLongPressProp;
+				SerializedProperty longPressDurationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("longPressDuration") : longPressDurationProp;
+				using(new EditorGUI.DisabledScope(isSharedEnabled)) {
+					EditorGUILayout.PropertyField(enableLongPressToShow, new GUIContent(enableLongPressProp.displayName));
+					if(enableLongPressToShow != null && enableLongPressToShow.boolValue) {
+						EditorGUILayout.PropertyField(longPressDurationToShow, new GUIContent(longPressDurationProp.displayName));
+					}
+				}
+			}
+			// 画像は個別設定できるよう共有時も編集可（共有設定には含めない）
 			if(enableLongPressProp.boolValue) {
-				EditorGUILayout.PropertyField(longPressDurationProp);
 				EditorGUILayout.PropertyField(longPressImageProp, new GUIContent("Long Press Image"));
 			}
 
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
-			EditorGUILayout.PropertyField(useCustomAnimationProp, new GUIContent("Use Custom Animation"));
-			if(useCustomAnimationProp.boolValue) {
-				EditorGUILayout.PropertyField(clickAnimationProp, new GUIContent("Click Animation"));
+			{
+				SerializedProperty useCustomAnimationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("useCustomAnimation") : useCustomAnimationProp;
+				SerializedProperty clickAnimationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("clickAnimations") : clickAnimationProp;
+				using(new EditorGUI.DisabledScope(isSharedEnabled)) {
+					EditorGUILayout.PropertyField(useCustomAnimationToShow, new GUIContent("Use Custom Animation"));
+					if(useCustomAnimationToShow != null && useCustomAnimationToShow.boolValue) {
+						EditorGUILayout.PropertyField(clickAnimationToShow, new GUIContent("Click Animation"));
+					}
+				}
 			}
 
 			EditorGUILayout.Space();
@@ -161,34 +209,43 @@ namespace ANest.UI.Editor {
 			return (Selectable.Transition)transitionProp.enumValueIndex;
 		}
 
-		private void DrawTextTransitionSection() {
+		private void DrawTextTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
 			EditorGUILayout.PropertyField(targetTextProp);
 			if(targetTextProp.objectReferenceValue == null) return;
 
-			EditorGUILayout.PropertyField(textTransitionProp, new GUIContent("Transition"));
+			SerializedProperty transitionPropToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textTransition") : textTransitionProp;
+			EditorGUILayout.PropertyField(transitionPropToShow, new GUIContent("Transition"));
 
 			EditorGUI.indentLevel++;
-			switch((TextTransitionType)textTransitionProp.enumValueIndex) {
-				case TextTransitionType.TextColor:
-					EditorGUILayout.PropertyField(textColorsProp, new GUIContent("Colors"));
+			switch((TextTransitionType)transitionPropToShow.enumValueIndex) {
+				case TextTransitionType.TextColor: {
+					SerializedProperty colorsToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textColors") : textColorsProp;
+					EditorGUILayout.PropertyField(colorsToShow, new GUIContent("Colors"));
 					break;
+				}
 				case TextTransitionType.TextSwap:
-					DrawTextSwapFields();
+					DrawTextSwapFields(isSharedEnabled, sharedSerializedObject);
 					break;
-				case TextTransitionType.TextAnimation:
-					EditorGUILayout.PropertyField(textAnimationTriggersProp, new GUIContent("Animation Triggers"));
-					EditorGUILayout.PropertyField(textAnimatorProp, new GUIContent("Text Animator"));
+				case TextTransitionType.TextAnimation: {
+					SerializedProperty triggersToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textAnimationTriggers") : textAnimationTriggersProp;
+					SerializedProperty animatorToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textAnimator") : textAnimatorProp;
+					EditorGUILayout.PropertyField(triggersToShow, new GUIContent("Animation Triggers"));
+					EditorGUILayout.PropertyField(animatorToShow, new GUIContent("Text Animator"));
 					break;
+				}
 			}
 			EditorGUI.indentLevel--;
 		}
 
-		private void DrawTextSwapFields() {
-			SerializedProperty normal = textSwapStateProp.FindPropertyRelative("normalText");
-			SerializedProperty highlighted = textSwapStateProp.FindPropertyRelative("highlightedText");
-			SerializedProperty pressed = textSwapStateProp.FindPropertyRelative("pressedText");
-			SerializedProperty selected = textSwapStateProp.FindPropertyRelative("selectedText");
-			SerializedProperty disabled = textSwapStateProp.FindPropertyRelative("disabledText");
+		private void DrawTextSwapFields(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
+			SerializedProperty swapStateProp = isSharedEnabled ? sharedSerializedObject?.FindProperty("textSwapState") : textSwapStateProp;
+			if(swapStateProp == null) return;
+
+			SerializedProperty normal = swapStateProp.FindPropertyRelative("normalText");
+			SerializedProperty highlighted = swapStateProp.FindPropertyRelative("highlightedText");
+			SerializedProperty pressed = swapStateProp.FindPropertyRelative("pressedText");
+			SerializedProperty selected = swapStateProp.FindPropertyRelative("selectedText");
+			SerializedProperty disabled = swapStateProp.FindPropertyRelative("disabledText");
 
 			EditorGUILayout.PropertyField(normal, new GUIContent("Normal"));
 			EditorGUILayout.PropertyField(highlighted, new GUIContent("Highlighted"));

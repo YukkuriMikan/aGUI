@@ -86,14 +86,13 @@ namespace ANest.UI.Editor {
 				sharedSerializedObject.Update();
 			}
 
-			EditorGUILayout.LabelField("Shared Parameters", EditorStyles.boldLabel);
+			DrawSelectableTransitionSection();
+			
 			EditorGUILayout.PropertyField(useSharedParametersProp, new GUIContent("Use Shared"));
 			EditorGUILayout.PropertyField(sharedParametersProp, new GUIContent("Shared Parameters"));
 			if(useSharedParametersProp.boolValue && !hasSharedAsset) {
 				EditorGUILayout.HelpBox("Shared Parameters が設定されていません", MessageType.Warning);
 			}
-
-			DrawSelectableTransitionSection();
 
 			EditorGUILayout.Space();
 			using(new EditorGUI.DisabledScope(isSharedEnabled)) {

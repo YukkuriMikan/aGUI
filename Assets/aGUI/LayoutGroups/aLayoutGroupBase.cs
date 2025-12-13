@@ -1,0 +1,348 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using DG.Tweening;
+using UniRx;
+
+
+namespace ANest.UI {
+	/// <summary>
+	/// uGUIのLayoutGroupに近い挙動を自前実装で提供するレイアウト基底クラス。
+	/// LayoutGroupを継承せずに子RectTransformを直接駆動する。
+	/// </summary>
+	[DisallowMultipleComponent]
+	public abstract class aLayoutGroupBase : MonoBehaviour {
+		/// <summary> レイアウトを更新するタイミングの種類 </summary>
+		public enum UpdateMode {
+			Manual,                    // 手動でのみ更新
+			InitializeOnly,            // 初期化時のみ更新
+			OnTransformChildrenChanged // 子Transform変更時に更新
+		}
+
+		#region SerializeField
+		[SerializeField] protected RectOffset padding = new RectOffset();                                 // パディング
+		[SerializeField] protected TextAnchor childAlignment = TextAnchor.UpperLeft;                      // 子の配置基準
+		[SerializeField] protected bool reverseArrangement;                                               // 並び順を反転するか
+		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual;                             // レイアウト更新モード
+		[SerializeField] protected bool childControlWidth = true;                                         // 子幅を制御するか
+		[SerializeField] protected bool childControlHeight = true;                                        // 子高さを制御するか
+		[SerializeField] protected bool childScaleWidth;                                                  // 子幅にスケールを反映するか
+		[SerializeField] protected bool childScaleHeight;                                                 // 子高さにスケールを反映するか
+		[SerializeField] protected bool childForceExpandWidth = true;                                     // 子幅を強制拡張するか
+		[SerializeField] protected bool childForceExpandHeight = true;                                    // 子高さを強制拡張するか
+		[SerializeField] protected List<RectTransform> excludedChildren = new List<RectTransform>();      // 除外する子Transform
+		[SerializeField] protected bool setNavigation;                                                    // ナビゲーションを設定するか
+		[SerializeField] protected bool navigationLoop;                                                   // ナビゲーションをループさせるか
+		[SerializeField] protected bool useAnimation;                                                     // レイアウト移動をアニメーションするか
+		[SerializeField] protected float animationDuration = 0.25f;                                       // アニメーション時間
+		[SerializeField] protected float animationDistanceThreshold = 1000f;                              // アニメ適用距離閾値
+		[SerializeField] protected bool useAnimationCurve;                                                // カーブを使うか
+		[SerializeField] protected AnimationCurve animationCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f); // アニメーションカーブ
+		[SerializeField] protected Ease animationEase = Ease.OutQuad;                                     // アニメーションイージング
+		#endregion
+
+		#region Fields
+		protected readonly List<RectTransform> rectChildren = new();                                        // 対象となる子RectTransform一覧
+		[NonSerialized] protected readonly Dictionary<RectTransform, Tween> _positionTweens = new();        // 位置Tween管理
+		[NonSerialized] protected readonly Dictionary<RectTransform, Vector2> _lastTargetPositions = new(); // 最終ターゲット位置
+		[NonSerialized] private bool _suppressAnimation;                                                    // アニメーション抑制フラグ
+		private RectTransform _rectTransform;                                                               // 自身のRectTransformキャッシュ
+		private bool _initialized;                                                                          // 初期化済みか
+		private bool _dirty;                                                                                // 再計算が必要か
+
+		private Subject<Rect> m_completeLayoutSubject = new(); // レイアウト完了通知Subject
+		#endregion
+
+		#region Properties
+		/// <summary> 自身のRectTransformキャッシュを取得 </summary>
+		protected RectTransform RectTransform => _rectTransform ? _rectTransform : (_rectTransform = transform as RectTransform);
+
+		/// <summary> アニメーションが抑制されているか </summary>
+		protected bool IsAnimationSuppressed => _suppressAnimation;
+
+		/// <summary> レイアウト完了を通知するObservable </summary>
+		public IObservable<Rect> CompleteLayoutAsObservable => m_completeLayoutSubject;
+		#endregion
+
+		#region Unity Methods
+		/// <summary> 有効化時の初期化 </summary>
+		protected virtual void OnEnable() {
+			_initialized = false;
+			_dirty = false;
+			if(updateMode == UpdateMode.InitializeOnly) {
+				TryInit();
+			}
+		}
+
+		/// <summary> 無効化時に状態をリセット </summary>
+		protected virtual void OnDisable() {
+			_initialized = false;
+			_dirty = false;
+			KillAllTweens();
+		}
+
+		/// <summary> 破棄時にTweenを停止 </summary>
+		protected virtual void OnDestroy() {
+			KillAllTweens();
+		}
+
+		/// <summary> 子Transform変更時の処理 </summary>
+		protected virtual void OnTransformChildrenChanged() {
+			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
+				PerformLayoutEditor();
+			}
+		}
+
+		/// <summary> RectTransform寸法変更時の処理 </summary>
+		protected virtual void OnRectTransformDimensionsChange() {
+			if(!isActiveAndEnabled) return;
+			if(updateMode != UpdateMode.InitializeOnly) return;
+			_dirty = true;
+		}
+
+		/// <summary> InitializeOnly モード時にサイズ確定を待ってから初期化をトリガー </summary>
+		private void LateUpdate() {
+			if(updateMode != UpdateMode.InitializeOnly) return; // 他モードでは不要
+			if(!_dirty) return;                                 // 変化がなければ何もしない
+			_dirty = false;
+			TryInit(); // サイズが確定したタイミングで初期化
+		}
+		#endregion
+
+		#region Methods
+		/// <summary> アニメーションを強制無効化してレイアウトを適用 </summary>
+		[ContextMenu("Rebuild Layout")]
+		public void PerformLayoutEditor() {
+			if(!isActiveAndEnabled) return; // 無効時は処理しない
+
+			bool previousSuppress = useAnimation; // 元の抑制状態を保存
+			useAnimation = false;
+			KillAllTweens();
+			PerformLayout();
+			useAnimation = previousSuppress;
+		}
+
+		/// <summary> レイアウト処理の共通フロー </summary>
+		public void PerformLayout() {
+			if(!isActiveAndEnabled) return; // 無効時は処理しない
+			_lastTargetPositions.Clear();
+			CollectRectChildren();
+			CalculateLayout();
+			EmitCompleteLayoutRect();
+		}
+
+		/// <summary> キャッシュ済みの子リストがあればそれを使用し、無ければ収集してからレイアウト計算を行う共通フロー </summary>
+		public void PerformLayoutUsingCache() {
+			if(!isActiveAndEnabled) return; // 無効時は処理しない
+			_lastTargetPositions.Clear();
+			if(rectChildren.Count == 0) {
+				CollectRectChildren();
+			}
+			CalculateLayout();
+			EmitCompleteLayoutRect();
+		}
+
+		/// <summary> 初期化条件を満たした際にレイアウトを構築 </summary>
+		private void TryInit() {
+			if(_initialized) return;
+			if(updateMode != UpdateMode.InitializeOnly) return;
+			if(RectTransform == null) return;
+			var size = RectTransform.rect.size;
+			if(size.x <= 1f || size.y <= 1f) return;
+			_initialized = true;
+			PerformLayoutEditor();
+		}
+
+		/// <summary> レイアウト対象となる子RectTransformを収集 </summary>
+		protected void CollectRectChildren() {
+			rectChildren.Clear();
+			if(RectTransform == null) return;
+			for (int i = 0; i < transform.childCount; i++) {
+				var child = transform.GetChild(i) as RectTransform;
+				if(child == null || !child.gameObject.activeInHierarchy) continue;
+				if(excludedChildren != null && excludedChildren.Contains(child)) continue;
+				var ignorer = child.GetComponent<ILayoutIgnorer>();
+				if(ignorer != null && ignorer.ignoreLayout) continue;
+				rectChildren.Add(child);
+			}
+		}
+
+		/// <summary> 指定軸での配置揃え値を取得（0:左/上、0.5:中央、1:右/下） </summary>
+		protected float GetAlignmentOnAxis(int axis) {
+			int column = (int)childAlignment % 3;
+			int row = (int)childAlignment / 3;
+			if(axis == 0) return column * 0.5f; // left=0, middle=0.5, right=1
+			return row * 0.5f;                  // upper=0, middle=0.5, lower=1
+		}
+
+		/// <summary> パディングとアライメントを考慮した開始位置を算出 </summary>
+		protected float GetStartOffset(int axis, float requiredSpaceWithoutPadding) {
+			float paddingStart = axis == 0 ? padding.left : padding.top;
+			float paddingEnd = axis == 0 ? padding.right : padding.bottom;
+			float availableSpace = RectTransform.rect.size[axis] - paddingStart - paddingEnd;
+			float surplusSpace = availableSpace - requiredSpaceWithoutPadding;
+			float alignmentOnAxis = GetAlignmentOnAxis(axis);
+			return paddingStart + surplusSpace * alignmentOnAxis;
+		}
+
+		/// <summary> 子RectTransformを両軸方向に配置しサイズを設定 </summary>
+		protected void SetChildAlongBothAxes(RectTransform rect, float posX, float posY, float sizeX, float sizeY, float scaleX = 1f, float scaleY = 1f) {
+			if(rect == null) return;
+
+			Vector2 anchorMin = rect.anchorMin;
+			Vector2 anchorMax = rect.anchorMax;
+			anchorMin.x = anchorMax.x = 0f;
+			anchorMin.y = anchorMax.y = 1f;
+			rect.anchorMin = anchorMin;
+			rect.anchorMax = anchorMax;
+
+			Vector2 sizeDelta = rect.sizeDelta;
+			sizeDelta.x = sizeX;
+			sizeDelta.y = sizeY;
+			rect.sizeDelta = sizeDelta;
+
+			Vector2 targetPos = new Vector2(
+				posX + sizeX * rect.pivot.x * scaleX,
+				-(posY + sizeY * (1f - rect.pivot.y) * scaleY)
+				);
+
+			ApplyPosition(rect, targetPos);
+		}
+
+		/// <summary> 必要に応じてアニメーションしつつ位置を適用 </summary>
+		protected virtual void ApplyPosition(RectTransform rect, Vector2 targetPos) {
+			if(rect == null) return;
+			_lastTargetPositions[rect] = targetPos;
+
+			Vector2 delta = rect.anchoredPosition - targetPos;
+			float distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
+			bool shouldAnimate = useAnimation && !_suppressAnimation && distance <= animationDistanceThreshold && animationDuration > 0f;
+
+			KillTween(rect);
+
+			if(shouldAnimate) {
+				Tween tween = DOTween.To(() => rect.anchoredPosition, v => rect.anchoredPosition = v, targetPos, animationDuration);
+				if(useAnimationCurve && animationCurve != null) {
+					tween.SetEase(animationCurve);
+				} else {
+					tween.SetEase(animationEase);
+				}
+				tween.SetLink(rect.gameObject);
+				_positionTweens[rect] = tween;
+			} else {
+				rect.anchoredPosition = targetPos;
+			}
+		}
+
+		/// <summary> 指定RectTransformに紐づくTweenを停止 </summary>
+		protected void KillTween(RectTransform rect) {
+			if(rect == null) return;
+			if(_positionTweens.TryGetValue(rect, out Tween tween)) {
+				if(tween.IsActive()) tween.Kill();
+				_positionTweens.Remove(rect);
+			}
+		}
+
+		/// <summary> 管理中の全Tweenを停止 </summary>
+		private void KillAllTweens() {
+			foreach (var kvp in _positionTweens) {
+				Tween tween = kvp.Value;
+				if(tween != null && tween.IsActive()) tween.Kill();
+			}
+			_positionTweens.Clear();
+		}
+
+		/// <summary> 子要素の配置範囲をRectとして通知 </summary>
+		private void EmitCompleteLayoutRect() {
+			if(rectChildren.Count == 0) {
+				m_completeLayoutSubject.OnNext(new Rect());
+				return;
+			}
+
+			float minX = float.PositiveInfinity;
+			float minY = float.PositiveInfinity;
+			float maxX = float.NegativeInfinity;
+			float maxY = float.NegativeInfinity;
+
+			for (int i = 0; i < rectChildren.Count; i++) {
+				var child = rectChildren[i];
+				if(child == null) continue;
+
+				Vector2 pos;
+				if(!_lastTargetPositions.TryGetValue(child, out pos)) {
+					pos = child.anchoredPosition;
+				}
+
+				float width = child.sizeDelta.x * Mathf.Abs(child.localScale.x);
+				float height = child.sizeDelta.y * Mathf.Abs(child.localScale.y);
+				float left = pos.x - width * child.pivot.x;
+				float right = left + width;
+				float bottom = pos.y - height * child.pivot.y;
+				float top = bottom + height;
+
+				if(left < minX) minX = left;
+				if(bottom < minY) minY = bottom;
+				if(right > maxX) maxX = right;
+				if(top > maxY) maxY = top;
+			}
+
+			if(float.IsInfinity(minX) || float.IsInfinity(minY) || float.IsInfinity(maxX) || float.IsInfinity(maxY)) {
+				m_completeLayoutSubject.OnNext(new Rect());
+				return;
+			}
+
+			// パディングを含めた親内側の境界も考慮したRectを作成
+			float paddingLeft = padding != null ? padding.left : 0f;
+			float paddingRight = padding != null ? padding.right : 0f;
+			float paddingTop = padding != null ? padding.top : 0f;
+			float paddingBottom = padding != null ? padding.bottom : 0f;
+
+			float paddedMinX = minX - paddingLeft;
+			float paddedMaxX = maxX + paddingRight;
+			float paddedMinY = minY - paddingTop;
+			float paddedMaxY = maxY + paddingBottom;
+
+			var nonPaddedRect = Rect.MinMaxRect(minX, minY, maxX, maxY);
+			var rect = Rect.MinMaxRect(paddedMinX, paddedMinY, paddedMaxX, paddedMaxY);
+			rect.position = nonPaddedRect.position;
+			m_completeLayoutSubject.OnNext(rect);
+		}
+
+		/// <summary> レイアウト計算で使用する子サイズ情報 </summary>
+		protected struct ChildSizes {
+			public float min;
+			public float preferred;
+			public float flexible;
+		}
+
+		/// <summary> 子要素の最小/推奨/柔軟サイズを取得（制御フラグを考慮）</summary>
+		protected void GetChildSizes(RectTransform child, int axis, bool controlSize, bool forceExpand, out ChildSizes sizes) {
+			float min = LayoutUtility.GetMinSize(child, axis);
+			float preferred = LayoutUtility.GetPreferredSize(child, axis);
+			float flexible = LayoutUtility.GetFlexibleSize(child, axis);
+
+			if(!controlSize) {
+				float current = child.rect.size[axis];
+				min = preferred = current;
+				flexible = 0f;
+			} else if(forceExpand) {
+				flexible = Mathf.Max(flexible, 1f);
+			}
+
+			sizes = new ChildSizes {
+				min = min,
+				preferred = preferred,
+				flexible = flexible
+			};
+		}
+
+		/// <summary>
+		/// 実際のレイアウト配置ロジックを実装する抽象メソッド。
+		/// 派生クラス側で収集済みの <see cref="rectChildren"/> を用いて
+		/// 子要素の位置・サイズを決定し、必要に応じてナビゲーションやアニメーションを適用する。
+		/// </summary>
+		protected abstract void CalculateLayout();
+		#endregion
+	}
+}

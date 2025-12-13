@@ -12,6 +12,13 @@ namespace ANest.UI.Editor {
 		private static void MigrateButton(MenuCommand command) {
 			if(command.context is not Button src) return;
 			var go = src.gameObject;
+			if(PrefabUtility.IsPartOfAnyPrefab(go)) {
+				Debug.LogWarning("Prefab 上の Button は移行できません。プレハブエディタを使用するか、シーン上のインスタンスに対して実行してください。", src);
+				EditorUtility.DisplayDialog("Migrate to aButton",
+					"Prefab 上の Button は移行できません。プレハブエディタを使用するか、シーン上のインスタンスに対して実行してください。",
+					"OK");
+				return;
+			}
 			Undo.IncrementCurrentGroup();
 			int group = Undo.GetCurrentGroup();
 			Undo.SetCurrentGroupName("Migrate to aButton");
@@ -121,7 +128,9 @@ namespace ANest.UI.Editor {
 		private static MonoScript GetScriptOf<T>() where T : MonoBehaviour {
 			GameObject temp = null;
 			try {
-				temp = new GameObject("__TempComponentHolder__") { hideFlags = HideFlags.HideAndDontSave };
+				temp = new GameObject("__TempComponentHolder__") {
+					hideFlags = HideFlags.HideAndDontSave
+				};
 				var component = temp.AddComponent<T>();
 				return MonoScript.FromMonoBehaviour(component);
 			} finally {

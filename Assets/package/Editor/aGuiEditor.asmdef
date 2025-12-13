@@ -1,9 +1,10 @@
 {
-    "name": "aGuiEditor",
-    "rootNamespace": "ANest.UI.Editor",
-    "references": [
-        "GUID:f553b3589f0daf14493c4e73e4d9375f"
-    ],
+	"name": "aGuiEditor",
+	"rootNamespace": "ANest.UI.Editor",
+	"references": [
+		"GUID:f553b3589f0daf14493c4e73e4d9375f",
+		"Unity.TextMeshPro"
+	],
     "includePlatforms": [
         "Editor"
     ],

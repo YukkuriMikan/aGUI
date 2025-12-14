@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEditor;
 using UnityEditor.UI;
 using UnityEngine;
@@ -96,6 +97,8 @@ namespace ANest.UI.Editor {
 			offAnimationsProp = serializedObject.FindProperty("m_offAnimations");
 
 			showNavigation = EditorPrefs.GetBool(ShowNavigationKey);
+
+			TryAssignTargetText();
 		}
 
 		public override void OnInspectorGUI() {
@@ -257,6 +260,85 @@ namespace ANest.UI.Editor {
 			SerializedProperty prop = parent.FindPropertyRelative(name);
 			if(prop != null) {
 				prop.colorValue = value;
+			}
+		}
+
+		/// <summary>ターゲットテキストが未設定の場合、既存のTextをTextMeshProUGUIに置換して設定する</summary>
+		private void TryAssignTargetText() {
+			if(targetTextProp == null) return;
+			if(targetTextProp.objectReferenceValue != null) return;
+
+			aToggle toggle = target as aToggle;
+			if(toggle == null) return;
+
+			// 既にTextMeshProUGUIが存在するならそれを優先
+			TMP_Text tmp = toggle.GetComponentInChildren<TMP_Text>(true);
+			if(tmp != null) {
+				targetTextProp.objectReferenceValue = tmp;
+				serializedObject.ApplyModifiedProperties();
+				return;
+			}
+
+			// uGUI Text があればTextMeshProUGUIへ置換
+			Text legacy = toggle.GetComponentInChildren<Text>(true);
+			if(legacy == null) return;
+
+			tmp = ConvertLegacyTextToTMP(legacy);
+			if(tmp == null) return;
+
+			targetTextProp.objectReferenceValue = tmp;
+			serializedObject.ApplyModifiedProperties();
+		}
+
+		private TMP_Text ConvertLegacyTextToTMP(Text legacy) {
+			if(legacy == null) return null;
+
+			GameObject go = legacy.gameObject;
+			Undo.RegisterFullObjectHierarchyUndo(go, "Convert Text to TextMeshProUGUI");
+
+			string text = legacy.text;
+			Color color = legacy.color;
+			int fontSize = Mathf.RoundToInt(legacy.fontSize);
+			FontStyle fontStyle = legacy.fontStyle;
+			TextAnchor alignment = legacy.alignment;
+			bool supportRichText = legacy.supportRichText;
+			bool raycastTarget = legacy.raycastTarget;
+
+			Undo.DestroyObjectImmediate(legacy);
+			TextMeshProUGUI tmp = Undo.AddComponent<TextMeshProUGUI>(go);
+
+			tmp.text = text;
+			tmp.color = color;
+			tmp.fontSize = fontSize;
+			tmp.fontStyle = ConvertFontStyle(fontStyle);
+			tmp.alignment = ConvertAlignment(alignment);
+			tmp.richText = supportRichText;
+			tmp.raycastTarget = raycastTarget;
+
+			return tmp;
+		}
+
+		private TextAlignmentOptions ConvertAlignment(TextAnchor anchor) {
+			switch(anchor) {
+				case TextAnchor.UpperLeft: return TextAlignmentOptions.TopLeft;
+				case TextAnchor.UpperCenter: return TextAlignmentOptions.Top;
+				case TextAnchor.UpperRight: return TextAlignmentOptions.TopRight;
+				case TextAnchor.MiddleLeft: return TextAlignmentOptions.Left;
+				case TextAnchor.MiddleCenter: return TextAlignmentOptions.Center;
+				case TextAnchor.MiddleRight: return TextAlignmentOptions.Right;
+				case TextAnchor.LowerLeft: return TextAlignmentOptions.BottomLeft;
+				case TextAnchor.LowerCenter: return TextAlignmentOptions.Bottom;
+				case TextAnchor.LowerRight: return TextAlignmentOptions.BottomRight;
+				default: return TextAlignmentOptions.Center;
+			}
+		}
+
+		private FontStyles ConvertFontStyle(FontStyle style) {
+			switch(style) {
+				case FontStyle.Bold: return FontStyles.Bold;
+				case FontStyle.Italic: return FontStyles.Italic;
+				case FontStyle.BoldAndItalic: return FontStyles.Bold | FontStyles.Italic;
+				default: return FontStyles.Normal;
 			}
 		}
 	}

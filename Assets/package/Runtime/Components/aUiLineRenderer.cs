@@ -773,7 +773,7 @@ namespace ANest.UI {
 				blended.Normalize();
 
 				var denom = Vector2.Dot(blended, normalPrev);
-				var half = 0.5f;
+
 				Vector2 finalNormal;
 				if(Mathf.Abs(denom) < 0.001f) {
 					finalNormal = normalPrev;

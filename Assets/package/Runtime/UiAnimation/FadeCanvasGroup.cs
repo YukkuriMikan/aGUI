@@ -5,11 +5,12 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary> 移動アニメーション </summary>
-	public class Move : IUiAnimation {
+	/// <summary> CanvasGroup のアルファを補間するフェードアニメーション </summary>
+	public class FadeCanvasGroup : IUiAnimation {
 		#region SerializeField
-		[SerializeField] private Vector3 m_startValue = Vector3.left;                           // 移動開始時の相対座標
-		[SerializeField] private Vector3 m_endValue = Vector3.zero;                             // 移動終了時の相対座標
+		[SerializeField] private CanvasGroup m_canvasGroup;                                     // フェード対象のCanvasGroup
+		[SerializeField] private float m_startValue = 0;                                        // フェード開始時のアルファ
+		[SerializeField] private float m_endValue = 0;                                          // フェード終了時のアルファ
 		[SerializeField] private float m_delay;                                                 // 再生までの遅延秒数
 		[SerializeField] private float m_duration = 0.5f;                                       // 再生時間
 		[SerializeField] private bool m_isYoYo;                                                 // ヨーヨー再生か？
@@ -50,39 +51,42 @@ namespace ANest.UI {
 		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
 			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
 
-			m_tween?.Complete();
-			callerRect.localPosition = original.LocalPosition + m_startValue; //開始座標へ
+			m_tween?.Complete(); // 既存Tweenを完了させ競合を防止
+
+			// 初期値設定
+			m_canvasGroup.alpha = m_startValue;
 
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration / 2f)
+					m_tween = DOTween
+						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
 						.SetEase(Curve)
 						.SetLoops(2, LoopType.Yoyo)
-						.SetLink(callerRect.gameObject);
+						.SetLink(callerRect.gameObject); // アルファを補間
+
 				} else {
-					m_tween = callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration)
+					m_tween = DOTween
+						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
 						.SetEase(Curve)
-						.SetLink(callerRect.gameObject);
+						.SetLink(callerRect.gameObject); // アルファを補間
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration / 2f)
+					m_tween = DOTween
+						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
 						.SetEase(Ease)
 						.SetLoops(2, LoopType.Yoyo)
-						.SetLink(callerRect.gameObject);
+						.SetLink(callerRect.gameObject); // アルファを補間
 				} else {
-					m_tween = callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration)
+					m_tween = DOTween
+						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
 						.SetEase(Ease)
-						.SetLink(callerRect.gameObject);
+						.SetLink(callerRect.gameObject); // アルファを補間
 				}
 			}
 
 			return m_tween;
 		}
-		#endregion
+	#endregion
 	}
 }

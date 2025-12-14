@@ -31,22 +31,22 @@ namespace ANest.UI {
 		[SerializeField] private UnityEvent onRightClick = new(); // 右クリック用イベント
 
 		[Header("Shared Parameters")]
-		[SerializeField] private bool useSharedParameters;                  // 共通パラメータを使用するか
-		[SerializeField] private aButtonSharedParameters sharedParameters;  // 共通パラメータの参照
+		[SerializeField] private bool useSharedParameters;                 // 共通パラメータを使用するか
+		[SerializeField] private aButtonSharedParameters sharedParameters; // 共通パラメータの参照
 
 		[Header("Initial Guard")]
-		[SerializeField] private bool useInitialGuard = true;      // 有効化直後の入力を抑制するか
+		[SerializeField] private bool useInitialGuard = true;       // 有効化直後の入力を抑制するか
 		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
 
 		[Header("Long Press")]
-		[SerializeField] private bool enableLongPress = false;          // 長押しを有効にするか
+		[SerializeField] private bool enableLongPress = false;         // 長押しを有効にするか
 		[SerializeField] private float longPressDuration = 0.5f;       // 長押し成立までの時間（秒）
 		[SerializeField] private UnityEvent onLongPress = new();       // 長押し成立イベント
 		[SerializeField] private UnityEvent onLongPressCancel = new(); // 長押しキャンセルイベント
 		[SerializeField] private Image longPressImage;                 // 長押し進捗を反映するImage
 
 		[Header("Multiple Input Guard")]
-		[SerializeField] private bool useMultipleInputGuard = true;      // 入力ガードを使うか
+		[SerializeField] private bool useMultipleInputGuard = true;       // 入力ガードを使うか
 		[SerializeField] private float multipleInputGuardInterval = 0.5f; // 入力ガードの待機秒数
 
 		[Header("Text Transition")]
@@ -124,6 +124,8 @@ namespace ANest.UI {
 			ApplySharedParametersIfNeeded();
 			base.OnEnable();
 
+			if(!Application.isPlaying) return;
+
 			m_rectTransform = transform as RectTransform;
 
 			ResetPressState();
@@ -151,15 +153,12 @@ namespace ANest.UI {
 			}
 		}
 
-		#if UNITY_EDITOR
-		private void OnValidate() {
-			ApplySharedParametersIfNeeded();
-		}
-		#endif
-
 		/// <summary> 無効化時に状態リセットと長押しキャンセルを実行 </summary>
 		protected override void OnDisable() {
 			base.OnDisable();
+			
+			if(!Application.isPlaying) return;
+			
 			TryInvokeLongPressCancel();
 			ResetPressState();
 		}
@@ -249,7 +248,7 @@ namespace ANest.UI {
 					#if UNITY_EDITOR
 					Debug.Log($"[{nameof(aButton)}] ClickAnimation[{i}] 再生開始: {clickAnimation?.GetType().Name ?? "null"}", this);
 					#endif
-					clickAnimation?.DoAnimate(m_rectTransform, m_originalRectTransformValues.Value).Forget();
+					clickAnimation?.DoAnimate(targetGraphic, m_rectTransform, m_originalRectTransformValues.Value).Forget();
 				}
 			} else {
 				#if UNITY_EDITOR
@@ -467,5 +466,14 @@ namespace ANest.UI {
 			UpdateLongPressImage();
 		}
 		#endregion
+		
+
+		#if UNITY_EDITOR
+		protected　override void OnValidate() {
+			base.OnValidate();
+
+			ApplySharedParametersIfNeeded();
+		}
+		#endif
 	}
 }

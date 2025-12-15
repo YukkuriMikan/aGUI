@@ -22,18 +22,18 @@ namespace ANest.UI {
 
 		#region SerializeField
 		[SerializeField] protected RectOffset padding = new RectOffset();                                 // パディング
-		[SerializeField] protected TextAnchor childAlignment = TextAnchor.UpperLeft;                      // 子の配置基準
+		[SerializeField] protected TextAnchor childAlignment = TextAnchor.MiddleCenter;                   // 子の配置基準
 		[SerializeField] protected bool reverseArrangement;                                               // 並び順を反転するか
 		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual;                             // レイアウト更新モード
-		[SerializeField] protected bool childControlWidth = true;                                         // 子幅を制御するか
-		[SerializeField] protected bool childControlHeight = true;                                        // 子高さを制御するか
+		[SerializeField] protected bool childControlWidth = false;                                        // 子幅を制御するか
+		[SerializeField] protected bool childControlHeight = false;                                       // 子高さを制御するか
 		[SerializeField] protected bool childScaleWidth;                                                  // 子幅にスケールを反映するか
 		[SerializeField] protected bool childScaleHeight;                                                 // 子高さにスケールを反映するか
 		[SerializeField] protected bool childForceExpandWidth = true;                                     // 子幅を強制拡張するか
 		[SerializeField] protected bool childForceExpandHeight = true;                                    // 子高さを強制拡張するか
-		[SerializeField] protected List<RectTransform> excludedChildren = new List<RectTransform>();      // 除外する子Transform
-		[SerializeField] protected bool setNavigation;                                                    // ナビゲーションを設定するか
-		[SerializeField] protected bool navigationLoop;                                                   // ナビゲーションをループさせるか
+		[SerializeField] protected List<RectTransform> excludedChildren = new();                          // 除外する子Transform
+		[SerializeField] protected bool setNavigation = true;                                             // ナビゲーションを設定するか
+		[SerializeField] protected bool navigationLoop = true;                                            // ナビゲーションをループさせるか
 		[SerializeField] protected bool useAnimation;                                                     // レイアウト移動をアニメーションするか
 		[SerializeField] protected float animationDuration = 0.25f;                                       // アニメーション時間
 		[SerializeField] protected float animationDistanceThreshold = 1000f;                              // アニメ適用距離閾値

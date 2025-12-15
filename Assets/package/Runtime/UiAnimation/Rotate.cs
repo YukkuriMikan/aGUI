@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using UnityEngine;
@@ -8,14 +9,14 @@ namespace ANest.UI {
 	/// <summary> 回転アニメーション </summary>
 	public class Rotate : IUiAnimation {
 		#region SerializeField
-		[SerializeField] private Vector3 m_startValue = Vector3.zero;                               // 回転開始時の相対オイラー角
-		[SerializeField] private Vector3 m_endValue = Vector3.zero;                                 // 回転終了時の相対オイラー角
-		[SerializeField] private float m_delay;                                                     // 再生までの遅延秒数
-		[SerializeField] private float m_duration = 0.5f;                                           // 再生時間
-		[SerializeField] private bool m_isYoYo;                                                     // ヨーヨー再生か？
-		[SerializeField] private Ease m_ease = Ease.OutQuad;                                        // イージング種別
-		[SerializeField] private bool m_useCurve = false;                                           // カーブ補間を使うか
-		[SerializeField] private AnimationCurve m_curve = AnimationCurve.EaseInOut(0, 0, 1, 1);     // カーブ設定
+		[SerializeField] private Vector3 m_startValue = Vector3.zero;                           // 回転開始時の相対オイラー角
+		[SerializeField] private Vector3 m_endValue = Vector3.zero;                             // 回転終了時の相対オイラー角
+		[SerializeField] private float m_delay;                                                 // 再生までの遅延秒数
+		[SerializeField] private float m_duration = 0.5f;                                       // 再生時間
+		[SerializeField] private bool m_isYoYo;                                                 // ヨーヨー再生か？
+		[SerializeField] private Ease m_ease = Ease.OutQuad;                                    // イージング種別
+		[SerializeField] private bool m_useCurve = false;                                       // カーブ補間を使うか
+		[SerializeField] private AnimationCurve m_curve = AnimationCurve.EaseInOut(0, 0, 1, 1); // カーブ設定
 		#endregion
 
 		#region Properties
@@ -47,8 +48,9 @@ namespace ANest.UI {
 		/// <param name="graphic">アニメーション対象の Graphic（未使用）</param>
 		/// <param name="callerRect">アニメーション対象の RectTransform</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
-		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
-			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
+		/// <param name="ct">キャンセルトークン</param>
+		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct) {
+			await UniTask.Delay(TimeSpan.FromSeconds(Delay), cancellationToken: ct); // 遅延後に実行
 
 			m_tween?.Complete();
 
@@ -59,29 +61,29 @@ namespace ANest.UI {
 
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = callerRect
+					m_tween = await callerRect
 						.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
 						.SetEase(Curve)
 						.SetLoops(2, LoopType.Yoyo)
-						.SetLink(callerRect.gameObject);
+						.AwaitCompletion(ct);
 				} else {
-					m_tween = callerRect
+					m_tween = await callerRect
 						.DOLocalRotate(endRotation.eulerAngles, m_duration)
 						.SetEase(Curve)
-						.SetLink(callerRect.gameObject);
+						.AwaitCompletion(ct);
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = callerRect
+					m_tween = await callerRect
 						.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
 						.SetEase(Ease)
 						.SetLoops(2, LoopType.Yoyo)
-						.SetLink(callerRect.gameObject);
+						.AwaitCompletion(ct);
 				} else {
-					m_tween = callerRect
+					m_tween = await callerRect
 						.DOLocalRotate(endRotation.eulerAngles, m_duration)
 						.SetEase(Ease)
-						.SetLink(callerRect.gameObject);
+						.AwaitCompletion(ct);
 				}
 			}
 

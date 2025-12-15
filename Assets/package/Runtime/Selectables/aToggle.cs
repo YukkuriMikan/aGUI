@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -29,6 +28,7 @@ namespace ANest.UI {
 
 		[Header("Animation")]
 		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
+		[SerializeField] private bool m_disableInteractableDuringAnimation = true;                 // アニメーション中は操作不可にするか
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_onAnimations;    // ON時のカスタムアニメーション
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_offAnimations;   // OFF時のカスタムアニメーション
@@ -41,11 +41,13 @@ namespace ANest.UI {
 		private RectTransformValues? m_originalTargetRectTransformValues; // Toggleのgraphicの初期RectTransform値
 		private float _lastAcceptedClickTime = -999f;                     // 最後に受理した入力時刻
 		private float _initialGuardEndTime = -999f;                       // 有効化直後のガード解除時刻
-		private Coroutine _textColorTransitionCoroutine;                  // テキストカラー遷移のコルーチン
+		private CancellationTokenSource _textColorTransitionCts;          // テキストカラー遷移のCTS
 		private CancellationTokenSource _toggleAnimationCts;              // トグルアニメーション用CTS
+		private CancellationTokenSource _clickAnimationCts;               // クリックアニメーション用CTS
 		#endregion
 
-		#region Unity Methods
+    #region Unity Methods
+		/// <summary> 有効化時に初期化とRectTransformの初期値取得を行う </summary>
 		protected override async void OnEnable() {
 			base.OnEnable();
 
@@ -61,16 +63,19 @@ namespace ANest.UI {
 			await CaptureInitialRectTransformsAsync();
 		}
 
+		/// <summary> 無効化時にリスナー解除やアニメーションのキャンセルを行う </summary>
 		protected override void OnDisable() {
 			base.OnDisable();
 
 			if(!Application.isPlaying) return;
 
 			RegisterToggleListener(false);
-			ResetTextColorCoroutine();
+			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
 			CancelToggleAnimations();
+			CancelClickAnimations();
 		}
 
+		/// <summary> クリック入力時のガード判定とアニメーション再生を処理する </summary>
 		public override void OnPointerClick(PointerEventData eventData) {
 			if(eventData.button != PointerEventData.InputButton.Left) return;
 			if(!IsActive() || !IsInteractable()) return;
@@ -79,11 +84,11 @@ namespace ANest.UI {
 			if(IsGuardActive(now)) return;
 
 			StartGuard(now);
-			TryPlayAnimations(m_clickAnimations, targetGraphic, m_rectTransform, m_originalRectTransformValues);
-
 			base.OnPointerClick(eventData);
+			PlayClickAnimationsAsync().Forget();
 		}
 
+		/// <summary> Submit入力時にガードを適用する </summary>
 		public override void OnSubmit(BaseEventData eventData) {
 			if(!IsActive() || !IsInteractable()) return;
 
@@ -94,25 +99,27 @@ namespace ANest.UI {
 			base.OnSubmit(eventData);
 		}
 
+		/// <summary> ステート遷移に応じてテキスト遷移を適用する </summary>
 		protected override void DoStateTransition(SelectionState state, bool instant) {
 			base.DoStateTransition(state, instant);
 			if(targetText == null) return;
 
 			switch(textTransition) {
 				case TextTransitionType.TextColor:
-					ApplyTextColorTransition(state, instant);
+					aGuiUtils.ApplyTextColorTransition(this, targetText, textColors, (int)state, instant, ref _textColorTransitionCts, () => _textColorTransitionCts = null);
 					break;
 				case TextTransitionType.TextSwap:
-					ApplyTextSwapTransition(state);
+					aGuiUtils.ApplyTextSwapTransition(targetText, textSwapState, (int)state);
 					break;
 				case TextTransitionType.TextAnimation:
-					ApplyTextAnimationTransition(state);
+					aGuiUtils.ApplyTextAnimationTransition(targetText, textAnimator, textAnimationTriggers, (int)state);
 					break;
 			}
 		}
 		#endregion
 
-		#region Toggle Events
+    #region Toggle Events
+		/// <summary> トグルのON/OFFリスナーを登録または解除する </summary>
 		private void RegisterToggleListener(bool register) {
 			if(register) {
 				onValueChanged.AddListener(OnToggleValueChanged);
@@ -121,6 +128,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary> トグル状態変化時にカスタムアニメーションを再生する </summary>
 		private void OnToggleValueChanged(bool isOn) {
 			if(!m_useCustomAnimation) return;
 			_ = PlayToggleAnimationsAsync(isOn);
@@ -128,6 +136,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Toggle Animation Async
+		/// <summary> ON/OFF切替時のカスタムアニメーションを非同期待機で再生する </summary>
 		private async UniTask PlayToggleAnimationsAsync(bool isOn) {
 			CancelToggleAnimations();
 			_toggleAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
@@ -138,66 +147,76 @@ namespace ANest.UI {
 
 			if(target == null || original == null) return;
 
-			// ONの場合は従来通り再生のみ
-			if(isOn) {
-				TryPlayAnimations(m_onAnimations, graphic, target, original);
-				return;
-			}
-
-			// OFFの場合は非表示を遅延させるため、アニメ終了を待つ
-			CanvasRenderer renderer = graphic != null ? graphic.canvasRenderer : null;
-
-			// 標準のフェード開始で非表示にならないよう、まずAlphaを1に戻す
-			if(graphic != null) {
-				graphic.CrossFadeAlpha(1f, 0f, true);
-				graphic.canvasRenderer.SetAlpha(1f);
-			} else if(renderer != null) {
-				renderer.SetAlpha(1f);
-			}
-
-			// グラフィックはON状態のままにしておき、アニメ完了後に非表示へ
-			TryPlayAnimations(m_offAnimations, graphic, target, original);
-
-			// すべてのカスタムアニメーションのDurationとDelayを考慮した最大時間を待つ
-			float waitSec = CalcMaxAnimationTime(m_offAnimations);
-			if(waitSec > 0f) {
-				try {
-					await UniTask.Delay(TimeSpan.FromSeconds(waitSec), DelayType.DeltaTime, cancellationToken: token);
-				} catch (OperationCanceledException) {
+			try {
+				var originalValue = original.Value;
+				if(isOn) {
+					await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_onAnimations, graphic, target, originalValue, token);
 					return;
 				}
-			}
 
-			// トグル標準の非表示処理を適用
-			if(graphic != null) {
-				graphic.CrossFadeAlpha(0f, 0f, true);
-				graphic.canvasRenderer.SetAlpha(0f);
-			} else if(renderer != null) {
-				renderer.SetAlpha(0f);
+				CanvasRenderer renderer = graphic != null ? graphic.canvasRenderer : null;
+
+				// 標準のフェード開始で非表示にならないよう、まずAlphaを1に戻す
+				if(graphic != null) {
+					graphic.CrossFadeAlpha(1f, 0f, true);
+					graphic.canvasRenderer.SetAlpha(1f);
+				} else if(renderer != null) {
+					renderer.SetAlpha(1f);
+				}
+
+				await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_offAnimations, graphic, target, originalValue, token);
+
+				if(token.IsCancellationRequested) return;
+
+				// トグル標準の非表示処理を適用
+				if(graphic != null) {
+					graphic.CrossFadeAlpha(0f, 0f, true);
+					graphic.canvasRenderer.SetAlpha(0f);
+				} else if(renderer != null) {
+					renderer.SetAlpha(0f);
+				}
+			} catch (OperationCanceledException) {
+				return;
+			} finally {
+				_toggleAnimationCts?.Dispose();
+				_toggleAnimationCts = null;
 			}
 		}
 
-		private float CalcMaxAnimationTime(IUiAnimation[] animations) {
-			if(animations == null || animations.Length == 0) return 0f;
-			float max = 0f;
-			for (int i = 0; i < animations.Length; i++) {
-				var anim = animations[i];
-				if(anim == null) continue;
-				float t = Mathf.Max(0f, anim.Delay) + Mathf.Max(0f, anim.Duration);
-				if(t > max) max = t;
-			}
-			return max;
+		/// <summary> クリック時のカスタムアニメーションを再生する </summary>
+		private async UniTask PlayClickAnimationsAsync() {
+			if(!m_useCustomAnimation) return;
+			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
+			if(m_rectTransform == null || m_originalRectTransformValues == null) return;
+
+			CancelClickAnimations();
+			_clickAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+			var token = _clickAnimationCts.Token;
+
+			await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_clickAnimations, targetGraphic, m_rectTransform, m_originalRectTransformValues.Value, token);
+			_clickAnimationCts?.Dispose();
+			_clickAnimationCts = null;
 		}
 
+		/// <summary> ON/OFFアニメーション用のCTSをキャンセル・破棄する </summary>
 		private void CancelToggleAnimations() {
 			if(_toggleAnimationCts == null) return;
 			_toggleAnimationCts.Cancel();
 			_toggleAnimationCts.Dispose();
 			_toggleAnimationCts = null;
 		}
+
+		/// <summary> クリックアニメーション用のCTSをキャンセル・破棄する </summary>
+		private void CancelClickAnimations() {
+			if(_clickAnimationCts == null) return;
+			_clickAnimationCts.Cancel();
+			_clickAnimationCts.Dispose();
+			_clickAnimationCts = null;
+		}
 		#endregion
 
 		#region Guards
+		/// <summary> 初期ガード・連打ガードの状態を判定する </summary>
 		private bool IsGuardActive(float now) {
 			if(useInitialGuard && now < _initialGuardEndTime) {
 				#if UNITY_EDITOR
@@ -216,10 +235,12 @@ namespace ANest.UI {
 			return active;
 		}
 
+		/// <summary> 入力ガード開始時刻を記録する </summary>
 		private void StartGuard(float now) {
 			_lastAcceptedClickTime = now;
 		}
 
+		/// <summary> 有効化直後の入力を一定時間抑制するための初期ガードを設定 </summary>
 		private void StartInitialGuard() {
 			if(!useInitialGuard || initialGuardDuration <= 0f) {
 				_initialGuardEndTime = -999f;
@@ -229,159 +250,25 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#region Text Transition
-		private void ApplyTextColorTransition(SelectionState state, bool instant) {
-			Color targetColor = GetStateColor(state);
-			float duration = instant ? 0f : textColors.fadeDuration;
-
-			ResetTextColorCoroutine();
-
-			if(duration <= 0f || !targetText.gameObject.activeInHierarchy) {
-				SetTextColorImmediate(targetColor);
-				return;
-			}
-
-			_textColorTransitionCoroutine = StartCoroutine(FadeTextColor(targetColor, duration));
-		}
-
-		private IEnumerator FadeTextColor(Color targetColor, float duration) {
-			Color startColor = targetText.color;
-			float elapsed = 0f;
-
-			while (elapsed < duration) {
-				if(targetText == null) {
-					yield break;
-				}
-
-				elapsed += Time.unscaledDeltaTime;
-				float t = Mathf.Clamp01(elapsed / duration);
-				SetTextColorImmediate(Color.Lerp(startColor, targetColor, t));
-				yield return null;
-			}
-
-			_textColorTransitionCoroutine = null;
-		}
-
-		private void ResetTextColorCoroutine() {
-			if(_textColorTransitionCoroutine != null) {
-				StopCoroutine(_textColorTransitionCoroutine);
-				_textColorTransitionCoroutine = null;
-			}
-		}
-
-		private void SetTextColorImmediate(Color color) {
-			targetText.canvasRenderer.SetColor(color);
-			targetText.color = color;
-		}
-
-		private Color GetStateColor(SelectionState state) {
-			return state switch {
-				SelectionState.Disabled => textColors.disabledColor,
-				SelectionState.Highlighted => textColors.highlightedColor,
-				SelectionState.Pressed => textColors.pressedColor,
-				SelectionState.Selected => textColors.selectedColor,
-				_ => textColors.normalColor
-			};
-		}
-
-		private void ApplyTextSwapTransition(SelectionState state) {
-			string text = GetStateText(state);
-			targetText.text = text;
-		}
-
-		private string GetStateText(SelectionState state) {
-			return state switch {
-				SelectionState.Disabled => string.IsNullOrEmpty(textSwapState.disabledText) ? textSwapState.normalText : textSwapState.disabledText,
-				SelectionState.Highlighted => string.IsNullOrEmpty(textSwapState.highlightedText) ? textSwapState.normalText : textSwapState.highlightedText,
-				SelectionState.Pressed => string.IsNullOrEmpty(textSwapState.pressedText) ? textSwapState.normalText : textSwapState.pressedText,
-				SelectionState.Selected => string.IsNullOrEmpty(textSwapState.selectedText) ? textSwapState.normalText : textSwapState.selectedText,
-				_ => textSwapState.normalText
-			};
-		}
-
-		private void ApplyTextAnimationTransition(SelectionState state) {
-			Animator animator = textAnimator != null ? textAnimator : targetText.GetComponent<Animator>();
-			if(animator == null || animator.runtimeAnimatorController == null) return;
-
-			switch(state) {
-				case SelectionState.Disabled:
-					PlayTextAnimation(animator, textAnimationTriggers.disabledTrigger);
-					break;
-				case SelectionState.Highlighted:
-					PlayTextAnimation(animator, textAnimationTriggers.highlightedTrigger);
-					break;
-				case SelectionState.Pressed:
-					PlayTextAnimation(animator, textAnimationTriggers.pressedTrigger);
-					break;
-				case SelectionState.Selected:
-					PlayTextAnimation(animator, textAnimationTriggers.selectedTrigger);
-					break;
-				default:
-					PlayTextAnimation(animator, textAnimationTriggers.normalTrigger);
-					break;
-			}
-		}
-
-		private static void PlayTextAnimation(Animator animator, string stateName) {
-			if(string.IsNullOrEmpty(stateName)) return;
-			animator.ResetTrigger(stateName);
-			animator.SetTrigger(stateName);
-		}
-		#endregion
-
 		#region Animation
-		private void TryPlayAnimations(IUiAnimation[] animations, Graphic targetGraphic, RectTransform target, RectTransformValues? originalValues) {
-			if(!m_useCustomAnimation) return;
-			if(animations == null || animations.Length == 0) return;
-			if(target == null) return;
-			if(originalValues == null) return;
-
-			var original = originalValues.Value;
-			for (int i = 0; i < animations.Length; i++) {
-				var anim = animations[i];
-				#if UNITY_EDITOR
-				Debug.Log($"[{nameof(aToggle)}] Animation[{i}] 再生開始: {anim?.GetType().Name ?? "null"}", this);
-				#endif
-				anim?.DoAnimate(targetGraphic, target, original).Forget();
-			}
-		}
-
+		/// <summary> アニメーション用に自身とターゲットのRectTransform初期値を取得する </summary>
 		private async UniTask CaptureInitialRectTransformsAsync() {
-			var rectTrans = transform as RectTransform;
-			if(rectTrans != null && m_originalRectTransformValues == null) {
-				try {
-					await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate, cancellationToken: destroyCancellationToken);
-					await UniTask
-						.WaitUntil(() => rectTrans.rect.width > 1f, cancellationToken: destroyCancellationToken)
-						.Timeout(TimeSpan.FromSeconds(0.1f));
+			var capturedRectTransformValues = await aGuiUtils.CaptureInitialRectTransformAsync(
+				m_rectTransform,
+				m_originalRectTransformValues,
+				destroyCancellationToken,
+				true);
+			if(this == null || this.Equals(null)) return;
+			m_originalRectTransformValues = capturedRectTransformValues;
 
-					m_originalRectTransformValues = RectTransformValues.CreateValues(transform);
-				} catch (OperationCanceledException) {
-					// Disable/Destroy などでキャンセルされた場合はログを出さない
-				} catch (TimeoutException) {
-					Debug.LogWarning($"{gameObject.name}: 最初のRectTransformの値を取得出来ませんでした (timeout)", gameObject);
-					// 取得できなかった場合でも現在値を保持してアニメーションが動くようにする
-					m_originalRectTransformValues = RectTransformValues.CreateValues(transform);
-				}
-			}
-
-			if(m_targetRectTransform != null && m_originalTargetRectTransformValues == null) {
-				try {
-					await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate, cancellationToken: destroyCancellationToken);
-					await UniTask
-						.WaitUntil(() => m_targetRectTransform.rect.width > 1f, cancellationToken: destroyCancellationToken)
-						.Timeout(TimeSpan.FromSeconds(0.1f));
-
-					m_originalTargetRectTransformValues = RectTransformValues.CreateValues(m_targetRectTransform);
-				} catch (OperationCanceledException) {
-					// Disable/Destroy などでキャンセルされた場合はログを出さない
-				} catch (TimeoutException) {
-					Debug.LogWarning($"{gameObject.name}: TargetGraphicのRectTransformの初期値を取得出来ませんでした (timeout)", gameObject);
-					// 取得できなかった場合でも現在値を保持してアニメーションが動くようにする
-					m_originalTargetRectTransformValues = RectTransformValues.CreateValues(m_targetRectTransform);
-				}
-			}
+			var capturedTargetRectTransformValues = await aGuiUtils.CaptureInitialRectTransformAsync(
+				m_targetRectTransform,
+				m_originalTargetRectTransformValues,
+				destroyCancellationToken,
+				true);
+			if(this == null || this.Equals(null)) return;
+			m_originalTargetRectTransformValues = capturedTargetRectTransformValues;
 		}
-		#endregion
+        #endregion
 	}
 }

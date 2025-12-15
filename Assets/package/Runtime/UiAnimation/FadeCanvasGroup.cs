@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using UnityEngine;
@@ -48,7 +49,7 @@ namespace ANest.UI {
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
-		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
+		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct) {
 			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
 
 			m_tween?.Complete(); // 既存Tweenを完了させ競合を防止
@@ -58,30 +59,30 @@ namespace ANest.UI {
 
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = DOTween
+					m_tween = await DOTween
 						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
 						.SetEase(Curve)
 						.SetLoops(2, LoopType.Yoyo)
-						.SetLink(callerRect.gameObject); // アルファを補間
+						.AwaitCompletion(ct);
 
 				} else {
-					m_tween = DOTween
+					m_tween = await DOTween
 						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
 						.SetEase(Curve)
-						.SetLink(callerRect.gameObject); // アルファを補間
+						.AwaitCompletion(ct);
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = DOTween
+					m_tween = await DOTween
 						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
 						.SetEase(Ease)
 						.SetLoops(2, LoopType.Yoyo)
-						.SetLink(callerRect.gameObject); // アルファを補間
+						.AwaitCompletion(ct);
 				} else {
-					m_tween = DOTween
+					m_tween = await DOTween
 						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
 						.SetEase(Ease)
-						.SetLink(callerRect.gameObject); // アルファを補間
+						.AwaitCompletion(ct);
 				}
 			}
 

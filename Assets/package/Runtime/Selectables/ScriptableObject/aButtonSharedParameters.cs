@@ -28,6 +28,7 @@ namespace ANest.UI {
 
 		[Header("Animation")]
 		public bool useCustomAnimation;
+		public bool disableInteractableDuringAnimation = true;
 		[SerializeReference, SerializeReferenceDropdown]
 		public IUiAnimation[] clickAnimations;
 	}

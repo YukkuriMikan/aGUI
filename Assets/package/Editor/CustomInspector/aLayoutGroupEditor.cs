@@ -107,98 +107,107 @@ namespace ANest.UI.Editor {
 		}
 
 		private void OnSceneGUI() {
-			if(targets == null) return;
+			if(target is not aLayoutGroupBase group) return;
+			var rectTransform = group.transform as RectTransform;
+			if(rectTransform == null) return;
+
 			using (new Handles.DrawingScope()) {
-				foreach (var obj in targets) {
-					if(obj is not aLayoutGroupBase group) continue;
-					var rectTransform = group.transform as RectTransform;
-					if(rectTransform == null) continue;
+				SerializedObject so = new SerializedObject(group);
+				SerializedProperty padding = so.FindProperty("padding");
+				if(padding == null) return;
 
-					SerializedObject so = new SerializedObject(group);
-					SerializedProperty padding = so.FindProperty("padding");
-					if(padding == null) continue;
+				SerializedProperty leftProp = padding.FindPropertyRelative("m_Left");
+				SerializedProperty rightProp = padding.FindPropertyRelative("m_Right");
+				SerializedProperty topProp = padding.FindPropertyRelative("m_Top");
+				SerializedProperty bottomProp = padding.FindPropertyRelative("m_Bottom");
+				if(leftProp == null || rightProp == null || topProp == null || bottomProp == null) return;
 
-					SerializedProperty leftProp = padding.FindPropertyRelative("m_Left");
-					SerializedProperty rightProp = padding.FindPropertyRelative("m_Right");
-					SerializedProperty topProp = padding.FindPropertyRelative("m_Top");
-					SerializedProperty bottomProp = padding.FindPropertyRelative("m_Bottom");
-					if(leftProp == null || rightProp == null || topProp == null || bottomProp == null) continue;
+				int left = leftProp.intValue;
+				int right = rightProp.intValue;
+				int top = topProp.intValue;
+				int bottom = bottomProp.intValue;
 
-					int left = leftProp.intValue;
-					int right = rightProp.intValue;
-					int top = topProp.intValue;
-					int bottom = bottomProp.intValue;
+				var outer = rectTransform.rect;
+				var inner = new Rect(
+					outer.xMin + left,
+					outer.yMin + bottom,
+					outer.width - left - right,
+					outer.height - top - bottom
+				);
 
-					var outer = rectTransform.rect;
-					var inner = new Rect(
-						outer.xMin + left,
-						outer.yMin + bottom,
-						outer.width - left - right,
-						outer.height - top - bottom
-					);
+				Vector3[] corners = new Vector3[4];
+				corners[0] = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.yMin, 0f));
+				corners[1] = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.yMax, 0f));
+				corners[2] = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.yMax, 0f));
+				corners[3] = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.yMin, 0f));
 
-					Vector3[] corners = new Vector3[4];
-					corners[0] = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.yMin, 0f));
-					corners[1] = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.yMax, 0f));
-					corners[2] = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.yMax, 0f));
-					corners[3] = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.yMin, 0f));
+				Color prevColor = Handles.color;
+				Handles.color = new Color(1f, 0.6f, 0f, 0.9f);
+				Handles.DrawAAPolyLine(3f, new [] { corners[0], corners[1], corners[2], corners[3], corners[0] });
 
-					Color prevColor = Handles.color;
-					Handles.color = new Color(1f, 0.6f, 0f, 0.9f);
-					Handles.DrawAAPolyLine(3f, new [] { corners[0], corners[1], corners[2], corners[3], corners[0] });
+				EditorGUI.BeginChangeCheck();
+				{
+					Vector3 worldLeft = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.center.y, 0f));
+					Vector3 worldRight = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.center.y, 0f));
+					Vector3 worldTop = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMax, 0f));
+					Vector3 worldBottom = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMin, 0f));
 
-					EditorGUI.BeginChangeCheck();
-					{
-						Vector3 worldLeft = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.center.y, 0f));
-						Vector3 worldRight = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.center.y, 0f));
-						Vector3 worldTop = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMax, 0f));
-						Vector3 worldBottom = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMin, 0f));
+					Vector3 dirRight = rectTransform.right;
+					Vector3 dirUp = rectTransform.up;
 
-						Vector3 dirRight = rectTransform.right;
-						Vector3 dirUp = rectTransform.up;
+					float sizeX = HandleUtility.GetHandleSize(worldLeft) * 0.1f;
+					float sizeY = HandleUtility.GetHandleSize(worldTop) * 0.1f;
 
-						float sizeX = HandleUtility.GetHandleSize(worldLeft) * 0.1f;
-						float sizeY = HandleUtility.GetHandleSize(worldTop) * 0.1f;
-
-						Handles.color = new Color(1f, 0.6f, 0f, 1f);
-						Vector3 newLeftPos = Handles.Slider(worldLeft, dirRight, sizeX, Handles.DotHandleCap, 0f);
-						Vector3 newRightPos = Handles.Slider(worldRight, dirRight, sizeX, Handles.DotHandleCap, 0f);
-						Vector3 newTopPos = Handles.Slider(worldTop, dirUp, sizeY, Handles.DotHandleCap, 0f);
-						Vector3 newBottomPos = Handles.Slider(worldBottom, dirUp, sizeY, Handles.DotHandleCap, 0f);
-						Handles.color = prevColor;
-
-						float deltaLeft = Vector3.Dot(newLeftPos - worldLeft, dirRight);
-						float deltaRight = Vector3.Dot(newRightPos - worldRight, dirRight);
-						float deltaTop = Vector3.Dot(newTopPos - worldTop, dirUp);
-						float deltaBottom = Vector3.Dot(newBottomPos - worldBottom, dirUp);
-
-						int newLeft = Mathf.RoundToInt(left + deltaLeft);
-						int newRight = Mathf.RoundToInt(right - deltaRight);
-						int newTop = Mathf.RoundToInt(top - deltaTop);
-						int newBottom = Mathf.RoundToInt(bottom + deltaBottom);
-
-						const float minInnerSize = 1f;
-						newLeft = Mathf.Clamp(newLeft, 0, Mathf.RoundToInt(Mathf.Max(0f, outer.width - minInnerSize - newRight)));
-						newRight = Mathf.Clamp(newRight, 0, Mathf.RoundToInt(Mathf.Max(0f, outer.width - minInnerSize - newLeft)));
-						newTop = Mathf.Clamp(newTop, 0, Mathf.RoundToInt(Mathf.Max(0f, outer.height - minInnerSize - newBottom)));
-						newBottom = Mathf.Clamp(newBottom, 0, Mathf.RoundToInt(Mathf.Max(0f, outer.height - minInnerSize - newTop)));
-
-						if(EditorGUI.EndChangeCheck()) {
-							Undo.RecordObject(group, "Change Padding");
-							so.Update();
-							leftProp.intValue = newLeft;
-							rightProp.intValue = newRight;
-							topProp.intValue = newTop;
-							bottomProp.intValue = newBottom;
-							so.ApplyModifiedProperties();
-							EditorUtility.SetDirty(group);
-							SceneView.RepaintAll();
-							EditorApplication.QueuePlayerLoopUpdate();
-						}
-					}
-
+					Handles.color = new Color(1f, 0.6f, 0f, 1f);
+					Vector3 newLeftPos = Handles.Slider(worldLeft, dirRight, sizeX, Handles.DotHandleCap, 0f);
+					Vector3 newRightPos = Handles.Slider(worldRight, dirRight, sizeX, Handles.DotHandleCap, 0f);
+					Vector3 newTopPos = Handles.Slider(worldTop, dirUp, sizeY, Handles.DotHandleCap, 0f);
+					Vector3 newBottomPos = Handles.Slider(worldBottom, dirUp, sizeY, Handles.DotHandleCap, 0f);
 					Handles.color = prevColor;
+
+					float deltaLeft = Vector3.Dot(newLeftPos - worldLeft, dirRight);
+					float deltaRight = Vector3.Dot(newRightPos - worldRight, dirRight);
+					float deltaTop = Vector3.Dot(newTopPos - worldTop, dirUp);
+					float deltaBottom = Vector3.Dot(newBottomPos - worldBottom, dirUp);
+
+					int newLeft = Mathf.RoundToInt(left + deltaLeft);
+					int newRight = Mathf.RoundToInt(right - deltaRight);
+					int newTop = Mathf.RoundToInt(top - deltaTop);
+					int newBottom = Mathf.RoundToInt(bottom + deltaBottom);
+
+					const float minInnerSize = 1f;
+					newLeft = Mathf.RoundToInt(newLeft);
+					newRight = Mathf.RoundToInt(newRight);
+					newTop = Mathf.RoundToInt(newTop);
+					newBottom = Mathf.RoundToInt(newBottom);
+
+					float maxLeft = Mathf.Max(0f, outer.width - minInnerSize - newRight);
+					newLeft = Mathf.Min(newLeft, Mathf.RoundToInt(maxLeft));
+
+					float maxRight = Mathf.Max(0f, outer.width - minInnerSize - newLeft);
+					newRight = Mathf.Min(newRight, Mathf.RoundToInt(maxRight));
+
+					float maxTop = Mathf.Max(0f, outer.height - minInnerSize - newBottom);
+					newTop = Mathf.Min(newTop, Mathf.RoundToInt(maxTop));
+
+					float maxBottom = Mathf.Max(0f, outer.height - minInnerSize - newTop);
+					newBottom = Mathf.Min(newBottom, Mathf.RoundToInt(maxBottom));
+
+					if(EditorGUI.EndChangeCheck()) {
+						Undo.RecordObject(group, "Change Padding");
+						so.Update();
+						leftProp.intValue = newLeft;
+						rightProp.intValue = newRight;
+						topProp.intValue = newTop;
+						bottomProp.intValue = newBottom;
+						so.ApplyModifiedProperties();
+						EditorUtility.SetDirty(group);
+						SceneView.RepaintAll();
+						EditorApplication.QueuePlayerLoopUpdate();
+					}
 				}
+
+				Handles.color = prevColor;
 			}
 		}
 

@@ -1,5 +1,5 @@
 using System;
-using System.Collections;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
@@ -57,6 +57,7 @@ namespace ANest.UI {
 		[SerializeField] private AnimationTriggers textAnimationTriggers = new();                  // テキストアニメーション用トリガー
 		[SerializeField] private Animator textAnimator;                                            // テキスト用アニメーター
 		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
+		[SerializeField] private bool m_disableInteractableDuringAnimation = true;                 // アニメーション中は操作不可にするか
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
 		#endregion
 
@@ -81,6 +82,7 @@ namespace ANest.UI {
 			textAnimationTriggers = sharedParameters.textAnimationTriggers;
 
 			m_useCustomAnimation = sharedParameters.useCustomAnimation;
+			m_disableInteractableDuringAnimation = sharedParameters.disableInteractableDuringAnimation;
 			m_clickAnimations = sharedParameters.clickAnimations;
 		}
 		#endregion
@@ -114,8 +116,9 @@ namespace ANest.UI {
 		private bool _longPressTriggered;                           // 長押しが成立したか
 		private float _pointerDownTime;                             // 押下開始時間
 		private bool _loggedInvalidLongPressImage;                  // 不正なImageタイプ警告を出したか
-		private Coroutine _textColorTransitionCoroutine;            // テキストカラー遷移のコルーチン
+		private CancellationTokenSource _textColorTransitionCts;    // テキストカラー遷移のCTS
 		private RectTransformValues? m_originalRectTransformValues; // アニメーション用に保存した初期RectTransform値
+		private CancellationTokenSource _clickAnimationCts;         // クリックアニメーション用CTS
 		#endregion
 
 		#region Unity Methods
@@ -131,35 +134,23 @@ namespace ANest.UI {
 			ResetPressState();
 			StartInitialGuard();
 
-			var rectTrans = transform as RectTransform;
-
-			if(rectTrans != null) {
-				// uGUIのサイズ計算完了を待ってから初期RectTransform値を保存
-				try {
-					if(m_originalRectTransformValues != null) return;
-
-					await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate, cancellationToken: destroyCancellationToken);
-					await UniTask
-						.WaitUntil(() => rectTrans.rect.width > 1f, cancellationToken: destroyCancellationToken)
-						.Timeout(TimeSpan.FromSeconds(0.1f)); //0.1秒は60fpsなら6フレーム
-
-					m_originalRectTransformValues = RectTransformValues.CreateValues(transform);
-
-				} catch (OperationCanceledException) {
-					// Disable/Destroy などでキャンセルされた場合はログを出さない
-				} catch (TimeoutException) {
-					Debug.LogWarning($"{gameObject.name}: 最初のRectTransformの値を取得出来ませんでした (timeout)", gameObject);
-				}
-			}
+			var capturedRectTransformValues = await aGuiUtils.CaptureInitialRectTransformAsync(
+				m_rectTransform,
+				m_originalRectTransformValues,
+				destroyCancellationToken,
+				false);
+			if(this == null || this.Equals(null)) return; // 破棄済みなら以降の処理をスキップ
+			m_originalRectTransformValues = capturedRectTransformValues;
 		}
 
 		/// <summary> 無効化時に状態リセットと長押しキャンセルを実行 </summary>
 		protected override void OnDisable() {
 			base.OnDisable();
-			
+
 			if(!Application.isPlaying) return;
-			
+
 			TryInvokeLongPressCancel();
+			CancelClickAnimations();
 			ResetPressState();
 		}
 
@@ -242,21 +233,8 @@ namespace ANest.UI {
 				return;
 			}
 
-			if(m_originalRectTransformValues != null) {
-				for (int i = 0; i < m_clickAnimations.Length; i++) {
-					var clickAnimation = m_clickAnimations[i];
-					#if UNITY_EDITOR
-					Debug.Log($"[{nameof(aButton)}] ClickAnimation[{i}] 再生開始: {clickAnimation?.GetType().Name ?? "null"}", this);
-					#endif
-					clickAnimation?.DoAnimate(targetGraphic, m_rectTransform, m_originalRectTransformValues.Value).Forget();
-				}
-			} else {
-				#if UNITY_EDITOR
-				Debug.Log($"{gameObject.name}: RectTransformの初期値が取得出来なかったため、アニメーションを再生出来ませんでした", gameObject);
-				#endif
-			}
-
 			base.OnPointerClick(eventData);
+			PlayClickAnimationsAsync().Forget();
 			_pressAccepted = false;
 		}
 
@@ -278,19 +256,46 @@ namespace ANest.UI {
 
 			switch(textTransition) {
 				case TextTransitionType.TextColor:
-					ApplyTextColorTransition(state, instant);
+					aGuiUtils.ApplyTextColorTransition(this, targetText, textColors, (int)state, instant, ref _textColorTransitionCts, () => _textColorTransitionCts = null);
 					break;
 				case TextTransitionType.TextSwap:
-					ApplyTextSwapTransition(state);
+					aGuiUtils.ApplyTextSwapTransition(targetText, textSwapState, (int)state);
 					break;
 				case TextTransitionType.TextAnimation:
-					ApplyTextAnimationTransition(state);
+					aGuiUtils.ApplyTextAnimationTransition(targetText, textAnimator, textAnimationTriggers, (int)state);
 					break;
 			}
 		}
 		#endregion
 
 		#region Methods
+		private async UniTask PlayClickAnimationsAsync() {
+			if(!m_useCustomAnimation) return;
+			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
+			if(m_rectTransform == null || m_originalRectTransformValues == null) return;
+
+			CancelClickAnimations();
+			_clickAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+			var token = _clickAnimationCts.Token;
+
+			try {
+				var original = m_originalRectTransformValues.Value;
+				await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_clickAnimations, targetGraphic, m_rectTransform, original, token);
+			} catch (OperationCanceledException) {
+				return;
+			} finally {
+				_clickAnimationCts?.Dispose();
+				_clickAnimationCts = null;
+			}
+		}
+
+		private void CancelClickAnimations() {
+			if(_clickAnimationCts == null) return;
+			_clickAnimationCts.Cancel();
+			_clickAnimationCts.Dispose();
+			_clickAnimationCts = null;
+		}
+
 		/// <summary> 長押し進捗をImageに反映（Filledタイプのみ） </summary>
 		private void UpdateLongPressImage() {
 			if(longPressImage == null) return;
@@ -349,108 +354,6 @@ namespace ANest.UI {
 			_initialGuardEndTime = Time.unscaledTime + initialGuardDuration;
 		}
 
-		/// <summary> テキストカラー遷移を適用 </summary>
-		private void ApplyTextColorTransition(SelectionState state, bool instant) {
-			Color targetColor = GetStateColor(state);
-			float duration = instant ? 0f : textColors.fadeDuration;
-
-			if(_textColorTransitionCoroutine != null) {
-				StopCoroutine(_textColorTransitionCoroutine);
-				_textColorTransitionCoroutine = null;
-			}
-
-			if(duration <= 0f || !targetText.gameObject.activeInHierarchy) {
-				SetTextColorImmediate(targetColor);
-				return;
-			}
-
-			_textColorTransitionCoroutine = StartCoroutine(FadeTextColor(targetColor, duration));
-		}
-
-		/// <summary> テキストカラーを時間経過で補間するコルーチン </summary>
-		private IEnumerator FadeTextColor(Color targetColor, float duration) {
-			Color startColor = targetText.color;
-			float elapsed = 0f;
-
-			while (elapsed < duration) {
-				if(targetText == null) {
-					yield break;
-				}
-
-				elapsed += Time.unscaledDeltaTime;
-				float t = Mathf.Clamp01(elapsed / duration);
-				SetTextColorImmediate(Color.Lerp(startColor, targetColor, t));
-				yield return null;
-			}
-
-			_textColorTransitionCoroutine = null;
-		}
-
-		/// <summary> テキストカラーを即時反映 </summary>
-		private void SetTextColorImmediate(Color color) {
-			targetText.canvasRenderer.SetColor(color);
-			targetText.color = color;
-		}
-
-		/// <summary> ステートに応じたカラーを取得 </summary>
-		private Color GetStateColor(SelectionState state) {
-			return state switch {
-				SelectionState.Disabled => textColors.disabledColor,
-				SelectionState.Highlighted => textColors.highlightedColor,
-				SelectionState.Pressed => textColors.pressedColor,
-				SelectionState.Selected => textColors.selectedColor,
-				_ => textColors.normalColor
-			};
-		}
-
-		/// <summary> ステートに応じてテキストを差し替え </summary>
-		private void ApplyTextSwapTransition(SelectionState state) {
-			string text = GetStateText(state);
-			targetText.text = text;
-		}
-
-		/// <summary> ステートに応じたテキストを取得 </summary>
-		private string GetStateText(SelectionState state) {
-			return state switch {
-				SelectionState.Disabled => string.IsNullOrEmpty(textSwapState.disabledText) ? textSwapState.normalText : textSwapState.disabledText,
-				SelectionState.Highlighted => string.IsNullOrEmpty(textSwapState.highlightedText) ? textSwapState.normalText : textSwapState.highlightedText,
-				SelectionState.Pressed => string.IsNullOrEmpty(textSwapState.pressedText) ? textSwapState.normalText : textSwapState.pressedText,
-				SelectionState.Selected => string.IsNullOrEmpty(textSwapState.selectedText) ? textSwapState.normalText : textSwapState.selectedText,
-				_ => textSwapState.normalText
-			};
-		}
-
-		/// <summary> ステートに応じてテキストアニメーションを再生 </summary>
-		private void ApplyTextAnimationTransition(SelectionState state) {
-			Animator animator = textAnimator != null ? textAnimator : targetText.GetComponent<Animator>();
-			if(animator == null || animator.runtimeAnimatorController == null) return;
-
-			switch(state) {
-				case SelectionState.Disabled:
-					PlayTextAnimation(animator, textAnimationTriggers.disabledTrigger);
-					break;
-				case SelectionState.Highlighted:
-					PlayTextAnimation(animator, textAnimationTriggers.highlightedTrigger);
-					break;
-				case SelectionState.Pressed:
-					PlayTextAnimation(animator, textAnimationTriggers.pressedTrigger);
-					break;
-				case SelectionState.Selected:
-					PlayTextAnimation(animator, textAnimationTriggers.selectedTrigger);
-					break;
-				default:
-					PlayTextAnimation(animator, textAnimationTriggers.normalTrigger);
-					break;
-			}
-		}
-
-		/// <summary> 指定されたアニメーションステートをトリガーする </summary>
-		private static void PlayTextAnimation(Animator animator, string stateName) {
-			if(string.IsNullOrEmpty(stateName)) return;
-			animator.ResetTrigger(stateName);
-			animator.SetTrigger(stateName);
-		}
-
 		/// <summary> 押下状態などの入力フラグを初期化 </summary>
 		private void ResetPressState() {
 			_pressAccepted = false;
@@ -459,14 +362,11 @@ namespace ANest.UI {
 			_pointerDownTime = 0f;
 			LongPressProgress = 0f;
 			_loggedInvalidLongPressImage = false;
-			if(_textColorTransitionCoroutine != null) {
-				StopCoroutine(_textColorTransitionCoroutine);
-				_textColorTransitionCoroutine = null;
-			}
+			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
 			UpdateLongPressImage();
 		}
 		#endregion
-		
+
 
 		#if UNITY_EDITOR
 		protected　override void OnValidate() {

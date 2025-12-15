@@ -10,17 +10,17 @@ namespace ANest.UI {
 		World
 	}
 
- public enum CapType {
- 	Default,
- 	Round,
- 	Square
- }
+	public enum CapType {
+		Default,
+		Round,
+		Square
+	}
 
- 	public enum CornerType {
- 		Default,
- 		Round,
- 		Bevel
- 	}
+	public enum CornerType {
+		Default,
+		Round,
+		Bevel
+	}
 
 	/// <summary>
 	/// uGUI で LineRenderer 風の描画を行うコンポーネント
@@ -421,6 +421,10 @@ namespace ANest.UI {
 
 				var cross = (dirPrev.x * dirNext.y) - (dirPrev.y * dirNext.x);
 				var leftTurn = cross > 0f;
+				var dot = Vector2.Dot(dirPrev, dirNext);
+				var angleDeg = Mathf.Atan2(cross, dot) * Mathf.Rad2Deg;
+				if(angleDeg < 0f) angleDeg += 360f;
+				var angleUnder180 = angleDeg < 180f;
 
 				var normalPrev = new Vector2(-dirPrev.y, dirPrev.x);
 				var normalNext = new Vector2(-dirNext.y, dirNext.x);
@@ -428,14 +432,18 @@ namespace ANest.UI {
 				var fromNormal = leftTurn ? -normalPrev : normalPrev;
 				var toNormal = leftTurn ? -normalNext : normalNext;
 
- 			var lengthAt = lengths[Mathf.Clamp(i, 0, lengths.Count - 1)];
- 			var normalized = totalLength <= Mathf.Epsilon ? 0f : Mathf.Clamp01(lengthAt / totalLength);
+				var lengthAt = lengths[Mathf.Clamp(i, 0, lengths.Count - 1)];
+				var normalized = totalLength <= Mathf.Epsilon ? 0f : Mathf.Clamp01(lengthAt / totalLength);
 				var halfThickness = EvaluateThickness(normalized) * 0.5f;
 				if(halfThickness <= Mathf.Epsilon) continue;
 
- 			var uvX = (normalized * m_uvTiling.x) + m_uvOffset.x;
- 			var uvBottom = m_uvOffset.y;
- 			var uvTop = (1f * m_uvTiling.y) + m_uvOffset.y;
+				var uvX = (normalized * m_uvTiling.x) + m_uvOffset.x;
+				var uvBottom = m_uvOffset.y;
+				var uvTop = (1f * m_uvTiling.y) + m_uvOffset.y;
+				if(cornerType != CornerType.Default && angleUnder180) {
+					// 180度を超える角ではUVを反転する
+					(uvBottom, uvTop) = (uvTop, uvBottom);
+				}
 
 				switch(cornerType) {
 					case CornerType.Bevel:

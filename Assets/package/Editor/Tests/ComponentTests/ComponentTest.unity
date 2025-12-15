@@ -554,11 +554,12 @@ MonoBehaviour:
   m_loop: 0
   m_points:
   - {x: 0, y: 0}
-  - {x: 116.812256, y: 39.94159}
-  - {x: 87.68457, y: 85.221375}
+  - {x: 59.15564, y: 34.58441}
+  - {x: 55.27838, y: 56.956238}
+  - {x: 101.90222, y: 78.36078}
   m_enableCornerInterpolation: 0
   m_cornerVertices: 8
-  m_cornerType: 0
+  m_cornerType: 2
   m_startCap: 1
   m_endCap: 1
   m_startCapSegments: 8

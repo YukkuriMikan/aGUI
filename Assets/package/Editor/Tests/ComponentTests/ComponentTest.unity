@@ -559,7 +559,7 @@ MonoBehaviour:
   - {x: 101.90222, y: 78.36078}
   m_enableCornerInterpolation: 0
   m_cornerVertices: 8
-  m_cornerType: 2
+  m_cornerType: 1
   m_startCap: 1
   m_endCap: 1
   m_startCapSegments: 8

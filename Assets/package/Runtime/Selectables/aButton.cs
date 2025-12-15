@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Reflection;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
@@ -119,6 +120,14 @@ namespace ANest.UI {
 		private CancellationTokenSource _textColorTransitionCts;    // テキストカラー遷移のCTS
 		private RectTransformValues? m_originalRectTransformValues; // アニメーション用に保存した初期RectTransform値
 		private CancellationTokenSource _clickAnimationCts;         // クリックアニメーション用CTS
+		private bool _submitPressActive;                            // Submit入力による押下中か
+		private BaseEventData _cachedSubmitEventData;               // Submit入力を後段処理に渡すためのキャッシュ
+		private object _inputSystemSubmitAction;                    // Input SystemのSubmitアクション（リフレクションで扱う）
+		private bool _inputSystemSubmitModuleActive;                // Input System UI Module経由のSubmit入力か
+		private static Type s_inputSystemUIModuleType;              // InputSystemUIInputModule型キャッシュ
+		private static Type s_inputActionReferenceType;             // InputActionReference型キャッシュ
+		private static Type s_inputActionType;                      // InputAction型キャッシュ
+		private static MethodInfo s_inputActionWasReleasedMethod;   // WasReleasedThisFrameメソッドキャッシュ
 		#endregion
 
 		#region Unity Methods
@@ -156,6 +165,8 @@ namespace ANest.UI {
 
 		/// <summary> フレーム更新で長押しの進捗を監視 </summary>
 		private void Update() {
+			UpdateSubmitPressState();
+
 			if(!enableLongPress || !_pressAccepted || !_isPointerDown || _longPressTriggered) return;
 			if(!IsActive() || !IsInteractable()) return;
 
@@ -246,7 +257,23 @@ namespace ANest.UI {
 			if(IsGuardActive(now)) return;
 
 			StartGuard(now);
-			base.OnSubmit(eventData);
+
+			if(!enableLongPress) {
+				base.OnSubmit(eventData);
+				return;
+			}
+
+			// Submit入力でも長押しを開始できるようにポインタ押下と同等の状態をセット
+			_pressAccepted = true;
+			_isPointerDown = true;
+			_longPressTriggered = false;
+			_pointerDownTime = now;
+			LongPressProgress = 0f;
+			UpdateLongPressImage();
+			_submitPressActive = true;
+			var currentEventSystem = EventSystem.current;
+			_cachedSubmitEventData = eventData ?? (currentEventSystem != null ? new BaseEventData(currentEventSystem) : null);
+			ConfigureInputSystemSubmitTracking(currentEventSystem);
 		}
 
 		/// <summary> 選択状態の遷移に合わせてテキストの見た目を更新 </summary>
@@ -362,10 +389,142 @@ namespace ANest.UI {
 			_pointerDownTime = 0f;
 			LongPressProgress = 0f;
 			_loggedInvalidLongPressImage = false;
+			_submitPressActive = false;
+			_cachedSubmitEventData = null;
+			_inputSystemSubmitAction = null;
+			_inputSystemSubmitModuleActive = false;
 			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
 			UpdateLongPressImage();
 		}
 		#endregion
+
+		#region Submit Support
+		/// <summary> Submit入力の押下/解放を監視し、長押しとクリックの分岐を処理 </summary>
+		private void UpdateSubmitPressState() {
+			if(!_submitPressActive) return;
+
+			if(_inputSystemSubmitModuleActive) {
+				if(!TryGetInputSystemSubmitRelease(out bool isReleased)) return;
+				if(isReleased) {
+					ReleaseSubmitPress(!_longPressTriggered);
+				}
+				return;
+			}
+
+			if(!TryGetSubmitButtonRelease(out bool released)) {
+				ReleaseSubmitPress(!_longPressTriggered);
+				return;
+			}
+
+			if(released) {
+				ReleaseSubmitPress(!_longPressTriggered);
+			}
+		}
+
+		/// <summary> Submitボタン解放をEventSystem経由で取得 </summary>
+		private bool TryGetSubmitButtonRelease(out bool isReleased) {
+			isReleased = false;
+
+			var eventSystem = EventSystem.current;
+			if(eventSystem == null) return false;
+
+			if(eventSystem.currentInputModule is not StandaloneInputModule module) return false;
+
+			var submitButton = module.submitButton;
+			if(string.IsNullOrEmpty(submitButton)) submitButton = "Submit";
+
+			isReleased = Input.GetButtonUp(submitButton);
+			return true;
+		}
+
+		/// <summary> Submit解放時の後処理とクリック発火 </summary>
+		private void ReleaseSubmitPress(bool triggerClick) {
+			TryInvokeLongPressCancel();
+
+			_isPointerDown = false;
+			LongPressProgress = 0f;
+			UpdateLongPressImage();
+
+			if(triggerClick) {
+				var eventSystem = EventSystem.current;
+				if(eventSystem != null) {
+					base.OnSubmit(_cachedSubmitEventData ?? new BaseEventData(eventSystem));
+				}
+			}
+
+			_pressAccepted = false;
+			_submitPressActive = false;
+			_cachedSubmitEventData = null;
+			_inputSystemSubmitAction = null;
+			_inputSystemSubmitModuleActive = false;
+		}
+		#endregion
+
+		private void ConfigureInputSystemSubmitTracking(EventSystem currentEventSystem) {
+			_inputSystemSubmitAction = null;
+			_inputSystemSubmitModuleActive = false;
+
+			if(currentEventSystem == null) return;
+
+			var module = currentEventSystem.currentInputModule;
+			if(!IsInputSystemUIModule(module)) return;
+
+			_inputSystemSubmitAction = GetInputSystemSubmitAction(module);
+			_inputSystemSubmitModuleActive = _inputSystemSubmitAction != null;
+		}
+
+		private bool IsInputSystemUIModule(object module) {
+			var moduleType = GetInputSystemUIModuleType();
+			return module != null && moduleType != null && moduleType.IsInstanceOfType(module);
+		}
+
+		private object GetInputSystemSubmitAction(object module) {
+			var moduleType = GetInputSystemUIModuleType();
+			if(moduleType == null || module == null) return null;
+
+			var submitProperty = moduleType.GetProperty("submit", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			var actionReference = submitProperty?.GetValue(module);
+			if(actionReference == null) return null;
+
+			var actionRefType = GetInputActionReferenceType();
+			var actionProperty = actionRefType?.GetProperty("action", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			return actionProperty?.GetValue(actionReference);
+		}
+
+		private bool TryGetInputSystemSubmitRelease(out bool isReleased) {
+			isReleased = false;
+			if(_inputSystemSubmitAction == null) return false;
+
+			var actionType = GetInputActionType();
+			if(actionType == null || !actionType.IsInstanceOfType(_inputSystemSubmitAction)) return false;
+
+			s_inputActionWasReleasedMethod ??= actionType.GetMethod("WasReleasedThisFrame", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			if(s_inputActionWasReleasedMethod == null) return false;
+
+			isReleased = (bool)s_inputActionWasReleasedMethod.Invoke(_inputSystemSubmitAction, null);
+			return true;
+		}
+
+		private static Type GetInputSystemUIModuleType() {
+			if(s_inputSystemUIModuleType == null) {
+				s_inputSystemUIModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+			}
+			return s_inputSystemUIModuleType;
+		}
+
+		private static Type GetInputActionReferenceType() {
+			if(s_inputActionReferenceType == null) {
+				s_inputActionReferenceType = Type.GetType("UnityEngine.InputSystem.InputActionReference, Unity.InputSystem");
+			}
+			return s_inputActionReferenceType;
+		}
+
+		private static Type GetInputActionType() {
+			if(s_inputActionType == null) {
+				s_inputActionType = Type.GetType("UnityEngine.InputSystem.InputAction, Unity.InputSystem");
+			}
+			return s_inputActionType;
+		}
 
 
 		#if UNITY_EDITOR

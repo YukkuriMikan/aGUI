@@ -54,6 +54,9 @@ namespace ANest.UI {
 		#endregion
 
 		#region Properties
+		/// <summary> レイアウトグループ </summary>
+		public aLayoutGroupBase LayoutGroup => m_layoutGroup;
+
 		/// <summary> 表示状態 </summary>
 		public bool IsVisible {
 			get => m_isVisible;

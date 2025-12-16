@@ -235,7 +235,7 @@ namespace ANest.UI {
 		private void CancelAnimationDelay() {
 			if(_animationCts == null) return;
 			_animationCts.Cancel();
-			_animationCts.Dispose();
+			_animationCts?.Dispose();
 			_animationCts = null;
 		}
 

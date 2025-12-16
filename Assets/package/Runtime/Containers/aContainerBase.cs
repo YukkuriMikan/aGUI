@@ -46,6 +46,7 @@ namespace ANest.UI {
 		#region Fields
 		private RectTransformValues? m_originalRectTransformValues; // アニメーション用RectTransform初期値
 		private CancellationTokenSource _animationCts;              // Show/Hide待機用CTS
+		private CancellationTokenSource _visibilityCts;             // Show/Hide全体制御用CTS
 		private Selectable _lastSelected;                           // Hide時に記録した選択中のSelectable
 		private RectTransform m_selfRectTransform;                  // 自身のRectTransformキャッシュ
 		private bool _initialized;                                  // 初期化済みか
@@ -130,6 +131,9 @@ namespace ANest.UI {
 		#region Public Methods
 		/// <summary> 非同期Show。必要に応じて選択をリジュームする </summary>
 		public virtual async UniTask ShowAsync() {
+			var visibilityCts = BeginVisibilityOperation();
+			var token = visibilityCts.Token;
+
 			// アクティブ化して履歴へ記録
 			SetActiveInternal(true);
 
@@ -143,15 +147,25 @@ namespace ANest.UI {
 				m_showEvent?.Invoke();
 			}
 
-			// アニメーション再生を待機し、完了後に選択復帰を行う
-			await WaitAnimationsAsync(m_showAnimations, true);
-			if(invokeAfterAnimation) {
-				m_showEvent?.Invoke();
+			try {
+				// アニメーション再生を待機し、完了後に選択復帰を行う
+				await WaitAnimationsAsync(m_showAnimations, true, token);
+				token.ThrowIfCancellationRequested();
+				if(invokeAfterAnimation) {
+					m_showEvent?.Invoke();
+				}
+			} catch (OperationCanceledException) {
+				// 新しいShow/Hideによりキャンセルされた場合は何もしない
+			} finally {
+				CompleteVisibilityOperation(visibilityCts);
 			}
 		}
 
 		/// <summary> 非同期Hide </summary>
 		public virtual async UniTask HideAsync() {
+			var visibilityCts = BeginVisibilityOperation();
+			var token = visibilityCts.Token;
+
 			// 現在の選択状態を退避
 			CaptureCurrentSelection();
 
@@ -166,11 +180,18 @@ namespace ANest.UI {
 				m_hideEvent?.Invoke();
 			}
 
-			// アニメーション完了を待ってから非アクティブ化
-			await WaitAnimationsAsync(m_hideAnimations, false);
-			SetActiveInternal(false);
-			if(invokeAfterAnimation) {
-				m_hideEvent?.Invoke();
+			try {
+				// アニメーション完了を待ってから非アクティブ化
+				await WaitAnimationsAsync(m_hideAnimations, false, token);
+				token.ThrowIfCancellationRequested();
+				SetActiveInternal(false);
+				if(invokeAfterAnimation) {
+					m_hideEvent?.Invoke();
+				}
+			} catch (OperationCanceledException) {
+				// 新しいShow/Hideによりキャンセルされた場合は何もしない
+			} finally {
+				CompleteVisibilityOperation(visibilityCts);
 			}
 		}
 
@@ -208,9 +229,11 @@ namespace ANest.UI {
 		}
 
 		/// <summary> 指定アニメーションの再生を待ち、必要に応じて選択状態や操作可否を調整する </summary>
-		private async UniTask WaitAnimationsAsync(IUiAnimation[] animations, bool isShow) {
+		private async UniTask WaitAnimationsAsync(IUiAnimation[] animations, bool isShow, CancellationToken cancellationToken = default) {
 			CancelAnimationDelay();
-			_animationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+			_animationCts = cancellationToken.CanBeCanceled
+				? CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken, cancellationToken)
+				: CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
 			var token = _animationCts.Token;
 			bool suppressedInteraction = false;
 
@@ -240,7 +263,7 @@ namespace ANest.UI {
 					ResumeSelection();
 				}
 			} catch (OperationCanceledException) {
-				// キャンセル時は何もしない
+				if(cancellationToken.IsCancellationRequested) throw;
 			} finally {
 				// 入力抑制していた場合は元の状態に戻す
 				if(suppressedInteraction && !token.IsCancellationRequested) {
@@ -249,6 +272,30 @@ namespace ANest.UI {
 				_animationCts?.Dispose();
 				_animationCts = null;
 			}
+		}
+
+		/// <summary> 進行中のShow/Hide処理をキャンセルし、新しい処理用のCTSを開始する </summary>
+		private CancellationTokenSource BeginVisibilityOperation() {
+			CancelVisibilityOperation();
+			_visibilityCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+			return _visibilityCts;
+		}
+
+		/// <summary> 進行中のShow/Hide用CTSをキャンセルして破棄する </summary>
+		private void CancelVisibilityOperation() {
+			if(_visibilityCts == null) return;
+			if(!_visibilityCts.IsCancellationRequested) {
+				_visibilityCts.Cancel();
+			}
+			_visibilityCts.Dispose();
+			_visibilityCts = null;
+		}
+
+		/// <summary> 完了したShow/Hide処理に紐づくCTSを破棄する </summary>
+		private void CompleteVisibilityOperation(CancellationTokenSource cts) {
+			if(_visibilityCts != cts) return;
+			_visibilityCts.Dispose();
+			_visibilityCts = null;
 		}
 
 		/// <summary> 進行中のアニメーション待機をキャンセルし、リソースを開放する </summary>

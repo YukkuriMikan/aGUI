@@ -24,30 +24,20 @@ namespace ANest.UI {
 			SyncWithMainVisibility();
 		}
 
-		protected override void OnDisable() {
-			base.OnDisable();
-		}
-
 		private void OnDestroy() {
 			UnsubscribeFromMainContainer();
 		}
 
 		public override async UniTask ShowAsync() {
 			if(IsMainContainerHiddenWithWarning()) return;
+
 			await base.ShowAsync();
 		}
 
 		public override void Show() {
 			if(IsMainContainerHiddenWithWarning()) return;
+			
 			base.Show();
-		}
-
-		public override async UniTask HideAsync() {
-			await base.HideAsync();
-		}
-
-		public override void Hide() {
-			base.Hide();
 		}
 
 		private void SubscribeToMainContainer() {
@@ -83,7 +73,6 @@ namespace ANest.UI {
 
 		private bool IsMainContainerHidden() {
 			if(m_mainContainer == null) return false;
-			if(!m_mainContainer.isActiveAndEnabled) return true;
 			return !m_mainContainer.IsVisible;
 		}
 

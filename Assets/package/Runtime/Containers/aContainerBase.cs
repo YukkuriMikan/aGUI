@@ -175,10 +175,30 @@ namespace ANest.UI {
 		}
 
 		/// <summary> 同期呼び出し用のShow </summary>
-		public virtual void Show() => ShowAsync().Forget();
+		public virtual void Show() {
+#if UNITY_EDITOR
+			if(m_debugMode) {
+				var stackTrace = new System.Diagnostics.StackTrace();
+				var stackFrame = stackTrace.GetFrame(1);
+				Debug.Log($"{this.name} Show: Call from {stackFrame?.GetFileName()}.{stackFrame?.GetMethod().Name}", this);
+			}
+#endif
+
+			ShowAsync().Forget();
+		}
 
 		/// <summary> 同期呼び出し用のHide </summary>
-		public virtual void Hide() => HideAsync().Forget();
+		public virtual void Hide() {
+#if UNITY_EDITOR
+			if(m_debugMode) {
+				var stackTrace = new System.Diagnostics.StackTrace();
+				var stackFrame = stackTrace.GetFrame(1);
+				Debug.Log($"{this.name} Hide: Call from {stackFrame?.GetFileName()}.{stackFrame?.GetMethod().Name}", this);
+			}
+#endif
+
+			HideAsync().Forget();
+		}
 		#endregion
 
 		#region Private Methods
@@ -468,5 +488,9 @@ namespace ANest.UI {
 		}
 		#endif
 
+		#if UNITY_EDITOR
+		[SerializeField]
+		private bool m_debugMode = true;
+		#endif
 	}
 }

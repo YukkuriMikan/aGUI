@@ -287,14 +287,14 @@ namespace ANest.UI {
 			if(!_visibilityCts.IsCancellationRequested) {
 				_visibilityCts.Cancel();
 			}
-			_visibilityCts.Dispose();
+			_visibilityCts?.Dispose();
 			_visibilityCts = null;
 		}
 
 		/// <summary> 完了したShow/Hide処理に紐づくCTSを破棄する </summary>
 		private void CompleteVisibilityOperation(CancellationTokenSource cts) {
 			if(_visibilityCts != cts) return;
-			_visibilityCts.Dispose();
+			_visibilityCts?.Dispose();
 			_visibilityCts = null;
 		}
 

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace ANest.UI {
@@ -35,6 +36,11 @@ namespace ANest.UI {
 
 		[Header("Layout")]
 		[SerializeField] private aLayoutGroupBase m_layoutGroup;
+
+		[Header("Event")]
+		[SerializeField] private bool m_invokeEventsAfterAnimation = false; // イベントをアニメーション完了後に発火するか
+		[SerializeField] private UnityEvent m_showEvent = new();            // Show完了時イベント
+		[SerializeField] private UnityEvent m_hideEvent = new();            // Hide完了時イベント
 		#endregion
 
 		#region Fields
@@ -56,6 +62,13 @@ namespace ANest.UI {
 				m_isVisible = value;
 				ApplySerializedState();
 			}
+		}
+
+		public UnityEvent ShowEvent => m_showEvent;
+		public UnityEvent HideEvent => m_hideEvent;
+		public bool InvokeEventsAfterAnimation {
+			get => m_invokeEventsAfterAnimation;
+			set => m_invokeEventsAfterAnimation = value;
 		}
 
 		/// <summary> CanvasGroupのinteractableを中継するフラグ </summary>
@@ -113,7 +126,7 @@ namespace ANest.UI {
 
 		#region Public Methods
 		/// <summary> 非同期Show。必要に応じて選択をリジュームする </summary>
-		public async UniTask ShowAsync() {
+		public virtual async UniTask ShowAsync() {
 			// アクティブ化して履歴へ記録
 			SetActiveInternal(true);
 
@@ -122,12 +135,20 @@ namespace ANest.UI {
 			// 表示状態とインタラクト状態を更新
 			UpdateStateForShow();
 
+			bool invokeAfterAnimation = m_invokeEventsAfterAnimation;
+			if(!invokeAfterAnimation) {
+				m_showEvent?.Invoke();
+			}
+
 			// アニメーション再生を待機し、完了後に選択復帰を行う
 			await WaitAnimationsAsync(m_showAnimations, true);
+			if(invokeAfterAnimation) {
+				m_showEvent?.Invoke();
+			}
 		}
 
 		/// <summary> 非同期Hide </summary>
-		public async UniTask HideAsync() {
+		public virtual async UniTask HideAsync() {
 			// 現在の選択状態を退避
 			CaptureCurrentSelection();
 
@@ -137,16 +158,24 @@ namespace ANest.UI {
 			// 履歴から直前コンテナへフォーカスを戻す
 			FocusPreviousContainerFromHistory();
 
+			bool invokeAfterAnimation = m_invokeEventsAfterAnimation;
+			if(!invokeAfterAnimation) {
+				m_hideEvent?.Invoke();
+			}
+
 			// アニメーション完了を待ってから非アクティブ化
 			await WaitAnimationsAsync(m_hideAnimations, false);
 			SetActiveInternal(false);
+			if(invokeAfterAnimation) {
+				m_hideEvent?.Invoke();
+			}
 		}
 
 		/// <summary> 同期呼び出し用のShow </summary>
-		public void Show() => ShowAsync().Forget();
+		public virtual void Show() => ShowAsync().Forget();
 
 		/// <summary> 同期呼び出し用のHide </summary>
-		public void Hide() => HideAsync().Forget();
+		public virtual void Hide() => HideAsync().Forget();
 		#endregion
 
 		#region Private Methods
@@ -362,7 +391,7 @@ namespace ANest.UI {
 		#endregion
 
 		#if UNITY_EDITOR
-		private const string ContainerNamePrefix = "Container - ";
+		protected virtual string ContainerNamePrefix => "Container - ";
 
 		/// <summary> コンポーネント追加時に自動リネームとキャッシュ更新を行う </summary>
 		private void Reset() {
@@ -382,9 +411,18 @@ namespace ANest.UI {
 
 		/// <summary> コンテナ追加時にGameObject名へ接頭辞を付与する </summary>
 		private void AutoRenameInEditor() {
-			string currentName = gameObject.name;
-			if(currentName.StartsWith(ContainerNamePrefix)) return;
-			gameObject.name = $"{ContainerNamePrefix}{currentName}";
+			string prefix = ContainerNamePrefix;
+			if(string.IsNullOrEmpty(prefix)) return;
+
+			string trimmedName = TrimKnownPrefixes(gameObject.name);
+			gameObject.name = $"{prefix}{trimmedName}";
+		}
+
+		/// <summary> 既知のプレフィックスを取り除いて元の名前部分を取得する </summary>
+		protected virtual string TrimKnownPrefixes(string currentName) {
+			string prefix = ContainerNamePrefix;
+			if(string.IsNullOrEmpty(prefix)) return currentName;
+			return currentName.StartsWith(prefix) ? currentName.Substring(prefix.Length) : currentName;
 		}
 
 		/// <summary> RectTransformやCanvasGroupなど必要な参照を確保し、不足していれば生成する </summary>

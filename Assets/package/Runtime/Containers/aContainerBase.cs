@@ -58,6 +58,9 @@ namespace ANest.UI {
 		/// <summary> レイアウトグループ </summary>
 		public aLayoutGroupBase LayoutGroup => m_layoutGroup;
 
+		/// <summary> コンテナと紐つくCanvasGroup </summary>
+		public CanvasGroup CanvasGroup => m_canvasGroup;
+
 		/// <summary> 表示状態 </summary>
 		public bool IsVisible {
 			get => m_isVisible;

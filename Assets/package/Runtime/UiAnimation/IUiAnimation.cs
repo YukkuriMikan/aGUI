@@ -29,6 +29,6 @@ namespace ANest.UI {
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">アニメーション対象の RectTransform</param>
 		/// <param name="original">元のRectTransform値</param>
-		public UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct);
+		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original);
 	}
 }

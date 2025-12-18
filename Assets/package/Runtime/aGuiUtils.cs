@@ -1,8 +1,7 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,113 +11,63 @@ namespace ANest.UI {
 	/// aGUI の共通ユーティリティ
 	/// </summary>
 	public static class aGuiUtils {
-		/// <summary> RectTransform の初期値を取得する（既に取得済みならそのまま返す） </summary>
-		/// <param name="rectTransform">対象のRectTransform</param>
-		/// <param name="cachedValues">既に保持している初期値</param>
-		/// <param name="ct">キャンセルトークン</param>
-		/// <param name="fallbackToCurrentOnTimeout">タイムアウト時に現在値で代替取得するか</param>
-		public static async UniTask<RectTransformValues?> CaptureInitialRectTransformAsync(
-			RectTransform rectTransform,
-			RectTransformValues? cachedValues,
-			CancellationToken ct,
-			bool fallbackToCurrentOnTimeout = true) {
-			if(rectTransform == null) return cachedValues;
-			if(cachedValues != null) return cachedValues;
+		/// <summary> アニメーション配列のディープコピーを作成する </summary>
+		public static IUiAnimation[] CloneAnimations(IUiAnimation[] animations) {
+			if(animations == null) return null;
+			if(animations.Length == 0) return Array.Empty<IUiAnimation>();
 
-			try {
-				await UniTask.Yield(PlayerLoopTiming.LastPostLateUpdate, cancellationToken: ct);
-				await UniTask
-					.WaitUntil(() => rectTransform.rect.width > 1f, cancellationToken: ct)
-					.Timeout(TimeSpan.FromSeconds(0.1f));
-
-				return RectTransformValues.CreateValues(rectTransform);
-			} catch (OperationCanceledException) {
-				return cachedValues;
-			} catch (TimeoutException) {
-                #if UNITY_EDITOR
-				string ownerName = rectTransform != null ? rectTransform.gameObject.name : "(null)";
-				Debug.LogWarning($"{ownerName}: RectTransformの初期値を取得出来ませんでした (timeout)", rectTransform);
-                #endif
-				return fallbackToCurrentOnTimeout
-					? RectTransformValues.CreateValues(rectTransform)
-					: cachedValues;
-			}
-		}
-
-		/// <summary> 複数の UI アニメーションをまとめて再生・待機する </summary>
-		/// <param name="animations">再生するアニメーション配列</param>
-		/// <param name="targetGraphic">アニメーション対象の Graphic</param>
-		/// <param name="targetRect">アニメーション対象の RectTransform</param>
-		/// <param name="original">RectTransform の初期値</param>
-		/// <param name="ct">キャンセルトークン</param>
-		public static async UniTask PlayAnimationsAsync(IUiAnimation[] animations, Graphic targetGraphic, RectTransform targetRect, RectTransformValues original, CancellationToken ct) {
-			if(animations == null || animations.Length == 0) return;
-			if(targetRect == null) return;
-
-			var tasks = new List<UniTask>();
+			var cloned = new IUiAnimation[animations.Length];
 			for (int i = 0; i < animations.Length; i++) {
 				var anim = animations[i];
 				if(anim == null) continue;
-				tasks.Add(anim.DoAnimate(targetGraphic, targetRect, original, ct).AttachExternalCancellation(ct));
+
+				try {
+					string json = JsonUtility.ToJson(anim);
+					cloned[i] = (IUiAnimation)JsonUtility.FromJson(json, anim.GetType());
+				} catch (Exception ex) {
+#if UNITY_EDITOR
+					Debug.LogWarning($"[{nameof(aGuiUtils)}] {anim.GetType().Name} のクローンに失敗しました: {ex.Message}");
+#endif
+					cloned[i] = anim;
+				}
 			}
 
-			if(tasks.Count == 0) return;
-			await UniTask.WhenAll(tasks);
+			return cloned;
 		}
 
-		/// <summary> アニメーション実行中はinteractableを抑止しつつ再生・待機する </summary>
-		/// <param name="selectable">操作抑止対象のSelectable</param>
-		/// <param name="disableInteractableDuringAnimation">アニメーション中にinteractableを無効にするか</param>
-		/// <param name="animations">再生するアニメーション配列</param>
-		/// <param name="targetGraphic">アニメーション対象のGraphic</param>
-		/// <param name="targetRect">アニメーション対象のRectTransform</param>
-		/// <param name="original">RectTransformの初期値</param>
-		/// <param name="ct">キャンセルトークン</param>
-		/// <param name="logContext">ログ出力用のコンテキスト</param>
-		public static async UniTask PlayAnimationsWithInteractableGuardAsync(
-			Selectable selectable,
-			bool disableInteractableDuringAnimation,
-			IUiAnimation[] animations,
-			Graphic targetGraphic,
-			RectTransform targetRect,
-			RectTransformValues original,
-			CancellationToken ct) {
-
+		public static void PlayAnimation(IUiAnimation[] animations, RectTransform targetRect, Graphic targetGraphic, RectTransformValues originalValues, Action callback = null) {
 			if(animations == null || animations.Length == 0) return;
 			if(targetRect == null) return;
 
-			bool previousInteractable = selectable != null && selectable.interactable;
-			bool disableInteraction = disableInteractableDuringAnimation && previousInteractable;
-			ColorBlock previousColors = default;
-			bool disabledColorOverridden = false;
-			if(disableInteraction && selectable != null) {
-				previousColors = selectable.colors;
-				if(previousColors.disabledColor != Color.white) {
-					var tempColors = previousColors;
-					tempColors.disabledColor = Color.white;
-					selectable.colors = tempColors;
-					disabledColorOverridden = true;
-				}
-				selectable.interactable = false;
+			if(targetGraphic != null) {
+				targetGraphic.DOKill();
 			}
 
-			try {
-                #if UNITY_EDITOR
+			targetRect.DOKill();
+
+			IUiAnimation lastEndAnim = null;
+			float maxDuration = 0f;
+
+			if(callback != null) {
+				//最後に終わるアニメーションを取得
 				for (int i = 0; i < animations.Length; i++) {
 					var anim = animations[i];
-					string ownerName = selectable.GetType().Name;
-					Debug.Log($"[{ownerName}] Animation[{i}] 再生開始: {anim?.GetType().Name ?? "null"}", selectable);
+					var animDuration = anim.Delay + anim.Duration;
+
+					if(maxDuration < animDuration) {
+						maxDuration = animDuration;
+						lastEndAnim = anim;
+					}
 				}
-                #endif
-				await PlayAnimationsAsync(animations, targetGraphic, targetRect, original, ct);
-			} catch (OperationCanceledException) {
-				// キャンセル時は何もしない
-			} finally {
-				if(disabledColorOverridden && selectable != null) {
-					selectable.colors = previousColors;
-				}
-				if(disableInteraction && previousInteractable && !ct.IsCancellationRequested && selectable != null) {
-					selectable.interactable = true;
+			}
+
+			// それぞれのアニメーションを個別に起動
+			for (int i = 0; i < animations.Length; i++) {
+				var anim = animations[i];
+				var tween = anim?.DoAnimate(targetGraphic, targetRect, originalValues);
+
+				if(lastEndAnim == anim && callback != null) {
+					tween.OnComplete(() => callback());
 				}
 			}
 		}

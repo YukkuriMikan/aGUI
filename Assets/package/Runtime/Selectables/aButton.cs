@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Reflection;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
@@ -9,42 +8,16 @@ using UnityEngine.UI;
 using TMPro;
 
 namespace ANest.UI {
-	/// <summary> テキスト遷移の種別 </summary>
-	public enum TextTransitionType {
-		TextColor,
-		TextSwap,
-		TextAnimation
-	}
-
-	/// <summary> テキスト差し替え用のステート値 </summary>
-	[Serializable]
-	public struct TextSwapState {
-		public string normalText;      // 通常時テキスト
-		public string highlightedText; // ハイライト時テキスト
-		public string pressedText;     // 押下時テキスト
-		public string selectedText;    // 選択時テキスト
-		public string disabledText;    // 無効時テキスト
-	}
-
 	/// <summary> 複数の入力ガードや長押し対応を備えた拡張Button </summary>
 	public class aButton : Button {
 		#region SerializeField
-		[SerializeField] private UnityEvent onRightClick = new(); // 右クリック用イベント
-
 		[Header("Shared Parameters")]
-		[SerializeField] private bool useSharedParameters;                 // 共通パラメータを使用するか
-		[SerializeField] private aButtonSharedParameters sharedParameters; // 共通パラメータの参照
+		[SerializeField] private bool useSharedParameters;                      // 共通パラメータを使用するか
+		[SerializeField] private aSelectablesSharedParameters sharedParameters; // 共通パラメータの参照
 
 		[Header("Initial Guard")]
 		[SerializeField] private bool useInitialGuard = true;       // 有効化直後の入力を抑制するか
 		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
-
-		[Header("Long Press")]
-		[SerializeField] private bool enableLongPress = false;         // 長押しを有効にするか
-		[SerializeField] private float longPressDuration = 0.5f;       // 長押し成立までの時間（秒）
-		[SerializeField] private UnityEvent onLongPress = new();       // 長押し成立イベント
-		[SerializeField] private UnityEvent onLongPressCancel = new(); // 長押しキャンセルイベント
-		[SerializeField] private Image longPressImage;                 // 長押し進捗を反映するImage
 
 		[Header("Multiple Input Guard")]
 		[SerializeField] private bool useMultipleInputGuard = true;       // 入力ガードを使うか
@@ -57,9 +30,26 @@ namespace ANest.UI {
 		[SerializeField] private TextSwapState textSwapState;                                      // テキスト差し替え設定
 		[SerializeField] private AnimationTriggers textAnimationTriggers = new();                  // テキストアニメーション用トリガー
 		[SerializeField] private Animator textAnimator;                                            // テキスト用アニメーター
+
+		[Header("Animation")]
 		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
-		[SerializeField] private bool m_disableInteractableDuringAnimation = true;                 // アニメーション中は操作不可にするか
+		[SerializeField] private bool m_useSharedAnimation = false;                                // 共有アニメーションを使用するか
+		[SerializeField] private UiAnimationSet m_sharedAnimation;                                 // 共有アニメーション設定
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
+
+		[Header("Long Press")]
+		[SerializeField] private bool enableLongPress = false;         // 長押しを有効にするか
+		[SerializeField] private float longPressDuration = 0.5f;       // 長押し成立までの時間（秒）
+		[SerializeField] private UnityEvent onLongPress = new();       // 長押し成立イベント
+		[SerializeField] private UnityEvent onLongPressCancel = new(); // 長押しキャンセルイベント
+		[SerializeField] private Image longPressImage;                 // 長押し進捗を反映するImage
+
+		[Header("Events")]
+		[SerializeField] private UnityEvent onRightClick = new(); // 右クリック用イベント
+
+		[Header("RectTransform")]
+		[SerializeField] private RectTransform m_targetRectTransform;               // Toggleのgraphicの RectTransform キャッシュ
+		[SerializeField] private RectTransformValues m_originalRectTransformValues; // アニメーション用に保存した初期RectTransform値
 		#endregion
 
 		#region Shared Apply
@@ -67,6 +57,11 @@ namespace ANest.UI {
 		private void ApplySharedParametersIfNeeded() {
 			if(!useSharedParameters) return;
 			if(sharedParameters == null) return;
+
+			transition = sharedParameters.transition;
+			colors = sharedParameters.transitionColors;
+			spriteState = sharedParameters.spriteState;
+			animationTriggers = sharedParameters.selectableAnimationTriggers;
 
 			useInitialGuard = sharedParameters.useInitialGuard;
 			initialGuardDuration = sharedParameters.initialGuardDuration;
@@ -81,14 +76,16 @@ namespace ANest.UI {
 			textColors = sharedParameters.textColors;
 			textSwapState = sharedParameters.textSwapState;
 			textAnimationTriggers = sharedParameters.textAnimationTriggers;
-
-			m_useCustomAnimation = sharedParameters.useCustomAnimation;
-			m_disableInteractableDuringAnimation = sharedParameters.disableInteractableDuringAnimation;
-			m_clickAnimations = sharedParameters.clickAnimations;
 		}
 		#endregion
 
 		#region Properties
+		private IUiAnimation[] ClickAnimations {
+			get {
+				return m_clickAnimations;
+			}
+		}
+
 		/// <summary> 長押し進捗（0〜1） </summary>
 		public float LongPressProgress { get; private set; }
 
@@ -109,47 +106,33 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
-		private RectTransform m_rectTransform;                      // 自身のRectTransformキャッシュ
-		private float _lastAcceptedClickTime = -999f;               // 最後に受理した入力時刻
-		private float _initialGuardEndTime = -999f;                 // 有効化直後のガード解除時刻
-		private bool _pressAccepted;                                // 現在の押下を処理対象にするか
-		private bool _isPointerDown;                                // ポインタ押下中か
-		private bool _longPressTriggered;                           // 長押しが成立したか
-		private float _pointerDownTime;                             // 押下開始時間
-		private bool _loggedInvalidLongPressImage;                  // 不正なImageタイプ警告を出したか
-		private CancellationTokenSource _textColorTransitionCts;    // テキストカラー遷移のCTS
-		private RectTransformValues? m_originalRectTransformValues; // アニメーション用に保存した初期RectTransform値
-		private CancellationTokenSource _clickAnimationCts;         // クリックアニメーション用CTS
-		private bool _submitPressActive;                            // Submit入力による押下中か
-		private BaseEventData _cachedSubmitEventData;               // Submit入力を後段処理に渡すためのキャッシュ
-		private object _inputSystemSubmitAction;                    // Input SystemのSubmitアクション（リフレクションで扱う）
-		private bool _inputSystemSubmitModuleActive;                // Input System UI Module経由のSubmit入力か
-		private static Type s_inputSystemUIModuleType;              // InputSystemUIInputModule型キャッシュ
-		private static Type s_inputActionReferenceType;             // InputActionReference型キャッシュ
-		private static Type s_inputActionType;                      // InputAction型キャッシュ
-		private static MethodInfo s_inputActionWasReleasedMethod;   // WasReleasedThisFrameメソッドキャッシュ
+		private RectTransform m_rectTransform;                    // 自身のRectTransformキャッシュ
+		private float _lastAcceptedClickTime = -999f;             // 最後に受理した入力時刻
+		private float _initialGuardEndTime = -999f;               // 有効化直後のガード解除時刻
+		private bool _pressAccepted;                              // 現在の押下を処理対象にするか
+		private bool _isPointerDown;                              // ポインタ押下中か
+		private bool _longPressTriggered;                         // 長押しが成立したか
+		private float _pointerDownTime;                           // 押下開始時間
+		private bool _loggedInvalidLongPressImage;                // 不正なImageタイプ警告を出したか
+		private CancellationTokenSource _textColorTransitionCts;  // テキストカラー遷移のCTS
+		private bool _submitPressActive;                          // Submit入力による押下中か
+		private BaseEventData _cachedSubmitEventData;             // Submit入力を後段処理に渡すためのキャッシュ
+		private object _inputSystemSubmitAction;                  // Input SystemのSubmitアクション（リフレクションで扱う）
+		private bool _inputSystemSubmitModuleActive;              // Input System UI Module経由のSubmit入力か
+		private static Type s_inputSystemUIModuleType;            // InputSystemUIInputModule型キャッシュ
+		private static Type s_inputActionReferenceType;           // InputActionReference型キャッシュ
+		private static Type s_inputActionType;                    // InputAction型キャッシュ
+		private static MethodInfo s_inputActionWasReleasedMethod; // WasReleasedThisFrameメソッドキャッシュ
 		#endregion
 
 		#region Unity Methods
 		/// <summary> 有効化時に初期化とRectTransformの初期値取得を行う </summary>
-		protected override async void OnEnable() {
+		protected override void OnEnable() {
 			ApplySharedParametersIfNeeded();
-			base.OnEnable();
-
-			if(!Application.isPlaying) return;
-
-			m_rectTransform = transform as RectTransform;
-
 			ResetPressState();
 			StartInitialGuard();
 
-			var capturedRectTransformValues = await aGuiUtils.CaptureInitialRectTransformAsync(
-				m_rectTransform,
-				m_originalRectTransformValues,
-				destroyCancellationToken,
-				false);
-			if(this == null || this.Equals(null)) return; // 破棄済みなら以降の処理をスキップ
-			m_originalRectTransformValues = capturedRectTransformValues;
+			base.OnEnable();
 		}
 
 		/// <summary> 無効化時に状態リセットと長押しキャンセルを実行 </summary>
@@ -159,7 +142,6 @@ namespace ANest.UI {
 			if(!Application.isPlaying) return;
 
 			TryInvokeLongPressCancel();
-			CancelClickAnimations();
 			ResetPressState();
 		}
 
@@ -245,7 +227,7 @@ namespace ANest.UI {
 			}
 
 			base.OnPointerClick(eventData);
-			PlayClickAnimationsAsync().Forget();
+			PlayClickAnimations();
 			_pressAccepted = false;
 		}
 
@@ -296,31 +278,14 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		private async UniTask PlayClickAnimationsAsync() {
-			if(!m_useCustomAnimation) return;
-			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
-			if(m_rectTransform == null || m_originalRectTransformValues == null) return;
+		private void PlayClickAnimations() {
+			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
+			if(ClickAnimations == null || ClickAnimations.Length == 0) return;
+			if(m_rectTransform == null) return;
 
-			CancelClickAnimations();
-			_clickAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-			var token = _clickAnimationCts.Token;
+			var target = m_rectTransform != null ? m_rectTransform : m_targetRectTransform;
 
-			try {
-				var original = m_originalRectTransformValues.Value;
-				await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_clickAnimations, targetGraphic, m_rectTransform, original, token);
-			} catch (OperationCanceledException) {
-				return;
-			} finally {
-				_clickAnimationCts?.Dispose();
-				_clickAnimationCts = null;
-			}
-		}
-
-		private void CancelClickAnimations() {
-			if(_clickAnimationCts == null) return;
-			_clickAnimationCts.Cancel();
-			_clickAnimationCts.Dispose();
-			_clickAnimationCts = null;
+			aGuiUtils.PlayAnimation(ClickAnimations, target, targetGraphic, m_originalRectTransformValues);
 		}
 
 		/// <summary> 長押し進捗をImageに反映（Filledタイプのみ） </summary>
@@ -530,8 +495,29 @@ namespace ANest.UI {
 		#if UNITY_EDITOR
 		protected　override void OnValidate() {
 			base.OnValidate();
+			if(Application.isPlaying) return;
 
 			ApplySharedParametersIfNeeded();
+			ApplySharedAnimationsFromSet();
+
+			if(m_rectTransform == null) {
+				m_rectTransform = transform as RectTransform;
+			}
+
+			if(m_targetRectTransform == null) {
+				m_targetRectTransform = m_rectTransform;
+			}
+
+			m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
+		}
+
+		private void ApplySharedAnimationsFromSet() {
+			if(!m_useSharedAnimation) return;
+			if(m_sharedAnimation == null) return;
+
+			m_clickAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.clickAnimations);
+
+			UnityEditor.EditorUtility.SetDirty(this);
 		}
 		#endif
 	}

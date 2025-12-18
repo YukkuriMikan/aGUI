@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using DG.DemiEditor;
 using DG.Tweening;
 using UnityEngine;
@@ -49,39 +46,27 @@ namespace ANest.UI {
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
-		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct) {
-			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
+		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
+			if(callerRect == null) return null;
 
-			m_tween?.Complete(); // 既存Tweenを完了させ競合を防止
-
-			// 位置リセットは他アニメーション（Moveなど）と干渉するため行わない
+			// 初期値
 			graphic.color = graphic.color.SetAlpha(m_startValue);
+
+			m_tween = DOTween
+				.To(() => graphic.color.a, value => graphic.color = graphic.color.SetAlpha(value), m_endValue, m_duration / 2f)
+				.SetDelay(Delay).OnComplete(()=>Debug.Log($"{callerRect.name}"));
 
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = await DOTween
-						.To(() => graphic.color.a, value => graphic.color = graphic.color.SetAlpha(value), m_endValue, m_duration / 2f)
-						.SetEase(Curve)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await DOTween
-						.To(() => graphic.color.a, value => graphic.color = graphic.color.SetAlpha(value), m_endValue, m_duration)
-						.SetEase(Curve)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve);
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = await DOTween
-						.To(() => graphic.color.a, value => graphic.color = graphic.color.SetAlpha(value), m_endValue, m_duration / 2f)
-						.SetEase(Ease)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await DOTween
-						.To(() => graphic.color.a, value => graphic.color = graphic.color.SetAlpha(value), m_endValue, m_duration)
-						.SetEase(Ease)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease);
 				}
 			}
 

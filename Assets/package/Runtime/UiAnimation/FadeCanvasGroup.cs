@@ -49,40 +49,27 @@ namespace ANest.UI {
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
-		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct) {
-			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
-
-			m_tween?.Complete(); // 既存Tweenを完了させ競合を防止
+		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
+			if(callerRect == null) return null;
 
 			// 初期値設定
 			m_canvasGroup.alpha = m_startValue;
 
+			m_tween = DOTween
+				.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
+				.SetDelay(Delay);
+
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = await DOTween
-						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
-						.SetEase(Curve)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
-
+					m_tween.SetEase(Curve).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await DOTween
-						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
-						.SetEase(Curve)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve);
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = await DOTween
-						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
-						.SetEase(Ease)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await DOTween
-						.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration)
-						.SetEase(Ease)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease);
 				}
 			}
 

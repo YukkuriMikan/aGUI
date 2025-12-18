@@ -49,41 +49,29 @@ namespace ANest.UI {
 		/// <param name="callerRect">アニメーション対象の RectTransform</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
 		/// <param name="ct">キャンセルトークン</param>
-		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct) {
-			await UniTask.Delay(TimeSpan.FromSeconds(Delay), cancellationToken: ct); // 遅延後に実行
-
-			m_tween?.Complete();
+		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
+			if(callerRect == null) return null;
 
 			// 初期回転を設定（元の回転に相対オフセットを適用）
 			Quaternion startRotation = original.LocalRotation * Quaternion.Euler(m_startValue);
 			Quaternion endRotation = original.LocalRotation * Quaternion.Euler(m_endValue);
 			callerRect.localRotation = startRotation;
 
+			m_tween = callerRect
+				.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
+				.SetDelay(Delay);
+
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = await callerRect
-						.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
-						.SetEase(Curve)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await callerRect
-						.DOLocalRotate(endRotation.eulerAngles, m_duration)
-						.SetEase(Curve)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve);
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = await callerRect
-						.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
-						.SetEase(Ease)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await callerRect
-						.DOLocalRotate(endRotation.eulerAngles, m_duration)
-						.SetEase(Ease)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease);
 				}
 			}
 

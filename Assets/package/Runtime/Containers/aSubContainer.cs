@@ -1,4 +1,3 @@
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace ANest.UI {
@@ -11,32 +10,34 @@ namespace ANest.UI {
 			get => m_mainContainer;
 			set {
 				if(m_mainContainer == value) return;
+
 				UnsubscribeFromMainContainer();
+
 				m_mainContainer = value;
+
 				SubscribeToMainContainer();
 				SyncWithMainVisibility();
 			}
 		}
 
-		protected override void OnEnable() {
-			base.OnEnable();
+		protected override void Initialize() {
+			base.Initialize();
+
+			m_suppressAnimation = true;
+
 			SubscribeToMainContainer();
 			SyncWithMainVisibility();
+
+			m_suppressAnimation = false;
 		}
 
 		private void OnDestroy() {
 			UnsubscribeFromMainContainer();
 		}
 
-		public override async UniTask ShowAsync() {
-			if(IsMainContainerHiddenWithWarning()) return;
-
-			await base.ShowAsync();
-		}
-
 		public override void Show() {
 			if(IsMainContainerHiddenWithWarning()) return;
-			
+
 			base.Show();
 		}
 

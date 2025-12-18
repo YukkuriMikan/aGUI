@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
@@ -48,37 +45,28 @@ namespace ANest.UI {
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
-		public async UniTask<Tween> DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original, CancellationToken ct) {
-			await UniTask.Delay(TimeSpan.FromSeconds(Delay)); // 遅延後に実行
+		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
+			if(callerRect == null) return null;
 
-			m_tween?.Complete();
+			m_tween.Kill();
+
 			callerRect.localPosition = original.LocalPosition + m_startValue; //開始座標へ
+
+			m_tween = callerRect
+				.DOLocalMove(original.LocalPosition + m_endValue, m_duration / 2f)
+				.SetDelay(Delay);
 
 			if(UseCurve) {
 				if(IsYoYo) {
-					m_tween = await callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration / 2f)
-						.SetEase(Curve)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration)
-						.SetEase(Curve)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Curve);
 				}
 			} else {
 				if(IsYoYo) {
-					m_tween = await callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration / 2f)
-						.SetEase(Ease)
-						.SetLoops(2, LoopType.Yoyo)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease).SetLoops(2, LoopType.Yoyo);
 				} else {
-					m_tween = await callerRect
-						.DOLocalMove(original.LocalPosition + m_endValue, m_duration)
-						.SetEase(Ease)
-						.AwaitCompletion(ct);
+					m_tween.SetEase(Ease);
 				}
 			}
 

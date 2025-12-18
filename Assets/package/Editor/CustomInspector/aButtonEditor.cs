@@ -7,25 +7,6 @@ namespace ANest.UI.Editor {
 	[CustomEditor(typeof(aButton), true)]
 	[CanEditMultipleObjects]
 	public class aButtonEditor : SelectableEditor {
-		private static readonly ColorBlock TextColorPresetWhite = new() {
-			normalColor = Color.white,
-			highlightedColor = new Color(0.9f, 0.9f, 0.9f, 1f),
-			pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f),
-			selectedColor = Color.white,
-			disabledColor = new Color(1f, 1f, 1f, 0.5f),
-			colorMultiplier = 1f,
-			fadeDuration = 0.1f
-		};
-
-		private static readonly ColorBlock TextColorPresetBlack = new() {
-			normalColor = Color.black,
-			highlightedColor = new Color(0.2f, 0.2f, 0.2f, 1f),
-			pressedColor = new Color(0.3f, 0.3f, 0.3f, 1f),
-			selectedColor = Color.black,
-			disabledColor = new Color(0.3f, 0.3f, 0.3f, 0.5f),
-			colorMultiplier = 1f,
-			fadeDuration = 0.1f
-		};
 
 		private SerializedProperty interactableProp;
 		private SerializedProperty targetGraphicProp;
@@ -53,6 +34,8 @@ namespace ANest.UI.Editor {
 		private SerializedProperty textAnimationTriggersProp;
 		private SerializedProperty textAnimatorProp;
 		private SerializedProperty useCustomAnimationProp;
+		private SerializedProperty useSharedAnimationProp;
+		private SerializedProperty sharedAnimationProp;
 		private SerializedProperty clickAnimationProp;
 		private SerializedProperty longPressImageProp;
 		private SerializedProperty onClickProp;
@@ -88,6 +71,8 @@ namespace ANest.UI.Editor {
 			textAnimationTriggersProp = serializedObject.FindProperty("textAnimationTriggers");
 			textAnimatorProp = serializedObject.FindProperty("textAnimator");
 			useCustomAnimationProp = serializedObject.FindProperty("m_useCustomAnimation");
+			useSharedAnimationProp = serializedObject.FindProperty("m_useSharedAnimation");
+			sharedAnimationProp = serializedObject.FindProperty("m_sharedAnimation");
 			clickAnimationProp = serializedObject.FindProperty("m_clickAnimations");
 			longPressImageProp = serializedObject.FindProperty("longPressImage");
 			onClickProp = serializedObject.FindProperty("m_OnClick");
@@ -101,12 +86,20 @@ namespace ANest.UI.Editor {
 			bool hasSharedAsset = sharedParametersProp.objectReferenceValue != null;
 			bool isSharedEnabled = useSharedParametersProp.boolValue && hasSharedAsset;
 			SerializedObject sharedSerializedObject = null;
+			SerializedObject sharedAnimationSerializedObject = null;
+			bool hasSharedAnimationAsset = sharedAnimationProp != null && sharedAnimationProp.objectReferenceValue != null;
+			bool isSharedAnimationEnabled = useSharedAnimationProp != null && useSharedAnimationProp.boolValue && hasSharedAnimationAsset;
+
 			if(isSharedEnabled) {
 				sharedSerializedObject = new SerializedObject(sharedParametersProp.objectReferenceValue);
 				sharedSerializedObject.Update();
 			}
 
-			DrawSelectableTransitionSection();
+			if(hasSharedAnimationAsset) {
+				sharedAnimationSerializedObject = new SerializedObject(sharedAnimationProp.objectReferenceValue);
+				sharedAnimationSerializedObject.Update();
+			}
+			EditorGUILayout.PropertyField(interactableProp);
 
 			EditorGUILayout.PropertyField(useSharedParametersProp, new GUIContent("Use Shared"));
 			EditorGUILayout.PropertyField(sharedParametersProp, new GUIContent("Shared Parameters"));
@@ -115,6 +108,9 @@ namespace ANest.UI.Editor {
 			}
 
 			EditorGUILayout.Space();
+
+			DrawSelectableTransitionSection(isSharedEnabled, sharedSerializedObject);
+
 			using (new EditorGUI.DisabledScope(isSharedEnabled)) {
 				DrawTextTransitionSection(isSharedEnabled, sharedSerializedObject);
 			}
@@ -166,12 +162,30 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
 			{
-				SerializedProperty useCustomAnimationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("useCustomAnimation") : useCustomAnimationProp;
-				SerializedProperty clickAnimationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("clickAnimations") : clickAnimationProp;
-				using (new EditorGUI.DisabledScope(isSharedEnabled)) {
-					EditorGUILayout.PropertyField(useCustomAnimationToShow, new GUIContent("Use Custom Animation"));
-					if(useCustomAnimationToShow != null && useCustomAnimationToShow.boolValue) {
-						EditorGUILayout.PropertyField(clickAnimationToShow, new GUIContent("Click Animation"));
+				EditorGUILayout.PropertyField(useSharedAnimationProp, new GUIContent("Use Shared Animation"));
+				EditorGUILayout.PropertyField(sharedAnimationProp, new GUIContent("Shared Animation Set"));
+				if(useSharedAnimationProp.boolValue && !hasSharedAnimationAsset) {
+					EditorGUILayout.HelpBox("Shared Animation Set が設定されていません", MessageType.Warning);
+				}
+
+				if(isSharedAnimationEnabled && sharedAnimationSerializedObject != null) {
+					SerializedProperty clickAnimationShared = sharedAnimationSerializedObject.FindProperty("clickAnimations");
+
+					EditorGUILayout.Space();
+					EditorGUILayout.LabelField("Shared Animation Settings", EditorStyles.miniBoldLabel);
+
+					if(clickAnimationShared != null) {
+						EditorGUILayout.PropertyField(clickAnimationShared, new GUIContent("Click Animation"));
+					} else {
+						EditorGUILayout.HelpBox("Click Animation プロパティが見つかりません。アセットを再作成してください。", MessageType.Warning);
+					}
+
+					sharedAnimationSerializedObject.ApplyModifiedProperties();
+				} else {
+					EditorGUILayout.Space();
+					EditorGUILayout.PropertyField(useCustomAnimationProp, new GUIContent("Use Custom Animation"));
+					if(useCustomAnimationProp.boolValue) {
+						EditorGUILayout.PropertyField(clickAnimationProp, new GUIContent("Click Animation"));
 					}
 				}
 			}
@@ -189,22 +203,38 @@ namespace ANest.UI.Editor {
 			serializedObject.ApplyModifiedProperties();
 		}
 
-		private void DrawSelectableTransitionSection() {
-			EditorGUILayout.PropertyField(interactableProp);
+		private void DrawSelectableTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
+			EditorGUILayout.LabelField("Transition", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(targetGraphicProp);
-			EditorGUILayout.PropertyField(transitionProp);
+
+			SerializedProperty transitionPropToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("transition") : transitionProp;
+			using (new EditorGUI.DisabledScope(isSharedEnabled)) {
+				EditorGUILayout.PropertyField(transitionPropToShow);
+			}
 
 			++EditorGUI.indentLevel;
-			switch(GetTransition()) {
-				case Selectable.Transition.ColorTint:
-					EditorGUILayout.PropertyField(colorBlockProp);
+			switch(GetTransition(transitionPropToShow)) {
+				case Selectable.Transition.ColorTint: {
+					SerializedProperty colorsToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("transitionColors") : colorBlockProp;
+					using (new EditorGUI.DisabledScope(isSharedEnabled)) {
+						EditorGUILayout.PropertyField(colorsToShow);
+					}
 					break;
-				case Selectable.Transition.SpriteSwap:
-					EditorGUILayout.PropertyField(spriteStateProp);
+				}
+				case Selectable.Transition.SpriteSwap: {
+					SerializedProperty spriteStateToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("spriteState") : spriteStateProp;
+					using (new EditorGUI.DisabledScope(isSharedEnabled)) {
+						EditorGUILayout.PropertyField(spriteStateToShow);
+					}
 					break;
-				case Selectable.Transition.Animation:
-					EditorGUILayout.PropertyField(animTriggerProp);
+				}
+				case Selectable.Transition.Animation: {
+					SerializedProperty animTriggerToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("selectableAnimationTriggers") : animTriggerProp;
+					using (new EditorGUI.DisabledScope(isSharedEnabled)) {
+						EditorGUILayout.PropertyField(animTriggerToShow);
+					}
 					break;
+				}
 			}
 			--EditorGUI.indentLevel;
 
@@ -224,8 +254,9 @@ namespace ANest.UI.Editor {
 			}
 		}
 
-		private Selectable.Transition GetTransition() {
-			return (Selectable.Transition)transitionProp.enumValueIndex;
+		private Selectable.Transition GetTransition(SerializedProperty transitionPropToShow = null) {
+			SerializedProperty source = transitionPropToShow ?? transitionProp;
+			return source == null ? (Selectable.Transition)transitionProp.enumValueIndex : (Selectable.Transition)source.enumValueIndex;
 		}
 
 		private void DrawTextTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
@@ -236,11 +267,12 @@ namespace ANest.UI.Editor {
 
 			SerializedProperty transitionPropToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textTransition") : textTransitionProp;
 			EditorGUILayout.PropertyField(transitionPropToShow, new GUIContent("Transition"));
+			if(transitionPropToShow == null) return;
 
 			EditorGUI.indentLevel++;
 			switch((TextTransitionType)transitionPropToShow.enumValueIndex) {
 				case TextTransitionType.TextColor: {
-					DrawTextColorPresetButtons(presetColorsProp);
+					aGuiEditorUtils.DrawTextColorPresetButtons(presetColorsProp);
 					SerializedProperty colorsToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textColors") : textColorsProp;
 					EditorGUILayout.PropertyField(colorsToShow, new GUIContent("Colors"));
 					break;
@@ -276,44 +308,5 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.PropertyField(disabled, new GUIContent("Disabled"));
 		}
 
-		private static void DrawTextColorPresetButtons(SerializedProperty colorsProperty) {
-			using (new EditorGUILayout.HorizontalScope()) {
-				GUI.enabled &= colorsProperty != null;
-				if(GUILayout.Button("White Text Colors")) {
-					ApplyColorBlockPreset(colorsProperty, TextColorPresetWhite);
-				}
-				if(GUILayout.Button("Black Text Colors")) {
-					ApplyColorBlockPreset(colorsProperty, TextColorPresetBlack);
-				}
-				GUI.enabled = true;
-			}
-		}
-
-		private static void ApplyColorBlockPreset(SerializedProperty colorsProperty, ColorBlock preset) {
-			if(colorsProperty == null) return;
-
-			SetColorProperty(colorsProperty, "m_NormalColor", preset.normalColor);
-			SetColorProperty(colorsProperty, "m_HighlightedColor", preset.highlightedColor);
-			SetColorProperty(colorsProperty, "m_PressedColor", preset.pressedColor);
-			SetColorProperty(colorsProperty, "m_SelectedColor", preset.selectedColor);
-			SetColorProperty(colorsProperty, "m_DisabledColor", preset.disabledColor);
-
-			SerializedProperty colorMultiplier = colorsProperty.FindPropertyRelative("m_ColorMultiplier");
-			if(colorMultiplier != null) {
-				colorMultiplier.floatValue = preset.colorMultiplier;
-			}
-
-			SerializedProperty fadeDuration = colorsProperty.FindPropertyRelative("m_FadeDuration");
-			if(fadeDuration != null) {
-				fadeDuration.floatValue = preset.fadeDuration;
-			}
-		}
-
-		private static void SetColorProperty(SerializedProperty parent, string name, Color value) {
-			SerializedProperty prop = parent.FindPropertyRelative(name);
-			if(prop != null) {
-				prop.colorValue = value;
-			}
-		}
 	}
 }

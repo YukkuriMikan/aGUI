@@ -1,6 +1,4 @@
-using System;
 using System.Threading;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -10,6 +8,10 @@ namespace ANest.UI {
 	/// <summary> 各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle </summary>
 	public class aToggle : Toggle {
 		#region SerializeField
+		[Header("Shared Parameters")]
+		[SerializeField] private bool useSharedParameters;                      // 共通パラメータを使用するか
+		[SerializeField] private aSelectablesSharedParameters sharedParameters; // 共通パラメータの参照
+
 		[Header("Initial Guard")]
 		[SerializeField] private bool useInitialGuard = true;       // 有効化直後の入力を抑制するか
 		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
@@ -28,51 +30,62 @@ namespace ANest.UI {
 
 		[Header("Animation")]
 		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
-		[SerializeField] private bool m_disableInteractableDuringAnimation = true;                 // アニメーション中は操作不可にするか
+		[SerializeField] private bool m_useSharedAnimation = false;                                // 共有アニメーションを使用するか
+		[SerializeField] private UiAnimationSet m_sharedAnimation;                            // 共有アニメーション設定
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_onAnimations;    // ON時のカスタムアニメーション
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_offAnimations;   // OFF時のカスタムアニメーション
+
+		[Header("RectTransform")]
+		[SerializeField] private RectTransform m_rectTransform;                           // 自身のRectTransformキャッシュ
+		[SerializeField] private RectTransform m_targetRectTransform;                     // Toggleのgraphicの RectTransform キャッシュ
+		[SerializeField] private RectTransformValues m_originalTargetRectTransformValues; // 自身の初期RectTransform値
+		[SerializeField] private RectTransformValues m_originalToggleRectTransformValues; // Toggleのgraphicの初期RectTransform値
 		#endregion
+
 
 		#region Fields
-		private RectTransform m_rectTransform;                            // 自身のRectTransformキャッシュ
-		private RectTransform m_targetRectTransform;                      // Toggleのgraphicの RectTransform キャッシュ
-		private RectTransformValues? m_originalRectTransformValues;       // 自身の初期RectTransform値
-		private RectTransformValues? m_originalTargetRectTransformValues; // Toggleのgraphicの初期RectTransform値
-		private float _lastAcceptedClickTime = -999f;                     // 最後に受理した入力時刻
-		private float _initialGuardEndTime = -999f;                       // 有効化直後のガード解除時刻
-		private CancellationTokenSource _textColorTransitionCts;          // テキストカラー遷移のCTS
-		private CancellationTokenSource _toggleAnimationCts;              // トグルアニメーション用CTS
-		private CancellationTokenSource _clickAnimationCts;               // クリックアニメーション用CTS
+		private float _lastAcceptedClickTime = -999f;            // 最後に受理した入力時刻
+		private float _initialGuardEndTime = -999f;              // 有効化直後のガード解除時刻
+		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
 		#endregion
 
-    #region Unity Methods
+		#region Properties
+		private IUiAnimation[] ClickAnimations {
+			get {
+				return m_clickAnimations;
+			}
+		}
+
+		private IUiAnimation[] OnAnimations {
+			get {
+				return m_onAnimations;
+			}
+		}
+
+		private IUiAnimation[] OffAnimations {
+			get {
+				return m_offAnimations;
+			}
+		}
+		#endregion
+
+	    #region Unity Methods
 		/// <summary> 有効化時に初期化とRectTransformの初期値取得を行う </summary>
-		protected override async void OnEnable() {
+		protected override void OnEnable() {
+			ApplySharedParametersIfNeeded();
 			base.OnEnable();
-
-			if(!Application.isPlaying) return;
-
-			m_rectTransform = transform as RectTransform;
-			// ON/OFF アニメーションは Toggle の graphic を対象にする
-			m_targetRectTransform = graphic != null ? graphic.transform as RectTransform : null;
 
 			StartInitialGuard();
 			RegisterToggleListener(true);
-
-			await CaptureInitialRectTransformsAsync();
 		}
 
 		/// <summary> 無効化時にリスナー解除やアニメーションのキャンセルを行う </summary>
 		protected override void OnDisable() {
 			base.OnDisable();
 
-			if(!Application.isPlaying) return;
-
 			RegisterToggleListener(false);
 			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
-			CancelToggleAnimations();
-			CancelClickAnimations();
 		}
 
 		/// <summary> クリック入力時のガード判定とアニメーション再生を処理する </summary>
@@ -85,7 +98,7 @@ namespace ANest.UI {
 
 			StartGuard(now);
 			base.OnPointerClick(eventData);
-			PlayClickAnimationsAsync().Forget();
+			PlayClickAnimations();
 		}
 
 		/// <summary> Submit入力時にガードを適用する </summary>
@@ -118,7 +131,7 @@ namespace ANest.UI {
 		}
 		#endregion
 
-    #region Toggle Events
+		#region Toggle Events
 		/// <summary> トグルのON/OFFリスナーを登録または解除する </summary>
 		private void RegisterToggleListener(bool register) {
 			if(register) {
@@ -131,87 +144,44 @@ namespace ANest.UI {
 		/// <summary> トグル状態変化時にカスタムアニメーションを再生する </summary>
 		private void OnToggleValueChanged(bool isOn) {
 			if(!m_useCustomAnimation) return;
-			_ = PlayToggleAnimationsAsync(isOn);
+
+			PlayToggleAnimations(isOn);
 		}
 		#endregion
 
 		#region Toggle Animation Async
 		/// <summary> ON/OFF切替時のカスタムアニメーションを非同期待機で再生する </summary>
-		private async UniTask PlayToggleAnimationsAsync(bool isOn) {
-			CancelToggleAnimations();
-			_toggleAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-			var token = _toggleAnimationCts.Token;
+		private void PlayToggleAnimations(bool isOn) {
+			if(!m_useCustomAnimation) return;
 
-			RectTransform target = m_targetRectTransform != null ? m_targetRectTransform : m_rectTransform;
-			RectTransformValues? original = m_targetRectTransform != null ? m_originalTargetRectTransformValues : m_originalRectTransformValues;
+			//ToggleのGraphic指定がないなら無視
+			if(graphic == null) return;
 
-			if(target == null || original == null) return;
+			if(isOn) {
+				aGuiUtils.PlayAnimation(OnAnimations, graphic.rectTransform, graphic, m_originalTargetRectTransformValues);
+			} else {
+				//デフォルト処理によるトグルグラフィックの透明化を抑制
+				graphic.canvasRenderer.SetAlpha(1f);
 
-			try {
-				var originalValue = original.Value;
-				if(isOn) {
-					await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_onAnimations, graphic, target, originalValue, token);
-					return;
-				}
-
-				CanvasRenderer renderer = graphic != null ? graphic.canvasRenderer : null;
-
-				// 標準のフェード開始で非表示にならないよう、まずAlphaを1に戻す
-				if(graphic != null) {
-					graphic.CrossFadeAlpha(1f, 0f, true);
-					graphic.canvasRenderer.SetAlpha(1f);
-				} else if(renderer != null) {
-					renderer.SetAlpha(1f);
-				}
-
-				await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_offAnimations, graphic, target, originalValue, token);
-
-				if(token.IsCancellationRequested) return;
-
-				// トグル標準の非表示処理を適用
-				if(graphic != null) {
-					graphic.CrossFadeAlpha(0f, 0f, true);
-					graphic.canvasRenderer.SetAlpha(0f);
-				} else if(renderer != null) {
-					renderer.SetAlpha(0f);
-				}
-			} catch (OperationCanceledException) {
-				return;
-			} finally {
-				_toggleAnimationCts?.Dispose();
-				_toggleAnimationCts = null;
+				aGuiUtils.PlayAnimation(OffAnimations, graphic.rectTransform, graphic, m_originalTargetRectTransformValues,
+					() => {
+						// OFF時、最後は非表示になるようにトグル標準の非表示処理を適用
+						if(graphic != null) {
+							graphic.canvasRenderer.SetAlpha(0f);
+						}
+					});
 			}
 		}
 
 		/// <summary> クリック時のカスタムアニメーションを再生する </summary>
-		private async UniTask PlayClickAnimationsAsync() {
-			if(!m_useCustomAnimation) return;
-			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
-			if(m_rectTransform == null || m_originalRectTransformValues == null) return;
+		private void PlayClickAnimations() {
+			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
+			if(ClickAnimations == null || ClickAnimations.Length == 0) return;
+			if(m_rectTransform == null) return;
 
-			CancelClickAnimations();
-			_clickAnimationCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-			var token = _clickAnimationCts.Token;
+			var target = m_rectTransform != null ? m_rectTransform : m_targetRectTransform;
 
-			await aGuiUtils.PlayAnimationsWithInteractableGuardAsync(this, m_disableInteractableDuringAnimation, m_clickAnimations, targetGraphic, m_rectTransform, m_originalRectTransformValues.Value, token);
-			_clickAnimationCts?.Dispose();
-			_clickAnimationCts = null;
-		}
-
-		/// <summary> ON/OFFアニメーション用のCTSをキャンセル・破棄する </summary>
-		private void CancelToggleAnimations() {
-			if(_toggleAnimationCts == null) return;
-			_toggleAnimationCts.Cancel();
-			_toggleAnimationCts.Dispose();
-			_toggleAnimationCts = null;
-		}
-
-		/// <summary> クリックアニメーション用のCTSをキャンセル・破棄する </summary>
-		private void CancelClickAnimations() {
-			if(_clickAnimationCts == null) return;
-			_clickAnimationCts.Cancel();
-			_clickAnimationCts.Dispose();
-			_clickAnimationCts = null;
+			aGuiUtils.PlayAnimation(ClickAnimations, target, targetGraphic, m_originalTargetRectTransformValues);
 		}
 		#endregion
 
@@ -250,25 +220,67 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#region Animation
-		/// <summary> アニメーション用に自身とターゲットのRectTransform初期値を取得する </summary>
-		private async UniTask CaptureInitialRectTransformsAsync() {
-			var capturedRectTransformValues = await aGuiUtils.CaptureInitialRectTransformAsync(
-				m_rectTransform,
-				m_originalRectTransformValues,
-				destroyCancellationToken,
-				true);
-			if(this == null || this.Equals(null)) return;
-			m_originalRectTransformValues = capturedRectTransformValues;
+		#region Shared Apply
+		/// <summary> 共通パラメータを使用している場合に値を反映する </summary>
+		private void ApplySharedParametersIfNeeded() {
+			if(!useSharedParameters) return;
+			if(sharedParameters == null) return;
 
-			var capturedTargetRectTransformValues = await aGuiUtils.CaptureInitialRectTransformAsync(
-				m_targetRectTransform,
-				m_originalTargetRectTransformValues,
-				destroyCancellationToken,
-				true);
-			if(this == null || this.Equals(null)) return;
-			m_originalTargetRectTransformValues = capturedTargetRectTransformValues;
+			transition = sharedParameters.transition;
+			colors = sharedParameters.transitionColors;
+			spriteState = sharedParameters.spriteState;
+			animationTriggers = sharedParameters.selectableAnimationTriggers;
+
+			useInitialGuard = sharedParameters.useInitialGuard;
+			initialGuardDuration = sharedParameters.initialGuardDuration;
+
+			useMultipleInputGuard = sharedParameters.useMultipleInputGuard;
+			multipleInputGuardInterval = sharedParameters.multipleInputGuardInterval;
+
+			textTransition = sharedParameters.textTransition;
+			textColors = sharedParameters.textColors;
+			textSwapState = sharedParameters.textSwapState;
+			textAnimationTriggers = sharedParameters.textAnimationTriggers;
 		}
         #endregion
+
+		#if UNITY_EDITOR
+		protected　override void OnValidate() {
+			base.OnValidate();
+			if(Application.isPlaying) return;
+
+			ApplySharedParametersIfNeeded();
+			ApplySharedAnimationsFromSet();
+
+			if(m_rectTransform == null) {
+				m_rectTransform = transform as RectTransform;
+			}
+
+			if(m_targetRectTransform == null) {
+				m_targetRectTransform = m_rectTransform;
+			}
+
+			m_originalTargetRectTransformValues = RectTransformValues.CreateValues(m_targetRectTransform);
+
+			if(graphic == null) {
+				graphic = GetComponentInChildren<Graphic>();
+			}
+
+			if(graphic != null) {
+				m_originalToggleRectTransformValues = RectTransformValues.CreateValues(graphic.rectTransform);
+			}
+		}
+
+		private void ApplySharedAnimationsFromSet() {
+			if(!m_useSharedAnimation) return;
+			if(m_sharedAnimation == null) return;
+
+			m_clickAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.clickAnimations);
+			m_onAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.onAnimations);
+			m_offAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.offAnimations);
+
+			UnityEditor.EditorUtility.SetDirty(this);
+		}
+		#endif
 	}
 }

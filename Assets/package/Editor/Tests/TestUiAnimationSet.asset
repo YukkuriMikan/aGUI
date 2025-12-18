@@ -1,0 +1,302 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5130784d8b0d4f31bdce381103a698d6, type: 3}
+  m_Name: TestUiAnimationSet
+  m_EditorClassIdentifier: 
+  showAnimations:
+  - rid: 7345286741945221310
+  - rid: 7345286741945221311
+  hideAnimations:
+  - rid: 7345286741945221312
+  - rid: 7345286741945221314
+  clickAnimations:
+  - rid: 7345286741945221279
+  - rid: 7345286741945221291
+  onAnimations:
+  - rid: 7345286741945221289
+  offAnimations:
+  - rid: 7345286741945221290
+  references:
+    version: 2
+    RefIds:
+    - rid: 7345286741945221279
+      type: {class: Move, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: {x: -50, y: 0, z: 0}
+        m_endValue: {x: 0, y: 0, z: 0}
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 1
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221289
+      type: {class: Fade, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: 0
+        m_endValue: 1
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 0
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221290
+      type: {class: Fade, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: 1
+        m_endValue: 0
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 0
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221291
+      type: {class: Fade, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: 1
+        m_endValue: 0
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 1
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221310
+      type: {class: Fade, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: 0
+        m_endValue: 1
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 0
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221311
+      type: {class: Move, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: {x: -50, y: 0, z: 0}
+        m_endValue: {x: 0, y: 0, z: 0}
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 0
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221312
+      type: {class: Fade, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: 1
+        m_endValue: 0
+        m_delay: 0
+        m_duration: 1
+        m_isYoYo: 0
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+    - rid: 7345286741945221314
+      type: {class: Move, ns: ANest.UI, asm: aGUI}
+      data:
+        m_startValue: {x: 0, y: 0, z: 0}
+        m_endValue: {x: -50, y: 0, z: 0}
+        m_delay: 0
+        m_duration: 0.5
+        m_isYoYo: 0
+        m_ease: 6
+        m_useCurve: 0
+        m_curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 3
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          - serializedVersion: 3
+            time: 1
+            value: 1
+            inSlope: 0
+            outSlope: 0
+            tangentMode: 0
+            weightedMode: 0
+            inWeight: 0
+            outWeight: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4

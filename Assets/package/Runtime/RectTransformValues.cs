@@ -1,22 +1,48 @@
+using System;
 using UnityEngine;
 
 namespace ANest.UI {
-
 	/// <summary> トランスフォームの値の保存クラス </summary>
+	[Serializable]
 	public struct RectTransformValues {
-		public Vector3 WorldPosition { get; private set; }    //座標のワールド値
-		public Vector3 LocalPosition { get; private set; }    //座標のローカル値
-		public Quaternion WorldRotation { get; private set; } //回転のワールド値
-		public Quaternion LocalRotation { get; private set; } //回転のローカル値
-		public Vector3 LocalScale { get; private set; }       //スケールのローカル値
+		[SerializeField]
+		private Vector3 m_worldPosition; //座標のワールド値
+		[SerializeField]
+		private Vector3 m_localPosition; //座標のローカル値
+		[SerializeField]
+		private Quaternion m_worldRotation; //回転のワールド値
+		[SerializeField]
+		private Quaternion m_localRotation; //回転のローカル値
+		[SerializeField]
+		private Vector3 m_localScale; //スケールのローカル値
 
-		public Vector2 AnchoredPosition { get; private set; }
-		public Vector2 AnchorMin { get; private set; }
-		public Vector2 AnchorMax { get; private set; }
-		public Vector2 SizeDelta { get; private set; }
+		[SerializeField]
+		private Vector2 m_anchoredPosition;
+		[SerializeField]
+		private Vector2 m_anchorMin;
+		[SerializeField]
+		private Vector2 m_anchorMax;
+		[SerializeField]
+		private Vector2 m_sizeDelta;
 
-		public Vector2 Pivot { get; private set; } //ピボットのローカル値
-		public Rect Rect { get; private set; }     //TransformのRect
+		[SerializeField]
+		private Vector2 m_pivot; //ピボットのローカル値
+		[SerializeField]
+		private Rect m_rect; //TransformのRect
+
+		public Vector3 WorldPosition => m_worldPosition;
+		public Vector3 LocalPosition => m_localPosition;
+		public Quaternion WorldRotation => m_worldRotation;
+		public Quaternion LocalRotation => m_localRotation;
+		public Vector3 LocalScale => m_localScale;
+
+		public Vector2 AnchoredPosition => m_anchoredPosition;
+		public Vector2 AnchorMin => m_anchorMin;
+		public Vector2 AnchorMax => m_anchorMax;
+		public Vector2 SizeDelta => m_sizeDelta;
+
+		public Vector2 Pivot => m_pivot;
+		public Rect Rect => m_rect;
 
 		public static RectTransformValues CreateValues(Transform trans) {
 			var rect = trans as RectTransform;
@@ -29,32 +55,34 @@ namespace ANest.UI {
 				return newValues;
 			}
 
-			newValues.WorldPosition = rect.position;
-			newValues.LocalPosition = rect.localPosition;
-			newValues.WorldRotation = rect.rotation;
-			newValues.LocalRotation = rect.localRotation;
-			newValues.LocalScale = rect.localScale;
-			newValues.AnchoredPosition = rect.anchoredPosition;
-			newValues.AnchorMin = rect.anchorMin;
-			newValues.AnchorMax = rect.anchorMax;
-			newValues.SizeDelta = rect.sizeDelta;
-			newValues.Pivot = rect.pivot;
-			newValues.Rect = rect.rect;
+			newValues.m_worldPosition = rect.position;
+			newValues.m_localPosition = rect.localPosition;
+			newValues.m_worldRotation = rect.rotation;
+			newValues.m_localRotation = rect.localRotation;
+			newValues.m_localScale = rect.localScale;
+			newValues.m_anchoredPosition = rect.anchoredPosition;
+			newValues.m_anchorMin = rect.anchorMin;
+			newValues.m_anchorMax = rect.anchorMax;
+			newValues.m_sizeDelta = rect.sizeDelta;
+			newValues.m_pivot = rect.pivot;
+			newValues.m_rect = rect.rect;
 
 			return newValues;
 		}
 
 		public void Apply(RectTransform rectTrans) {
-			rectTrans.position = WorldPosition;
-			rectTrans.localPosition = LocalPosition;
-			rectTrans.rotation = WorldRotation;
-			rectTrans.localRotation = LocalRotation;
-			rectTrans.localScale = LocalScale;
-			rectTrans.anchoredPosition = AnchoredPosition;
-			rectTrans.anchorMin = AnchorMin;
-			rectTrans.anchorMax = AnchorMax;
-			rectTrans.sizeDelta = SizeDelta;
-			rectTrans.pivot = Pivot;
+			rectTrans.position = m_worldPosition;
+			rectTrans.localPosition = m_localPosition;
+			rectTrans.rotation = m_worldRotation;
+			rectTrans.localRotation = m_localRotation;
+			rectTrans.localScale = m_localScale;
+			rectTrans.anchoredPosition = m_anchoredPosition;
+			rectTrans.anchorMin = m_anchorMin;
+			rectTrans.anchorMax = m_anchorMax;
+			rectTrans.sizeDelta = m_sizeDelta;
+			rectTrans.pivot = m_pivot;
+			//rectは代入不可
+			//そもそもレイアウト計算の結果生成されるものなので代入不要
 		}
 	}
 

@@ -31,7 +31,7 @@ namespace ANest.UI {
 		[Header("Animation")]
 		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
 		[SerializeField] private bool m_useSharedAnimation = false;                                // 共有アニメーションを使用するか
-		[SerializeField] private UiAnimationSet m_sharedAnimation;                            // 共有アニメーション設定
+		[SerializeField] private UiAnimationSet m_sharedAnimation;                                 // 共有アニメーション設定
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_onAnimations;    // ON時のカスタムアニメーション
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_offAnimations;   // OFF時のカスタムアニメーション
@@ -48,26 +48,6 @@ namespace ANest.UI {
 		private float _lastAcceptedClickTime = -999f;            // 最後に受理した入力時刻
 		private float _initialGuardEndTime = -999f;              // 有効化直後のガード解除時刻
 		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
-		#endregion
-
-		#region Properties
-		private IUiAnimation[] ClickAnimations {
-			get {
-				return m_clickAnimations;
-			}
-		}
-
-		private IUiAnimation[] OnAnimations {
-			get {
-				return m_onAnimations;
-			}
-		}
-
-		private IUiAnimation[] OffAnimations {
-			get {
-				return m_offAnimations;
-			}
-		}
 		#endregion
 
 	    #region Unity Methods
@@ -143,6 +123,7 @@ namespace ANest.UI {
 
 		/// <summary> トグル状態変化時にカスタムアニメーションを再生する </summary>
 		private void OnToggleValueChanged(bool isOn) {
+			if(!Application.isPlaying) return;
 			if(!m_useCustomAnimation) return;
 
 			PlayToggleAnimations(isOn);
@@ -158,12 +139,12 @@ namespace ANest.UI {
 			if(graphic == null) return;
 
 			if(isOn) {
-				aGuiUtils.PlayAnimation(OnAnimations, graphic.rectTransform, graphic, m_originalTargetRectTransformValues);
+				aGuiUtils.PlayAnimation(m_onAnimations, graphic.rectTransform, graphic, m_originalToggleRectTransformValues);
 			} else {
 				//デフォルト処理によるトグルグラフィックの透明化を抑制
 				graphic.canvasRenderer.SetAlpha(1f);
 
-				aGuiUtils.PlayAnimation(OffAnimations, graphic.rectTransform, graphic, m_originalTargetRectTransformValues,
+				aGuiUtils.PlayAnimation(m_offAnimations, graphic.rectTransform, graphic, m_originalToggleRectTransformValues,
 					() => {
 						// OFF時、最後は非表示になるようにトグル標準の非表示処理を適用
 						if(graphic != null) {
@@ -176,12 +157,12 @@ namespace ANest.UI {
 		/// <summary> クリック時のカスタムアニメーションを再生する </summary>
 		private void PlayClickAnimations() {
 			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
-			if(ClickAnimations == null || ClickAnimations.Length == 0) return;
+			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
 			if(m_rectTransform == null) return;
 
 			var target = m_rectTransform != null ? m_rectTransform : m_targetRectTransform;
 
-			aGuiUtils.PlayAnimation(ClickAnimations, target, targetGraphic, m_originalTargetRectTransformValues);
+			aGuiUtils.PlayAnimation(m_clickAnimations, target, targetGraphic, m_originalTargetRectTransformValues);
 		}
 		#endregion
 
@@ -242,45 +223,6 @@ namespace ANest.UI {
 			textSwapState = sharedParameters.textSwapState;
 			textAnimationTriggers = sharedParameters.textAnimationTriggers;
 		}
-        #endregion
-
-		#if UNITY_EDITOR
-		protected　override void OnValidate() {
-			base.OnValidate();
-			if(Application.isPlaying) return;
-
-			ApplySharedParametersIfNeeded();
-			ApplySharedAnimationsFromSet();
-
-			if(m_rectTransform == null) {
-				m_rectTransform = transform as RectTransform;
-			}
-
-			if(m_targetRectTransform == null) {
-				m_targetRectTransform = m_rectTransform;
-			}
-
-			m_originalTargetRectTransformValues = RectTransformValues.CreateValues(m_targetRectTransform);
-
-			if(graphic == null) {
-				graphic = GetComponentInChildren<Graphic>();
-			}
-
-			if(graphic != null) {
-				m_originalToggleRectTransformValues = RectTransformValues.CreateValues(graphic.rectTransform);
-			}
-		}
-
-		private void ApplySharedAnimationsFromSet() {
-			if(!m_useSharedAnimation) return;
-			if(m_sharedAnimation == null) return;
-
-			m_clickAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.clickAnimations);
-			m_onAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.onAnimations);
-			m_offAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.offAnimations);
-
-			UnityEditor.EditorUtility.SetDirty(this);
-		}
-		#endif
+	        #endregion
 	}
 }

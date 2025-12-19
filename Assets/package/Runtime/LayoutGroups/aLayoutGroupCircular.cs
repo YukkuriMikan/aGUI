@@ -93,7 +93,7 @@ namespace ANest.UI {
 			int index = rectChildren.IndexOf(target);
 			if(index < 0) return;
 			if(count == 1) {
-				PerformLayout();
+				AlignWithCollection();
 				return;
 			}
 
@@ -122,7 +122,7 @@ namespace ANest.UI {
 			startAngle += delta;
 			endAngle += delta;
 
-			PerformLayout();
+			AlignWithCollection();
 		}
 
 		private float GetAlignmentAngleOffset() {

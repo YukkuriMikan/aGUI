@@ -52,11 +52,14 @@ namespace ANest.UI {
 				//最後に終わるアニメーションを取得
 				for (int i = 0; i < animations.Length; i++) {
 					var anim = animations[i];
-					var animDuration = anim.Delay + anim.Duration;
 
-					if(maxDuration < animDuration) {
-						maxDuration = animDuration;
-						lastEndAnim = anim;
+					if(anim != null) {
+						var animDuration = anim.Delay + anim.Duration;
+
+						if(maxDuration < animDuration) {
+							maxDuration = animDuration;
+							lastEndAnim = anim;
+						}
 					}
 				}
 			}
@@ -64,10 +67,13 @@ namespace ANest.UI {
 			// それぞれのアニメーションを個別に起動
 			for (int i = 0; i < animations.Length; i++) {
 				var anim = animations[i];
-				var tween = anim?.DoAnimate(targetGraphic, targetRect, originalValues);
 
-				if(lastEndAnim == anim && callback != null) {
-					tween.OnComplete(() => callback());
+				if(anim != null) {
+					var tween = anim?.DoAnimate(targetGraphic, targetRect, originalValues);
+
+					if(lastEndAnim == anim && callback != null) {
+						tween.OnComplete(() => callback());
+					}
 				}
 			}
 		}

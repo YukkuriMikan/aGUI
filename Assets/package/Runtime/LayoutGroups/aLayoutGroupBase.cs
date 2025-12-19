@@ -21,6 +21,7 @@ namespace ANest.UI {
 		}
 
 		#region SerializeField
+		[SerializeField] protected List<RectTransform> rectChildren = new();                              // 対象となる子RectTransform一覧
 		[SerializeField] protected RectOffset padding = new RectOffset();                                 // パディング
 		[SerializeField] protected TextAnchor childAlignment = TextAnchor.MiddleCenter;                   // 子の配置基準
 		[SerializeField] protected bool reverseArrangement;                                               // 並び順を反転するか
@@ -43,7 +44,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
-		protected readonly List<RectTransform> rectChildren = new();                                        // 対象となる子RectTransform一覧
 		[NonSerialized] protected readonly Dictionary<RectTransform, Tween> _positionTweens = new();        // 位置Tween管理
 		[NonSerialized] protected readonly Dictionary<RectTransform, Vector2> _lastTargetPositions = new(); // 最終ターゲット位置
 		[NonSerialized] private bool _suppressAnimation;                                                    // アニメーション抑制フラグ
@@ -90,7 +90,7 @@ namespace ANest.UI {
 		/// <summary> 子Transform変更時の処理 </summary>
 		protected virtual void OnTransformChildrenChanged() {
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
-				PerformLayoutEditor();
+				AlignEditor();
 			}
 		}
 
@@ -113,18 +113,18 @@ namespace ANest.UI {
 		#region Methods
 		/// <summary> アニメーションを強制無効化してレイアウトを適用 </summary>
 		[ContextMenu("Rebuild Layout")]
-		public void PerformLayoutEditor() {
+		public void AlignEditor() {
 			if(!isActiveAndEnabled) return; // 無効時は処理しない
 
 			bool previousSuppress = useAnimation; // 元の抑制状態を保存
 			useAnimation = false;
 			KillAllTweens();
-			PerformLayout();
+			AlignWithCollection();
 			useAnimation = previousSuppress;
 		}
 
-		/// <summary> レイアウト処理の共通フロー </summary>
-		public void PerformLayout() {
+		/// <summary> 子要素を収集して整列 </summary>
+		public void AlignWithCollection() {
 			if(!isActiveAndEnabled) return; // 無効時は処理しない
 			_lastTargetPositions.Clear();
 			CollectRectChildren();
@@ -132,8 +132,8 @@ namespace ANest.UI {
 			EmitCompleteLayoutRect();
 		}
 
-		/// <summary> キャッシュ済みの子リストがあればそれを使用し、無ければ収集してからレイアウト計算を行う共通フロー </summary>
-		public void PerformLayoutUsingCache() {
+		/// <summary> 子要素を整列 </summary>
+		public void Align() {
 			if(!isActiveAndEnabled) return; // 無効時は処理しない
 			_lastTargetPositions.Clear();
 			if(rectChildren.Count == 0) {
@@ -151,7 +151,7 @@ namespace ANest.UI {
 			var size = RectTransform.rect.size;
 			if(size.x <= 1f || size.y <= 1f) return;
 			_initialized = true;
-			PerformLayoutEditor();
+			AlignEditor();
 		}
 
 		/// <summary> レイアウト対象となる子RectTransformを収集 </summary>
@@ -344,5 +344,12 @@ namespace ANest.UI {
 		/// </summary>
 		protected abstract void CalculateLayout();
 		#endregion
+
+#if UNITY_EDITOR
+		protected virtual void OnValidate() {
+			if(Application.isPlaying) return;
+			CollectRectChildren();
+		}
+#endif
 	}
 }

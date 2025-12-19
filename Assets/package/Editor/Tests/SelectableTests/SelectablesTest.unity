@@ -205,6 +205,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
+  useSharedParameters: 0
+  sharedParameters: {fileID: 0}
   useInitialGuard: 1
   initialGuardDuration: 0.5
   useMultipleInputGuard: 1
@@ -233,10 +235,47 @@ MonoBehaviour:
     m_DisabledTrigger: Disabled
   textAnimator: {fileID: 0}
   m_useCustomAnimation: 0
-  m_disableInteractableDuringAnimation: 1
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
   m_clickAnimations: []
   m_onAnimations: []
   m_offAnimations: []
+  m_rectTransform: {fileID: 46378423}
+  m_targetRectTransform: {fileID: 46378423}
+  m_originalTargetRectTransformValues:
+    m_worldPosition: {x: 350.8, y: 698, z: 0}
+    m_localPosition: {x: -609.2, y: 158, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: -609.2, y: 158}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 160, y: 20}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -80
+      y: -10
+      width: 160
+      height: 20
+  m_originalToggleRectTransformValues:
+    m_worldPosition: {x: 280.8, y: 698, z: 0}
+    m_localPosition: {x: 0, y: 0, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 20, y: 20}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -10
+      y: -10
+      width: 20
+      height: 20
   references:
     version: 2
     RefIds: []
@@ -444,22 +483,10 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
-  onRightClick:
-    m_PersistentCalls:
-      m_Calls: []
   useSharedParameters: 0
   sharedParameters: {fileID: 11400000, guid: ee1aaedd6d798fc44918ab935eae7711, type: 2}
   useInitialGuard: 1
   initialGuardDuration: 0.3
-  enableLongPress: 0
-  longPressDuration: 0.5
-  onLongPress:
-    m_PersistentCalls:
-      m_Calls: []
-  onLongPressCancel:
-    m_PersistentCalls:
-      m_Calls: []
-  longPressImage: {fileID: 0}
   useMultipleInputGuard: 1
   multipleInputGuardInterval: 0.5
   targetText: {fileID: 1385483498}
@@ -486,8 +513,40 @@ MonoBehaviour:
     m_DisabledTrigger: Disabled
   textAnimator: {fileID: 0}
   m_useCustomAnimation: 1
-  m_disableInteractableDuringAnimation: 1
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
   m_clickAnimations: []
+  enableLongPress: 0
+  longPressDuration: 0.5
+  onLongPress:
+    m_PersistentCalls:
+      m_Calls: []
+  onLongPressCancel:
+    m_PersistentCalls:
+      m_Calls: []
+  longPressImage: {fileID: 0}
+  onRightClick:
+    m_PersistentCalls:
+      m_Calls: []
+  m_rectTransform: {fileID: 143164386}
+  m_targetRectTransform: {fileID: 143164386}
+  m_originalRectTransformValues:
+    m_worldPosition: {x: 570, y: 525, z: 0}
+    m_localPosition: {x: -390, y: -15, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: -390, y: -15}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 160, y: 30}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -80
+      y: -15
+      width: 160
+      height: 30
   references:
     version: 2
     RefIds: []
@@ -897,25 +956,41 @@ MonoBehaviour:
           m_StringArgument: Click
           m_BoolArgument: 0
         m_CallState: 2
-  onRightClick:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1349610241}
-        m_TargetAssemblyTypeName: TMPro.TextMeshProUGUI, Unity.TextMeshPro
-        m_MethodName: set_text
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: Right Click
-          m_BoolArgument: 0
-        m_CallState: 2
   useSharedParameters: 0
   sharedParameters: {fileID: 0}
   useInitialGuard: 0
   initialGuardDuration: 0.5
+  useMultipleInputGuard: 1
+  multipleInputGuardInterval: 1
+  targetText: {fileID: 714135312}
+  textTransition: 0
+  textColors:
+    m_NormalColor: {r: 0, g: 0, b: 0, a: 1}
+    m_HighlightedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    m_PressedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+    m_SelectedColor: {r: 0, g: 0, b: 0, a: 1}
+    m_DisabledColor: {r: 0.3, g: 0.3, b: 0.3, a: 0.5}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  textSwapState:
+    normalText: Button
+    highlightedText: Highlighted
+    pressedText: Pressed
+    selectedText: Selected
+    disabledText: Disabled
+  textAnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  textAnimator: {fileID: 0}
+  m_useCustomAnimation: 1
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
+  m_clickAnimations:
+  - rid: 7345286555631616121
+  - rid: 7345286555631616128
   enableLongPress: 1
   longPressDuration: 0.5
   onLongPress:
@@ -949,36 +1024,40 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   longPressImage: {fileID: 2012144156}
-  useMultipleInputGuard: 1
-  multipleInputGuardInterval: 1
-  targetText: {fileID: 714135312}
-  textTransition: 0
-  textColors:
-    m_NormalColor: {r: 0, g: 0, b: 0, a: 1}
-    m_HighlightedColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
-    m_PressedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
-    m_SelectedColor: {r: 0, g: 0, b: 0, a: 1}
-    m_DisabledColor: {r: 0.3, g: 0.3, b: 0.3, a: 0.5}
-    m_ColorMultiplier: 1
-    m_FadeDuration: 0.1
-  textSwapState:
-    normalText: Button
-    highlightedText: Highlighted
-    pressedText: Pressed
-    selectedText: Selected
-    disabledText: Disabled
-  textAnimationTriggers:
-    m_NormalTrigger: Normal
-    m_HighlightedTrigger: Highlighted
-    m_PressedTrigger: Pressed
-    m_SelectedTrigger: Selected
-    m_DisabledTrigger: Disabled
-  textAnimator: {fileID: 0}
-  m_useCustomAnimation: 1
-  m_disableInteractableDuringAnimation: 1
-  m_clickAnimations:
-  - rid: 7345286555631616121
-  - rid: 7345286555631616128
+  onRightClick:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1349610241}
+        m_TargetAssemblyTypeName: TMPro.TextMeshProUGUI, Unity.TextMeshPro
+        m_MethodName: set_text
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: Right Click
+          m_BoolArgument: 0
+        m_CallState: 2
+  m_rectTransform: {fileID: 413438271}
+  m_targetRectTransform: {fileID: 413438271}
+  m_originalRectTransformValues:
+    m_worldPosition: {x: 697, y: 703, z: 0}
+    m_localPosition: {x: -263, y: 163, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: -263, y: 163}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 160, y: 30}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -80
+      y: -15
+      width: 160
+      height: 30
   references:
     version: 2
     RefIds:
@@ -1286,7 +1365,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0, g: 0, b: 0, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1368,6 +1447,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8cb4eb276a28b6540958bb66fc638f1f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rectChildren:
+  - {fileID: 969563756}
+  - {fileID: 980067027}
+  - {fileID: 2025385855}
+  - {fileID: 2096198168}
+  - {fileID: 1406322049}
   padding:
     m_Left: 0
     m_Right: 0
@@ -1427,7 +1512,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d86c40a9b19a5e488d762fd1aed79f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_disableInteractableDuringAnimation: 1
+  m_useCustomAnimations: 1
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
   m_showAnimations: []
   m_hideAnimations: []
   m_childSelectables:
@@ -1442,8 +1529,31 @@ MonoBehaviour:
   m_targetRectTransform: {fileID: 523653645}
   m_canvasGroup: {fileID: 523653648}
   m_isVisible: 0
-  m_interactable: 1
   m_layoutGroup: {fileID: 523653646}
+  m_showEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_hideEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_originalRectTransformValues:
+    m_worldPosition: {x: 262.2, y: 331.3, z: 0}
+    m_localPosition: {x: -697.8, y: -208.7, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: -697.8, y: -208.7}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 372.3519, y: 499.6641}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -186.17595
+      y: -249.83205
+      width: 372.3519
+      height: 499.6641
+  m_debugMode: 1
   references:
     version: 2
     RefIds: []
@@ -2960,6 +3070,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8cb4eb276a28b6540958bb66fc638f1f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rectChildren:
+  - {fileID: 135562636}
+  - {fileID: 1927558799}
+  - {fileID: 1587890603}
+  - {fileID: 1351965865}
+  - {fileID: 1531998511}
   padding:
     m_Left: 0
     m_Right: 0
@@ -3019,7 +3135,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d86c40a9b19a5e488d762fd1aed79f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_disableInteractableDuringAnimation: 1
+  m_useCustomAnimations: 1
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
   m_showAnimations: []
   m_hideAnimations: []
   m_childSelectables:
@@ -3034,8 +3152,31 @@ MonoBehaviour:
   m_targetRectTransform: {fileID: 1259092128}
   m_canvasGroup: {fileID: 1259092131}
   m_isVisible: 0
-  m_interactable: 1
   m_layoutGroup: {fileID: 0}
+  m_showEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_hideEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_originalRectTransformValues:
+    m_worldPosition: {x: 665.32, y: 229.76999, z: 0}
+    m_localPosition: {x: -294.68, y: -310.23, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: -294.68, y: -310.23}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 372.3519, y: 499.6641}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -186.17595
+      y: -249.83205
+      width: 372.3519
+      height: 499.6641
+  m_debugMode: 1
   references:
     version: 2
     RefIds: []
@@ -3825,6 +3966,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
+  useSharedParameters: 0
+  sharedParameters: {fileID: 0}
   useInitialGuard: 1
   initialGuardDuration: 0.5
   useMultipleInputGuard: 1
@@ -3853,7 +3996,8 @@ MonoBehaviour:
     m_DisabledTrigger: Disabled
   textAnimator: {fileID: 0}
   m_useCustomAnimation: 1
-  m_disableInteractableDuringAnimation: 1
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
   m_clickAnimations: []
   m_onAnimations:
   - rid: 7345286655743098988
@@ -3861,6 +4005,42 @@ MonoBehaviour:
   m_offAnimations:
   - rid: 7345286655743098993
   - rid: 7345286655743099008
+  m_rectTransform: {fileID: 1452946462}
+  m_targetRectTransform: {fileID: 1452946462}
+  m_originalTargetRectTransformValues:
+    m_worldPosition: {x: 637.7, y: 876.4, z: 0}
+    m_localPosition: {x: -322.3, y: 336.4, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 5, y: 5, z: 5}
+    m_anchoredPosition: {x: -322.3, y: 336.4}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 160, y: 20}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -80
+      y: -10
+      width: 160
+      height: 20
+  m_originalToggleRectTransformValues:
+    m_worldPosition: {x: 287.7, y: 876.4, z: 0}
+    m_localPosition: {x: 0, y: 0, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: 0, y: 0}
+    m_anchorMin: {x: 0.5, y: 0.5}
+    m_anchorMax: {x: 0.5, y: 0.5}
+    m_sizeDelta: {x: 20, y: 20}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -10
+      y: -10
+      width: 20
+      height: 20
   references:
     version: 2
     RefIds:
@@ -3901,8 +4081,8 @@ MonoBehaviour:
     - rid: 7345286655743098993
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
-        m_startValue: {x: 50, y: 0, z: 0}
-        m_endValue: {x: 0, y: 0, z: 0}
+        m_startValue: {x: 0, y: 0, z: 0}
+        m_endValue: {x: 50, y: 0, z: 0}
         m_delay: 0
         m_duration: 0.5
         m_isYoYo: 0

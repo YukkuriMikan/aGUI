@@ -48,6 +48,7 @@ namespace ANest.UI {
 		[SerializeField] private UnityEvent onRightClick = new(); // 右クリック用イベント
 
 		[Header("RectTransform")]
+		[SerializeField] private RectTransform m_rectTransform;                     // 自身のRectTransformキャッシュ
 		[SerializeField] private RectTransform m_targetRectTransform;               // Toggleのgraphicの RectTransform キャッシュ
 		[SerializeField] private RectTransformValues m_originalRectTransformValues; // アニメーション用に保存した初期RectTransform値
 		#endregion
@@ -80,12 +81,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Properties
-		private IUiAnimation[] ClickAnimations {
-			get {
-				return m_clickAnimations;
-			}
-		}
-
 		/// <summary> 長押し進捗（0〜1） </summary>
 		public float LongPressProgress { get; private set; }
 
@@ -106,7 +101,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
-		private RectTransform m_rectTransform;                    // 自身のRectTransformキャッシュ
 		private float _lastAcceptedClickTime = -999f;             // 最後に受理した入力時刻
 		private float _initialGuardEndTime = -999f;               // 有効化直後のガード解除時刻
 		private bool _pressAccepted;                              // 現在の押下を処理対象にするか
@@ -280,12 +274,12 @@ namespace ANest.UI {
 		#region Methods
 		private void PlayClickAnimations() {
 			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
-			if(ClickAnimations == null || ClickAnimations.Length == 0) return;
+			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
 			if(m_rectTransform == null) return;
 
 			var target = m_rectTransform != null ? m_rectTransform : m_targetRectTransform;
 
-			aGuiUtils.PlayAnimation(ClickAnimations, target, targetGraphic, m_originalRectTransformValues);
+			aGuiUtils.PlayAnimation(m_clickAnimations, target, targetGraphic, m_originalRectTransformValues);
 		}
 
 		/// <summary> 長押し進捗をImageに反映（Filledタイプのみ） </summary>
@@ -499,7 +493,6 @@ namespace ANest.UI {
 
 			ApplySharedParametersIfNeeded();
 			ApplySharedAnimationsFromSet();
-
 			if(m_rectTransform == null) {
 				m_rectTransform = transform as RectTransform;
 			}
@@ -508,7 +501,13 @@ namespace ANest.UI {
 				m_targetRectTransform = m_rectTransform;
 			}
 
-			m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
+			if(m_rectTransform != null) {
+				m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
+			}
+
+			if(targetGraphic == null) {
+				targetGraphic = GetComponentInChildren<Graphic>();
+			}
 		}
 
 		private void ApplySharedAnimationsFromSet() {

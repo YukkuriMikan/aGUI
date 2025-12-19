@@ -42,6 +42,10 @@ namespace ANest.UI.Editor {
 		private SerializedProperty clickAnimationsProp;
 		private SerializedProperty onAnimationsProp;
 		private SerializedProperty offAnimationsProp;
+		private SerializedProperty m_rectTransformProp;
+		private SerializedProperty m_targetRectTransformProp;
+		private SerializedProperty m_originalTargetRectTransformValuesProp;
+		private SerializedProperty m_originalToggleRectTransformValuesProp;
 
 		private static bool showNavigation;
 		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation";
@@ -84,13 +88,23 @@ namespace ANest.UI.Editor {
 			onAnimationsProp = serializedObject.FindProperty("m_onAnimations");
 			offAnimationsProp = serializedObject.FindProperty("m_offAnimations");
 
+			m_rectTransformProp = serializedObject.FindProperty("m_rectTransform");
+			m_targetRectTransformProp = serializedObject.FindProperty("m_targetRectTransform");
+			m_originalTargetRectTransformValuesProp = serializedObject.FindProperty("m_originalTargetRectTransformValues");
+			m_originalToggleRectTransformValuesProp = serializedObject.FindProperty("m_originalToggleRectTransformValues");
+
 			showNavigation = EditorPrefs.GetBool(ShowNavigationKey);
 
 			TryAssignTargetText();
+
+			// 初回読み込み時やコンパイル時に実行
+			ValidateAndRefresh();
 		}
 
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
+
+			EditorGUI.BeginChangeCheck();
 
 			bool hasSharedAsset = sharedParametersProp.objectReferenceValue != null;
 			bool isSharedEnabled = useSharedParametersProp.boolValue && hasSharedAsset;
@@ -210,7 +224,102 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.LabelField("Events", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(onValueChangedProp, new GUIContent("On Value Changed"));
 
-			serializedObject.ApplyModifiedProperties();
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("RectTransform", EditorStyles.boldLabel);
+			using (new EditorGUI.DisabledScope(true)) {
+				EditorGUILayout.PropertyField(m_rectTransformProp, new GUIContent("Self RectTransform"));
+				EditorGUILayout.PropertyField(m_targetRectTransformProp, new GUIContent("Target RectTransform"));
+				EditorGUILayout.PropertyField(m_originalTargetRectTransformValuesProp, new GUIContent("Original Target Values"));
+				EditorGUILayout.PropertyField(m_originalToggleRectTransformValuesProp, new GUIContent("Original Toggle Values"));
+			}
+
+			if(EditorGUI.EndChangeCheck()) {
+				serializedObject.ApplyModifiedProperties();
+				ValidateAndRefresh();
+			}
+		}
+
+		private void ValidateAndRefresh() {
+			if(Application.isPlaying) return;
+
+			foreach(var t in targets) {
+				var toggle = t as aToggle;
+				if(toggle == null) continue;
+
+				var so = new SerializedObject(toggle);
+				so.Update();
+
+				// 共有パラメータの反映
+				if(so.FindProperty("useSharedParameters").boolValue) {
+					var sharedParams = so.FindProperty("sharedParameters").objectReferenceValue as aSelectablesSharedParameters;
+					if(sharedParams != null) {
+						so.FindProperty("m_Transition").enumValueIndex = (int)sharedParams.transition;
+						// ColorBlock
+						var colorsProp = so.FindProperty("m_Colors");
+						colorsProp.FindPropertyRelative("m_NormalColor").colorValue = sharedParams.transitionColors.normalColor;
+						colorsProp.FindPropertyRelative("m_HighlightedColor").colorValue = sharedParams.transitionColors.highlightedColor;
+						colorsProp.FindPropertyRelative("m_PressedColor").colorValue = sharedParams.transitionColors.pressedColor;
+						colorsProp.FindPropertyRelative("m_SelectedColor").colorValue = sharedParams.transitionColors.selectedColor;
+						colorsProp.FindPropertyRelative("m_DisabledColor").colorValue = sharedParams.transitionColors.disabledColor;
+						colorsProp.FindPropertyRelative("m_ColorMultiplier").floatValue = sharedParams.transitionColors.colorMultiplier;
+						colorsProp.FindPropertyRelative("m_FadeDuration").floatValue = sharedParams.transitionColors.fadeDuration;
+
+						so.FindProperty("m_SpriteState").boxedValue = sharedParams.spriteState;
+						so.FindProperty("m_AnimationTriggers").boxedValue = sharedParams.selectableAnimationTriggers;
+
+						so.FindProperty("useInitialGuard").boolValue = sharedParams.useInitialGuard;
+						so.FindProperty("initialGuardDuration").floatValue = sharedParams.initialGuardDuration;
+						so.FindProperty("useMultipleInputGuard").boolValue = sharedParams.useMultipleInputGuard;
+						so.FindProperty("multipleInputGuardInterval").floatValue = sharedParams.multipleInputGuardInterval;
+
+						so.FindProperty("textTransition").enumValueIndex = (int)sharedParams.textTransition;
+						so.FindProperty("textColors").boxedValue = sharedParams.textColors;
+						so.FindProperty("textSwapState").boxedValue = sharedParams.textSwapState;
+						so.FindProperty("textAnimationTriggers").boxedValue = sharedParams.textAnimationTriggers;
+					}
+				}
+
+				// 共有アニメーションの反映
+				if(so.FindProperty("m_useSharedAnimation").boolValue) {
+					var sharedAnim = so.FindProperty("m_sharedAnimation").objectReferenceValue as UiAnimationSet;
+					if(sharedAnim != null) {
+						so.FindProperty("m_clickAnimations").boxedValue = aGuiUtils.CloneAnimations(sharedAnim.clickAnimations);
+						so.FindProperty("m_onAnimations").boxedValue = aGuiUtils.CloneAnimations(sharedAnim.onAnimations);
+						so.FindProperty("m_offAnimations").boxedValue = aGuiUtils.CloneAnimations(sharedAnim.offAnimations);
+					}
+				}
+
+				// RectTransformとGraphicのキャッシュ
+				var rectProp = so.FindProperty("m_rectTransform");
+				if(rectProp.objectReferenceValue == null) {
+					rectProp.objectReferenceValue = toggle.GetComponent<RectTransform>();
+				}
+
+				var targetRectProp = so.FindProperty("m_targetRectTransform");
+				if(targetRectProp.objectReferenceValue == null) {
+					targetRectProp.objectReferenceValue = rectProp.objectReferenceValue;
+				}
+
+				var targetRect = targetRectProp.objectReferenceValue as RectTransform;
+				if(targetRect != null) {
+					so.FindProperty("m_originalTargetRectTransformValues").boxedValue = RectTransformValues.CreateValues(targetRect);
+				}
+
+				var graphicProp = so.FindProperty("graphic");
+				if(graphicProp.objectReferenceValue == null) {
+					graphicProp.objectReferenceValue = toggle.GetComponentInChildren<Graphic>();
+				}
+
+				var graphic = graphicProp.objectReferenceValue as Graphic;
+				if(graphic != null) {
+					so.FindProperty("m_originalToggleRectTransformValues").boxedValue = RectTransformValues.CreateValues(graphic.rectTransform);
+					// 表示状態の更新
+					graphic.canvasRenderer.SetAlpha(toggle.isOn ? 1f : 0f);
+				}
+
+				so.ApplyModifiedProperties();
+				EditorUtility.SetDirty(toggle);
+			}
 		}
 
 		private void DrawSelectableTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {

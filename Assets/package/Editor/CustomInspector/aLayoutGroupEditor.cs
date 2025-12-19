@@ -13,6 +13,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty childAlignmentProp;             // childAlignment プロパティ
 		private SerializedProperty reverseArrangementProp;         // reverseArrangement プロパティ
 		private SerializedProperty updateModeProp;                 // updateMode プロパティ
+		private SerializedProperty rectChildrenProp;               // rectChildren プロパティ
 		private SerializedProperty excludedChildrenProp;           // excludedChildren プロパティ
 		private SerializedProperty spacingProp;                    // spacing プロパティ（HV用）
 		private SerializedProperty childForceExpandCircularProp;   // Circular: childForceExpand プロパティ
@@ -57,6 +58,7 @@ namespace ANest.UI.Editor {
 			childAlignmentProp = serializedObject.FindProperty("childAlignment");
 			reverseArrangementProp = serializedObject.FindProperty("reverseArrangement");
 			updateModeProp = serializedObject.FindProperty("updateMode");
+			rectChildrenProp = serializedObject.FindProperty("rectChildren");
 			excludedChildrenProp = serializedObject.FindProperty("excludedChildren");
 			spacingProp = serializedObject.FindProperty("spacing");
 			childForceExpandCircularProp = serializedObject.FindProperty("childForceExpand");
@@ -214,6 +216,7 @@ namespace ANest.UI.Editor {
 		private void DrawLayoutBaseProperties() {
 			DrawScriptField();
 			PropertyFieldSafe(updateModeProp);
+			PropertyFieldSafe(rectChildrenProp, true);
 			PropertyFieldSafe(excludedChildrenProp, true);
 			PropertyFieldSafe(paddingProp, true);
 
@@ -343,6 +346,7 @@ namespace ANest.UI.Editor {
 		private static bool IsBaseProperty(string propertyPath) {
 			switch(propertyPath) {
 				case "m_Script":
+				case "rectChildren":
 				case "padding":
 				case "updateMode":
 				case "excludedChildren":
@@ -395,9 +399,9 @@ namespace ANest.UI.Editor {
 				}
 
 				if(Application.isPlaying) {
-					group.PerformLayout();
+					group.AlignWithCollection();
 				} else {
-					group.PerformLayoutEditor();
+					group.AlignEditor();
 				}
 
 				foreach (var obj in undoTargets) {

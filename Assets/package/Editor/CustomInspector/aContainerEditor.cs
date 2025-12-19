@@ -10,6 +10,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty _sharedAnimationProp;
 		private SerializedProperty _showAnimationsProp;
 		private SerializedProperty _hideAnimationsProp;
+		private SerializedProperty _isVisibleProp;
 
 		protected virtual void OnEnable() {
 			_useCustomAnimationsProp = serializedObject.FindProperty("m_useCustomAnimations");
@@ -17,6 +18,7 @@ namespace ANest.UI.Editor {
 			_sharedAnimationProp = serializedObject.FindProperty("m_sharedAnimation");
 			_showAnimationsProp = serializedObject.FindProperty("m_showAnimations");
 			_hideAnimationsProp = serializedObject.FindProperty("m_hideAnimations");
+			_isVisibleProp = serializedObject.FindProperty("m_isVisible");
 		}
 
 		public override void OnInspectorGUI() {
@@ -25,17 +27,43 @@ namespace ANest.UI.Editor {
 			DrawAnimationSection();
 
 			EditorGUILayout.Space();
+			DrawStateSection();
+
+			EditorGUILayout.Space();
 			DrawPropertiesExcluding(serializedObject,
 				"m_Script",
 				"m_useCustomAnimations",
 				"m_useSharedAnimation",
 				"m_sharedAnimation",
 				"m_showAnimations",
-				"m_hideAnimations");
+				"m_hideAnimations",
+				"m_isVisible");
 
 			serializedObject.ApplyModifiedProperties();
 
 			DrawPlayButtons();
+		}
+
+		private void DrawStateSection() {
+			EditorGUILayout.LabelField("State", EditorStyles.boldLabel);
+			
+			EditorGUI.showMixedValue = _isVisibleProp.hasMultipleDifferentValues;
+			EditorGUI.BeginChangeCheck();
+			bool isVisible = EditorGUILayout.Toggle("Is Visible", _isVisibleProp.boolValue);
+			if (EditorGUI.EndChangeCheck()) {
+				if (Application.isPlaying) {
+					Undo.RecordObjects(targets, "Change Container Visibility");
+					foreach (var obj in targets) {
+						if (obj is aContainerBase container) {
+							container.IsVisible = isVisible;
+							EditorUtility.SetDirty(container);
+						}
+					}
+				} else {
+					_isVisibleProp.boolValue = isVisible;
+				}
+			}
+			EditorGUI.showMixedValue = false;
 		}
 
 		private void DrawAnimationSection() {

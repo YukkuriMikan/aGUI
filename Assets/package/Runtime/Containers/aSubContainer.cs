@@ -36,9 +36,15 @@ namespace ANest.UI {
 		}
 
 		public override void Show() {
+			if(m_isVisible) return;
 			if(IsMainContainerHiddenWithWarning()) return;
 
-			base.Show();
+			ShowInternal();
+		}
+
+		public override void Hide() {
+			if(!m_isVisible) return;
+			HideInternal();
 		}
 
 		private void SubscribeToMainContainer() {

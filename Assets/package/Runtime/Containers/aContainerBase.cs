@@ -31,7 +31,7 @@ namespace ANest.UI {
 		[SerializeField] private CanvasGroup m_canvasGroup;           // 自身のCanvasGroup
 
 		[Header("State")]
-		[SerializeField] private bool m_isVisible; // 表示中かどうか
+		[SerializeField] protected bool m_isVisible; // 表示中かどうか
 
 		[Header("Layout")]
 		[SerializeField] private aLayoutGroupBase m_layoutGroup;
@@ -65,8 +65,11 @@ namespace ANest.UI {
 			get => m_isVisible;
 			set {
 				if(m_isVisible == value) return;
-				m_isVisible = value;
-				ApplySerializedState();
+				if(value) {
+					Show();
+				} else {
+					Hide();
+				}
 			}
 		}
 		
@@ -96,7 +99,7 @@ namespace ANest.UI {
 			Initialize();
 		}
 
-		/// <summary> 有効化時に初期化やシリアライズ状態の適用、直接SetActiveされた場合の警告制御を行う </summary>
+		/// <summary> 初期化時に初期化やシリアライズ状態の適用、直接SetActiveされた場合の警告制御を行う </summary>
 		protected virtual void Initialize() {
 			if(m_initialized) return;
 
@@ -105,7 +108,11 @@ namespace ANest.UI {
 			// 初期化は強制的にアニメーション無し
 			m_suppressAnimation = true;
 
-			ApplySerializedState();
+			if(m_isVisible) {
+				ShowInternal();
+			} else {
+				HideInternal();
+			}
 
 			m_suppressAnimation = false;
 
@@ -139,6 +146,20 @@ namespace ANest.UI {
 		#region Public Methods
 		/// <summary> 非同期Show。必要に応じて選択をリジュームする </summary>
 		public virtual void Show() {
+			if(m_isVisible) return;
+			ShowInternal();
+		}
+
+		/// <summary> 非同期Hide </summary>
+		public virtual void Hide() {
+			if(!m_isVisible) return;
+			HideInternal();
+		}
+		#endregion
+
+		#region Internal Methods
+		/// <summary> Showの実処理 </summary>
+		protected virtual void ShowInternal() {
 #if UNITY_EDITOR
 			if(m_debugMode) {
 				var stackTrace = new System.Diagnostics.StackTrace();
@@ -164,8 +185,8 @@ namespace ANest.UI {
 			m_suppressActiveWarning = false;
 		}
 
-		/// <summary> 非同期Hide </summary>
-		public virtual void Hide() {
+		/// <summary> Hideの実処理 </summary>
+		protected virtual void HideInternal() {
 #if UNITY_EDITOR
 			if(m_debugMode) {
 				var stackTrace = new System.Diagnostics.StackTrace();
@@ -192,7 +213,6 @@ namespace ANest.UI {
 				});
 
 			m_suppressActiveWarning = false;
-
 		}
 		#endregion
 
@@ -312,14 +332,6 @@ namespace ANest.UI {
 			es.SetSelectedGameObject(target.gameObject);
 		}
 
-		/// <summary> シリアライズされた表示・インタラクト状態を現在のコンポーネントに適用する </summary>
-		private void ApplySerializedState() {
-			if(m_isVisible) {
-				Show();
-			} else {
-				Hide();
-			}
-		}
 
 		/// <summary> Show時に表示フラグと操作可否をセットする </summary>
 		private void UpdateStateForShow() {

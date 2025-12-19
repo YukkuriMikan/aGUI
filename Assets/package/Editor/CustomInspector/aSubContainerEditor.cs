@@ -24,5 +24,11 @@ namespace ANest.UI.Editor {
 
 			base.OnInspectorGUI();
 		}
+
+		protected override string[] GetExcludedProperties() {
+			var excluded = new System.Collections.Generic.List<string>(base.GetExcludedProperties());
+			excluded.Add("m_mainContainer");
+			return excluded.ToArray();
+		}
 	}
 }

@@ -15,8 +15,10 @@ namespace ANest.UI {
 
 				m_mainContainer = value;
 
-				SubscribeToMainContainer();
-				SyncWithMainVisibility();
+				if(!IsStandalone) {
+					SubscribeToMainContainer();
+					SyncWithMainVisibility();
+				}
 			}
 		}
 
@@ -25,8 +27,10 @@ namespace ANest.UI {
 
 			m_suppressAnimation = true;
 
-			SubscribeToMainContainer();
-			SyncWithMainVisibility();
+			if(!IsStandalone) {
+				SubscribeToMainContainer();
+				SyncWithMainVisibility();
+			}
 
 			m_suppressAnimation = false;
 		}
@@ -62,7 +66,8 @@ namespace ANest.UI {
 		}
 
 		private void SyncWithMainVisibility() {
-			if(m_mainContainer == null) return;
+			if(IsStandalone) return;
+
 			if(IsMainContainerHidden()) {
 				Hide();
 			} else {
@@ -83,7 +88,11 @@ namespace ANest.UI {
 			return !m_mainContainer.IsVisible;
 		}
 
+		/// <summary> メインコンテナが指定されていない場合は、通常のコンテナとして振る舞うか </summary>
+		private bool IsStandalone => m_mainContainer == null;
+
 		private bool IsMainContainerHiddenWithWarning() {
+			if(IsStandalone) return false;
 			if(!IsMainContainerHidden()) return false;
 			Debug.LogWarning($"[{nameof(aSubContainer)}] {name} のメインコンテナが非表示のため Show は無視されます。", this);
 			return true;

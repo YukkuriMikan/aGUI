@@ -30,18 +30,24 @@ namespace ANest.UI.Editor {
 			DrawStateSection();
 
 			EditorGUILayout.Space();
-			DrawPropertiesExcluding(serializedObject,
+			
+			DrawPropertiesExcluding(serializedObject, GetExcludedProperties());
+
+			serializedObject.ApplyModifiedProperties();
+
+			DrawPlayButtons();
+		}
+
+		protected virtual string[] GetExcludedProperties() {
+			return new[] {
 				"m_Script",
 				"m_useCustomAnimations",
 				"m_useSharedAnimation",
 				"m_sharedAnimation",
 				"m_showAnimations",
 				"m_hideAnimations",
-				"m_isVisible");
-
-			serializedObject.ApplyModifiedProperties();
-
-			DrawPlayButtons();
+				"m_isVisible"
+			};
 		}
 
 		private void DrawStateSection() {

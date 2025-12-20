@@ -230,7 +230,7 @@ namespace ANest.UI {
 			// アニメーションを開始のみして即座に非表示へ
 			TryPlayAnimations(HideAnimations,
 				() => {
-					if (token.IsCancellationRequested) return;
+					if (m_isVisible) return;
 					SetActiveInternal(false);
 				});
 

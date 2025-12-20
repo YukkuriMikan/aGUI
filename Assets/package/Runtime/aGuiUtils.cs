@@ -65,6 +65,7 @@ namespace ANest.UI {
 			}
 
 			// それぞれのアニメーションを個別に起動
+			bool callbackInvoked = false;
 			for (int i = 0; i < animations.Length; i++) {
 				var anim = animations[i];
 
@@ -72,9 +73,23 @@ namespace ANest.UI {
 					var tween = anim.DoAnimate(targetGraphic, targetRect, originalValues);
 
 					if(lastEndAnim == anim && callback != null) {
-						tween?.OnComplete(() => callback());
+						tween?.OnKill(() => {
+							if (callbackInvoked) return;
+							callbackInvoked = true;
+							callback();
+						});
+						tween?.OnComplete(() => {
+							if (callbackInvoked) return;
+							callbackInvoked = true;
+							callback();
+						});
 					}
 				}
+			}
+
+			// すべてのアニメーションがnullなどで、コールバックが登録されているが呼ばれていない場合のフォールバック
+			if (callback != null && !callbackInvoked && lastEndAnim == null) {
+				callback();
 			}
 		}
 

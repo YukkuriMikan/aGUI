@@ -74,7 +74,12 @@ namespace ANest.UI {
 				}
 			}
 		}
-		
+
+		public bool UseCustomAnimations {
+			get => m_useCustomAnimations;
+			set => m_useCustomAnimations = value;
+		}
+
 		private IUiAnimation[] ShowAnimations => m_showAnimations;
 
 		private IUiAnimation[] HideAnimations => m_hideAnimations;

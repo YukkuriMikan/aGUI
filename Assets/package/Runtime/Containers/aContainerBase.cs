@@ -323,9 +323,7 @@ namespace ANest.UI {
 				return;
 			}
 
-			var token = m_animationCts.Token;
 			aGuiUtils.PlayAnimation(animations, m_targetRectTransform, m_targetGraphic, m_originalRectTransformValues, () => {
-				if (token.IsCancellationRequested) return;
 				callback?.Invoke();
 			});
 		}

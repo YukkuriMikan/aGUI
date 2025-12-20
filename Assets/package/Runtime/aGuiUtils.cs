@@ -36,8 +36,14 @@ namespace ANest.UI {
 		}
 
 		public static void PlayAnimation(IUiAnimation[] animations, RectTransform targetRect, Graphic targetGraphic, RectTransformValues originalValues, Action callback = null) {
-			if(animations == null || animations.Length == 0) return;
-			if(targetRect == null) return;
+			if(animations == null || animations.Length == 0) {
+				callback?.Invoke();
+				return;
+			}
+			if(targetRect == null) {
+				callback?.Invoke();
+				return;
+			}
 
 			if(targetGraphic != null) {
 				targetGraphic.DOKill();

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
@@ -51,6 +52,7 @@ namespace ANest.UI {
 		private bool m_isQuitting;             // アプリ終了フラグ
 		protected bool m_suppressAnimation;    // 内部専用アニメーション抑制フラグ
 		private bool m_suppressActiveWarning;  // 内部SetActive実行中の警告抑制フラグ
+		private CancellationTokenSource m_animationCts; // アニメーションとコールバックのキャンセル用
 		#endregion
 
 		#region Properties
@@ -99,6 +101,21 @@ namespace ANest.UI {
 			Initialize();
 		}
 
+		protected virtual void OnEnable() {
+			if(!m_suppressActiveWarning) {
+				WarnActiveChange();
+			}
+			m_suppressActiveWarning = false;
+		}
+
+		protected virtual void OnDisable() {
+			CancelAnimation();
+			if(!m_suppressActiveWarning) {
+				WarnActiveChange();
+			}
+			m_suppressActiveWarning = false;
+		}
+
 		/// <summary> 初期化時に初期化やシリアライズ状態の適用、直接SetActiveされた場合の警告制御を行う </summary>
 		protected virtual void Initialize() {
 			if(m_initialized) return;
@@ -120,26 +137,22 @@ namespace ANest.UI {
 			m_suppressActiveWarning = true;
 		}
 
-		protected void OnEnable() {
-			if(!m_suppressActiveWarning) {
-				WarnActiveChange();
-
-				m_suppressActiveWarning = true;
-			}
-		}
-
-		/// <summary> 無効化時に履歴からの除外や警告表示を行う </summary>
-		protected virtual void OnDisable() {
-			if(!m_suppressActiveWarning) {
-				WarnActiveChange();
-
-				m_suppressActiveWarning = true;
-			}
-		}
-
 		/// <summary> アプリ終了時に終了フラグを立て、以降の警告を抑制する </summary>
 		protected virtual void OnApplicationQuit() {
 			m_isQuitting = true;
+			CancelAnimation();
+		}
+
+		protected virtual void OnDestroy() {
+			CancelAnimation();
+		}
+
+		private void CancelAnimation() {
+			if (m_animationCts != null) {
+				m_animationCts.Cancel();
+				m_animationCts.Dispose();
+				m_animationCts = null;
+			}
 		}
 		#endregion
 
@@ -168,6 +181,10 @@ namespace ANest.UI {
 			}
 #endif
 
+			CancelAnimation();
+			m_animationCts = new CancellationTokenSource();
+			var token = m_animationCts.Token;
+
 			// 表示状態とインタラクト状態を更新
 			UpdateStateForShow();
 
@@ -195,6 +212,10 @@ namespace ANest.UI {
 			}
 #endif
 
+			CancelAnimation();
+			m_animationCts = new CancellationTokenSource();
+			var token = m_animationCts.Token;
+
 			// 現在の選択状態を退避
 			CaptureCurrentSelection();
 
@@ -209,6 +230,7 @@ namespace ANest.UI {
 			// アニメーションを開始のみして即座に非表示へ
 			TryPlayAnimations(HideAnimations,
 				() => {
+					if (token.IsCancellationRequested) return;
 					SetActiveInternal(false);
 				});
 
@@ -296,7 +318,11 @@ namespace ANest.UI {
 				return;
 			}
 
-			aGuiUtils.PlayAnimation(animations, m_targetRectTransform, m_targetGraphic, m_originalRectTransformValues, callback);
+			var token = m_animationCts.Token;
+			aGuiUtils.PlayAnimation(animations, m_targetRectTransform, m_targetGraphic, m_originalRectTransformValues, () => {
+				if (token.IsCancellationRequested) return;
+				callback?.Invoke();
+			});
 		}
 
 

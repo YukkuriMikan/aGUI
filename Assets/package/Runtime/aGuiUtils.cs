@@ -69,10 +69,10 @@ namespace ANest.UI {
 				var anim = animations[i];
 
 				if(anim != null) {
-					var tween = anim?.DoAnimate(targetGraphic, targetRect, originalValues);
+					var tween = anim.DoAnimate(targetGraphic, targetRect, originalValues);
 
 					if(lastEndAnim == anim && callback != null) {
-						tween.OnComplete(() => callback());
+						tween?.OnComplete(() => callback());
 					}
 				}
 			}

@@ -62,6 +62,8 @@ namespace ANest.UI {
 		public IObservable<Rect> CompleteLayoutAsObservable => m_completeLayoutSubject;
 
 		public float AnimationDuration => animationDuration;
+
+		public Ease AnimationEase => animationEase;
 		#endregion
 
 		#region Unity Methods

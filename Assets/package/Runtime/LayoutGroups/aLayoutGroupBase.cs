@@ -44,32 +44,31 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
-		[NonSerialized] protected readonly Dictionary<RectTransform, Tween> _positionTweens = new();        // 位置Tween管理
-		[NonSerialized] protected readonly Dictionary<RectTransform, Vector2> _lastTargetPositions = new(); // 最終ターゲット位置
-		[NonSerialized] private bool _suppressAnimation;                                                    // アニメーション抑制フラグ
-		private RectTransform _rectTransform;                                                               // 自身のRectTransformキャッシュ
-		private bool _initialized;                                                                          // 初期化済みか
-		private bool _dirty;                                                                                // 再計算が必要か
+		[NonSerialized] protected readonly Dictionary<RectTransform, Tween> m_positionTweens = new();        // 位置Tween管理
+		[NonSerialized] protected readonly Dictionary<RectTransform, Vector2> m_lastTargetPositions = new(); // 最終ターゲット位置
+		[NonSerialized] protected bool m_suppressAnimation;                                                  // アニメーション抑制フラグ
+		private RectTransform m_rectTransform;                                                               // 自身のRectTransformキャッシュ
+		private bool m_initialized;                                                                          // 初期化済みか
+		private bool m_dirty;                                                                                // 再計算が必要か
 
 		private Subject<Rect> m_completeLayoutSubject = new(); // レイアウト完了通知Subject
 		#endregion
 
 		#region Properties
 		/// <summary> 自身のRectTransformキャッシュを取得 </summary>
-		protected RectTransform RectTransform => _rectTransform ? _rectTransform : (_rectTransform = transform as RectTransform);
-
-		/// <summary> アニメーションが抑制されているか </summary>
-		protected bool IsAnimationSuppressed => _suppressAnimation;
+		protected RectTransform RectTransform => m_rectTransform ? m_rectTransform : (m_rectTransform = transform as RectTransform);
 
 		/// <summary> レイアウト完了を通知するObservable </summary>
 		public IObservable<Rect> CompleteLayoutAsObservable => m_completeLayoutSubject;
+
+		public float AnimationDuration => animationDuration;
 		#endregion
 
 		#region Unity Methods
 		/// <summary> 有効化時の初期化 </summary>
 		protected virtual void OnEnable() {
-			_initialized = false;
-			_dirty = false;
+			m_initialized = false;
+			m_dirty = false;
 			if(updateMode == UpdateMode.InitializeOnly) {
 				TryInit();
 			}
@@ -77,8 +76,8 @@ namespace ANest.UI {
 
 		/// <summary> 無効化時に状態をリセット </summary>
 		protected virtual void OnDisable() {
-			_initialized = false;
-			_dirty = false;
+			m_initialized = false;
+			m_dirty = false;
 			KillAllTweens();
 		}
 
@@ -98,14 +97,14 @@ namespace ANest.UI {
 		protected virtual void OnRectTransformDimensionsChange() {
 			if(!isActiveAndEnabled) return;
 			if(updateMode != UpdateMode.InitializeOnly) return;
-			_dirty = true;
+			m_dirty = true;
 		}
 
 		/// <summary> InitializeOnly モード時にサイズ確定を待ってから初期化をトリガー </summary>
 		private void LateUpdate() {
 			if(updateMode != UpdateMode.InitializeOnly) return; // 他モードでは不要
-			if(!_dirty) return;                                 // 変化がなければ何もしない
-			_dirty = false;
+			if(!m_dirty) return;                                // 変化がなければ何もしない
+			m_dirty = false;
 			TryInit(); // サイズが確定したタイミングで初期化
 		}
 		#endregion
@@ -126,7 +125,7 @@ namespace ANest.UI {
 		/// <summary> 子要素を収集して整列 </summary>
 		public void AlignWithCollection() {
 			if(!isActiveAndEnabled) return; // 無効時は処理しない
-			_lastTargetPositions.Clear();
+			m_lastTargetPositions.Clear();
 			CollectRectChildren();
 			CalculateLayout();
 			EmitCompleteLayoutRect();
@@ -135,7 +134,7 @@ namespace ANest.UI {
 		/// <summary> 子要素を整列 </summary>
 		public void Align() {
 			if(!isActiveAndEnabled) return; // 無効時は処理しない
-			_lastTargetPositions.Clear();
+			m_lastTargetPositions.Clear();
 			if(rectChildren.Count == 0) {
 				CollectRectChildren();
 			}
@@ -145,12 +144,12 @@ namespace ANest.UI {
 
 		/// <summary> 初期化条件を満たした際にレイアウトを構築 </summary>
 		private void TryInit() {
-			if(_initialized) return;
+			if(m_initialized) return;
 			if(updateMode != UpdateMode.InitializeOnly) return;
 			if(RectTransform == null) return;
 			var size = RectTransform.rect.size;
 			if(size.x <= 1f || size.y <= 1f) return;
-			_initialized = true;
+			m_initialized = true;
 			AlignEditor();
 		}
 
@@ -213,11 +212,11 @@ namespace ANest.UI {
 		/// <summary> 必要に応じてアニメーションしつつ位置を適用 </summary>
 		protected virtual void ApplyPosition(RectTransform rect, Vector2 targetPos) {
 			if(rect == null) return;
-			_lastTargetPositions[rect] = targetPos;
+			m_lastTargetPositions[rect] = targetPos;
 
 			Vector2 delta = rect.anchoredPosition - targetPos;
 			float distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
-			bool shouldAnimate = useAnimation && !_suppressAnimation && distance <= animationDistanceThreshold && animationDuration > 0f;
+			bool shouldAnimate = useAnimation && !m_suppressAnimation && distance <= animationDistanceThreshold && animationDuration > 0f;
 
 			KillTween(rect);
 
@@ -229,7 +228,7 @@ namespace ANest.UI {
 					tween.SetEase(animationEase);
 				}
 				tween.SetLink(rect.gameObject);
-				_positionTweens[rect] = tween;
+				m_positionTweens[rect] = tween;
 			} else {
 				rect.anchoredPosition = targetPos;
 			}
@@ -238,19 +237,19 @@ namespace ANest.UI {
 		/// <summary> 指定RectTransformに紐づくTweenを停止 </summary>
 		protected void KillTween(RectTransform rect) {
 			if(rect == null) return;
-			if(_positionTweens.TryGetValue(rect, out Tween tween)) {
+			if(m_positionTweens.TryGetValue(rect, out Tween tween)) {
 				if(tween.IsActive()) tween.Kill();
-				_positionTweens.Remove(rect);
+				m_positionTweens.Remove(rect);
 			}
 		}
 
 		/// <summary> 管理中の全Tweenを停止 </summary>
 		private void KillAllTweens() {
-			foreach (var kvp in _positionTweens) {
+			foreach (var kvp in m_positionTweens) {
 				Tween tween = kvp.Value;
 				if(tween != null && tween.IsActive()) tween.Kill();
 			}
-			_positionTweens.Clear();
+			m_positionTweens.Clear();
 		}
 
 		/// <summary> 子要素の配置範囲をRectとして通知 </summary>
@@ -270,7 +269,7 @@ namespace ANest.UI {
 				if(child == null) continue;
 
 				Vector2 pos;
-				if(!_lastTargetPositions.TryGetValue(child, out pos)) {
+				if(!m_lastTargetPositions.TryGetValue(child, out pos)) {
 					pos = child.anchoredPosition;
 				}
 

@@ -351,8 +351,8 @@ MonoBehaviour:
   m_useSharedAnimation: 1
   m_sharedAnimation: {fileID: 11400000, guid: 552620d67918b8a41aa4c13b22bcc823, type: 2}
   m_clickAnimations:
-  - rid: 7345286817710080370
-  - rid: 7345286817710080371
+  - rid: 7345286817710080442
+  - rid: 7345286817710080443
   enableLongPress: 0
   longPressDuration: 0.5
   onLongPress:
@@ -387,7 +387,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 7345286817710080370
+    - rid: 7345286817710080442
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: -50, y: 0, z: 0}
@@ -421,7 +421,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080371
+    - rid: 7345286817710080443
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 1
@@ -781,11 +781,11 @@ MonoBehaviour:
   m_useSharedAnimation: 1
   m_sharedAnimation: {fileID: 11400000, guid: 552620d67918b8a41aa4c13b22bcc823, type: 2}
   m_showAnimations:
-  - rid: 7345286817710080362
-  - rid: 7345286817710080363
+  - rid: 7345286817710080434
+  - rid: 7345286817710080435
   m_hideAnimations:
-  - rid: 7345286817710080364
-  - rid: 7345286817710080365
+  - rid: 7345286817710080436
+  - rid: 7345286817710080437
   m_childSelectables:
   - {fileID: 1046837980}
   m_initialSelectable: {fileID: 0}
@@ -823,7 +823,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 7345286817710080362
+    - rid: 7345286817710080434
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 0
@@ -857,7 +857,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080363
+    - rid: 7345286817710080435
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: -50, y: 0, z: 0}
@@ -891,7 +891,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080364
+    - rid: 7345286817710080436
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 1
@@ -925,7 +925,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080365
+    - rid: 7345286817710080437
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: 0, y: 0, z: 0}
@@ -1045,11 +1045,11 @@ MonoBehaviour:
   m_useSharedAnimation: 1
   m_sharedAnimation: {fileID: 11400000, guid: 552620d67918b8a41aa4c13b22bcc823, type: 2}
   m_showAnimations:
-  - rid: 7345286817710080366
-  - rid: 7345286817710080367
+  - rid: 7345286817710080438
+  - rid: 7345286817710080439
   m_hideAnimations:
-  - rid: 7345286817710080368
-  - rid: 7345286817710080369
+  - rid: 7345286817710080440
+  - rid: 7345286817710080441
   m_childSelectables:
   - {fileID: 734703079}
   m_initialSelectable: {fileID: 0}
@@ -1087,7 +1087,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 7345286817710080366
+    - rid: 7345286817710080438
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 0
@@ -1121,7 +1121,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080367
+    - rid: 7345286817710080439
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: -50, y: 0, z: 0}
@@ -1155,7 +1155,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080368
+    - rid: 7345286817710080440
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 1
@@ -1189,7 +1189,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080369
+    - rid: 7345286817710080441
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: 0, y: 0, z: 0}
@@ -3109,11 +3109,11 @@ MonoBehaviour:
   m_useSharedAnimation: 1
   m_sharedAnimation: {fileID: 11400000, guid: 552620d67918b8a41aa4c13b22bcc823, type: 2}
   m_showAnimations:
-  - rid: 7345286817710080372
-  - rid: 7345286817710080373
+  - rid: 7345286817710080444
+  - rid: 7345286817710080445
   m_hideAnimations:
-  - rid: 7345286817710080374
-  - rid: 7345286817710080375
+  - rid: 7345286817710080446
+  - rid: 7345286817710080447
   m_childSelectables:
   - {fileID: 1655818629}
   m_initialSelectable: {fileID: 0}
@@ -3151,7 +3151,7 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 7345286817710080372
+    - rid: 7345286817710080444
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 0
@@ -3185,7 +3185,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080373
+    - rid: 7345286817710080445
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: -50, y: 0, z: 0}
@@ -3219,7 +3219,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080374
+    - rid: 7345286817710080446
       type: {class: Fade, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: 1
@@ -3253,7 +3253,7 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-    - rid: 7345286817710080375
+    - rid: 7345286817710080447
       type: {class: Move, ns: ANest.UI, asm: aGUI}
       data:
         m_startValue: {x: 0, y: 0, z: 0}

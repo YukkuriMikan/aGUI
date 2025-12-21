@@ -196,7 +196,7 @@ namespace ANest.UI {
 				if(_circularTargets.TryGetValue(rect, out var info)) {
 					angles[i] = Mathf.Repeat(90f - info.TargetAngleRad * Mathf.Rad2Deg, 360f); // 0度=上, 時計回り
 				} else {
-					Vector2 pos = _lastTargetPositions.TryGetValue(rect, out var targetPos) ? targetPos : rect.anchoredPosition;
+					Vector2 pos = m_lastTargetPositions.TryGetValue(rect, out var targetPos) ? targetPos : rect.anchoredPosition;
 					Vector2 dir = pos - centerAnchored;
 					float rad = Mathf.Atan2(-dir.y, dir.x);
 					angles[i] = Mathf.Repeat(90f - rad * Mathf.Rad2Deg, 360f);
@@ -369,12 +369,12 @@ namespace ANest.UI {
 				return;
 			}
 
-			_lastTargetPositions[rect] = targetPos;
+			m_lastTargetPositions[rect] = targetPos;
 
 			Vector2 delta = rect.anchoredPosition - targetPos;
 			float distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
-			bool shouldAnimate = !_positionTweens.ContainsKey(rect) && distance <= animationDistanceThreshold && animationDuration > 0f;
-			if(IsAnimationSuppressed || !shouldAnimate) {
+			bool shouldAnimate = !m_positionTweens.ContainsKey(rect) && distance <= animationDistanceThreshold && animationDuration > 0f;
+			if(m_suppressAnimation || !shouldAnimate) {
 				base.ApplyPosition(rect, targetPos);
 				return;
 			}
@@ -420,7 +420,7 @@ namespace ANest.UI {
 			}
 			tween.SetLink(rect.gameObject);
 			tween.OnComplete(() => rect.anchoredPosition = targetPos);
-			_positionTweens[rect] = tween;
+			m_positionTweens[rect] = tween;
 		}
 		#endregion
 	}

@@ -165,33 +165,29 @@ namespace ANest.UI {
 			float rightSpace = (width - padding.right) - center.x;
 			float topSpace = center.y - padding.top;
 			float bottomSpace = (height - padding.bottom) - center.y;
-			float maxRadius = Mathf.Max(0f, Mathf.Min(Mathf.Min(leftSpace, rightSpace), Mathf.Min(topSpace, bottomSpace)));
-			float actualRadius = radius > 0f ? Mathf.Min(radius, maxRadius) : maxRadius;
+			float actualRadius = radius > 0f ? radius : Mathf.Max(0f, Mathf.Min(Mathf.Min(leftSpace, rightSpace), Mathf.Min(topSpace, bottomSpace)));
 
 
-			bool clockwise = !reverseArrangement;
-			float direction = clockwise ? 1f : -1f;
 			float angleStep;
 			if(count > 1) {
 				if(childForceExpand) {
-					float span = direction > 0f
-						? Mathf.Repeat(alignedEndAngle - alignedStartAngle, 360f)
-						: Mathf.Repeat(alignedStartAngle - alignedEndAngle, 360f);
+					float span = Mathf.Repeat(alignedEndAngle - alignedStartAngle, 360f);
 					bool fullCircle = Mathf.Approximately(span, 0f) || Mathf.Approximately(span, 360f);
 					float spanToUse = fullCircle ? 360f : span;
 					float divisor = fullCircle ? count : (count - 1);
-					angleStep = (spanToUse / divisor) * direction;
+					angleStep = spanToUse / divisor;
 				} else if(Mathf.Approximately(spacing, 0f)) {
 					angleStep = 0f;
 				} else {
-					angleStep = Mathf.Abs(spacing) * direction;
+					angleStep = Mathf.Abs(spacing);
 				}
 			} else {
 				angleStep = 0f;
 			}
 
 			for (int i = 0; i < count; i++) {
-				var child = rectChildren[i];
+				int index = reverseArrangement ? count - 1 - i : i;
+				var child = rectChildren[index];
 				if(child == null) continue;
 
 				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);

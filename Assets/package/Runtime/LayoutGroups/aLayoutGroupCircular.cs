@@ -24,6 +24,7 @@ namespace ANest.UI {
 		[SerializeField] private float radius = 100f;                                                   // 円の半径（0以下なら利用可能サイズに合わせて決定）
 		[SerializeField] private float startAngle = 0f;                                                 // 配置開始角度（度数法、時計回り正）
 		[SerializeField] private float endAngle = 360f;                                                 // 配置終了角度（度数法、時計回り正）
+		[SerializeField] private float angleOffset = 0f;                                                // 配置全体の角度オフセット（度数法）
 		[SerializeField] private float spacing;                                                         // 要素間の角度間隔（度数法）
 		[SerializeField] private bool childForceExpand = true;                                          // 子要素を均等角度で配置するか
 		[SerializeField] private Vector2 centerOffset = Vector2.zero;                                   // ピボット基準からの中心オフセット
@@ -31,7 +32,6 @@ namespace ANest.UI {
 		[SerializeField] private CircularMoveType circularMoveType = CircularMoveType.ShortestDistance; // 円周移動方向
 		[SerializeField] private float navigationAxisRange = 10f;                                       // 方向判定に使う軸周囲の角度幅（片側度数）
 		[SerializeField] private NavigationType navigationType = NavigationType.Default;                // Navigation の入力解釈
-		[SerializeField] private RectTransform headStartTarget;                                         // 頭出し対象
 		#endregion
 
 	    #region Fields
@@ -39,12 +39,35 @@ namespace ANest.UI {
 		#endregion
 
 		#region Properties
-		/// <summary>開始角度と終了角度を同時に設定するオフセット</summary>
-		public float AngleOffset {
+		/// <summary>開始角度（度数法、時計回り正）</summary>
+		public float StartAngle {
 			get => startAngle;
+			set => startAngle = value;
+		}
+
+		/// <summary>終了角度（度数法、時計回り正）</summary>
+		public float EndAngle {
+			get => endAngle;
+			set => endAngle = value;
+		}
+
+		/// <summary>円の半径（0以下なら利用可能サイズに合わせて決定）</summary>
+		public float Radius {
+			get => radius;
+			set => radius = value;
+		}
+
+		/// <summary>子要素を均等角度で配置するか</summary>
+		public bool ChildForceExpand {
+			get => childForceExpand;
+			set => childForceExpand = value;
+		}
+
+		/// <summary>配置全体のオフセット角度</summary>
+		public float AngleOffset {
+			get => angleOffset;
 			set {
-				startAngle = value;
-				endAngle = value;
+				angleOffset = value;
 			}
 		}
 		#endregion
@@ -58,73 +81,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		public void HeadStartEditor() {
-			if(!isActiveAndEnabled) return; // 無効時は処理しない
-
-			bool previousSuppress = useAnimation; // 元の抑制状態を保存
-			useAnimation = false;
-			HeadStart();
-
-			useAnimation = previousSuppress;
-		}
-
-		/// <summary>指定の子要素（未指定なら現在選択中）を開始位置に合わせて整列する</summary>
-		public void HeadStart(RectTransform target = null) {
-			int count = rectChildren.Count;
-			if(count == 0) return;
-
-			RectTransform ResolveSelectedChild() {
-				var current = EventSystem.current?.currentSelectedGameObject;
-				if(current == null) return null;
-				Transform t = current.transform;
-				while (t != null && t != transform) {
-					if(t.parent == transform && t is RectTransform rt) {
-						return rt;
-					}
-					t = t.parent;
-				}
-				return null;
-			}
-
-			target ??= headStartTarget;
-			target ??= ResolveSelectedChild();
-			if(target == null) return;
-
-			int index = rectChildren.IndexOf(target);
-			if(index < 0) return;
-			if(count == 1) {
-				AlignWithCollection();
-				return;
-			}
-
-			bool clockwise = !reverseArrangement;
-			float direction = clockwise ? 1f : -1f;
-			float alignmentOffset = GetAlignmentAngleOffset();
-			float alignedStartAngle = startAngle + alignmentOffset;
-			float alignedEndAngle = endAngle + alignmentOffset;
-
-			float angleStep;
-			if(childForceExpand) {
-				float span = direction > 0f
-					? Mathf.Repeat(alignedEndAngle - alignedStartAngle, 360f)
-					: Mathf.Repeat(alignedStartAngle - alignedEndAngle, 360f);
-				bool fullCircle = Mathf.Approximately(span, 0f) || Mathf.Approximately(span, 360f);
-				float spanToUse = fullCircle ? 360f : span;
-				float divisor = fullCircle ? count : (count - 1);
-				angleStep = (spanToUse / divisor) * direction;
-			} else if(Mathf.Approximately(spacing, 0f)) {
-				angleStep = 0f;
-			} else {
-				angleStep = Mathf.Abs(spacing) * direction;
-			}
-
-			float delta = -angleStep * index;
-			startAngle += delta;
-			endAngle += delta;
-
-			AlignWithCollection();
-		}
-
 		private float GetAlignmentAngleOffset() {
 			switch(childAlignment) {
 				case TextAnchor.UpperLeft: return -45f;
@@ -157,7 +113,7 @@ namespace ANest.UI {
 
 			Vector2 pivot = RectTransform.pivot;
 			Vector2 center = new Vector2(width * pivot.x, height * (1f - pivot.y)) + centerOffset;
-			float alignmentOffset = GetAlignmentAngleOffset();
+			float alignmentOffset = GetAlignmentAngleOffset() + angleOffset;
 			float alignedStartAngle = startAngle + alignmentOffset;
 			float alignedEndAngle = endAngle + alignmentOffset;
 

@@ -27,7 +27,6 @@ namespace ANest.UI.Editor {
 		private SerializedProperty navigationLoopProp;             // navigationLoop プロパティ
 		private SerializedProperty navigationAxisRangeProp;        // navigationAxisRange プロパティ
 		private SerializedProperty navigationTypeProp;             // navigationType プロパティ（Circular）
-		private SerializedProperty headStartTargetProp;            // Circular: headStartTarget プロパティ
 		private SerializedProperty useAnimationProp;               // useAnimation プロパティ
 		private SerializedProperty animationDurationProp;          // animationDuration プロパティ
 		private SerializedProperty animationDistanceThresholdProp; // animationDistanceThreshold プロパティ
@@ -80,7 +79,6 @@ namespace ANest.UI.Editor {
 			animationEaseProp = serializedObject.FindProperty("animationEase");
 			useCircularMoveProp = serializedObject.FindProperty("useCircularMove");
 			circularMoveTypeProp = serializedObject.FindProperty("circularMoveType");
-			headStartTargetProp = serializedObject.FindProperty("headStartTarget");
 			startCornerProp = serializedObject.FindProperty("startCorner");
 			startAxisProp = serializedObject.FindProperty("startAxis");
 			cellSizeProp = serializedObject.FindProperty("cellSize");
@@ -101,12 +99,8 @@ namespace ANest.UI.Editor {
 			if(GUILayout.Button("Rebuild Layout")) {
 				RebuildTargets();
 			}
-			if(target is aLayoutGroupCircular) {
-				if(GUILayout.Button("Head Start")) {
-					InvokeHeadStartButton();
-				}
-			}
 		}
+
 
 		private void OnSceneGUI() {
 			if(target is not aLayoutGroupBase group) return;
@@ -219,6 +213,9 @@ namespace ANest.UI.Editor {
 			PropertyFieldSafe(rectChildrenProp, true);
 			PropertyFieldSafe(excludedChildrenProp, true);
 			PropertyFieldSafe(paddingProp, true);
+			if (target is aLayoutGroupCircular) {
+				EditorGUILayout.HelpBox("Radiusが自動計算される際の制限範囲、およびScene上でのガイド枠として機能します。", MessageType.Info);
+			}
 
 			if(target is aLayoutGroupGrid) {
 				PropertyFieldSafe(cellSizeProp);
@@ -235,23 +232,16 @@ namespace ANest.UI.Editor {
 				DrawAnimationSection();
 			} else {
 				PropertyFieldSafe(spacingProp);
+				if (target is aLayoutGroupCircular) {
+					EditorGUILayout.HelpBox("要素間の角度。Child Force Expandが無効な場合に使用されます。", MessageType.Info);
+				}
 				PropertyFieldSafe(childAlignmentProp);
+				if (target is aLayoutGroupCircular) {
+					EditorGUILayout.HelpBox("円形配置全体の基準回転を決定します（例: LowerCenterで180度回転）。", MessageType.Info);
+				}
 				PropertyFieldSafe(reverseArrangementProp);
 				DrawChildControlsSection();
 				DrawAnimationSection();
-				if(target is aLayoutGroupCircular) {
-					PropertyFieldSafe(headStartTargetProp, new GUIContent("Head Start Target"));
-				}
-			}
-		}
-
-		private void InvokeHeadStartButton() {
-			foreach (var obj in targets) {
-				if(obj is aLayoutGroupCircular circular) {
-					Undo.RecordObject(circular, "Head Start");
-					circular.HeadStart();
-					EditorUtility.SetDirty(circular);
-				}
 			}
 		}
 
@@ -263,6 +253,7 @@ namespace ANest.UI.Editor {
 			}
 			if(isCircular) {
 				PropertyFieldSafe(childForceExpandCircularProp, childForceExpandLabel);
+				EditorGUILayout.HelpBox("有効な場合、Start-Endの範囲内に要素を均等に広げます。", MessageType.Info);
 			} else {
 				DrawToggleRow(childForceExpandLabel, childForceExpandWidthProp, childForceExpandHeightProp);
 			}
@@ -318,12 +309,33 @@ namespace ANest.UI.Editor {
 		}
 
 		private void DrawDerivedProperties() {
+			bool isCircular = target is aLayoutGroupCircular;
 			SerializedProperty iterator = serializedObject.GetIterator();
 			bool enterChildren = true;
 			while (iterator.NextVisible(enterChildren)) {
 				enterChildren = false;
 				if(IsBaseProperty(iterator.propertyPath)) continue;
 				EditorGUILayout.PropertyField(iterator, true);
+
+				if (isCircular) {
+					switch (iterator.propertyPath) {
+						case "radius":
+							EditorGUILayout.HelpBox("円の半径。0以下の場合は親のRectサイズ（Padding考慮）に合わせて自動計算されます。", MessageType.Info);
+							break;
+						case "startAngle":
+							EditorGUILayout.HelpBox("配置の開始角度。0度は真上(12時)で、時計回りに増加します。", MessageType.Info);
+							break;
+						case "endAngle":
+							EditorGUILayout.HelpBox("配置の終了角度。0度は真上(12時)で、時計回りに増加します。", MessageType.Info);
+							break;
+						case "angleOffset":
+							EditorGUILayout.HelpBox("配置全体の角度を回転させます。", MessageType.Info);
+							break;
+						case "centerOffset":
+							EditorGUILayout.HelpBox("配置中心を親のピボット位置からずらします。", MessageType.Info);
+							break;
+					}
+				}
 			}
 		}
 
@@ -378,7 +390,6 @@ namespace ANest.UI.Editor {
 				case "circularMoveType":
 				case "navigationAxisRange":
 				case "navigationType":
-				case "headStartTarget":
 					return true;
 				default:
 					return false;

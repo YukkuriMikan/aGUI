@@ -1584,7 +1584,7 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  childAlignment: 1
+  childAlignment: 4
   reverseArrangement: 0
   updateMode: 0
   childControlWidth: 0

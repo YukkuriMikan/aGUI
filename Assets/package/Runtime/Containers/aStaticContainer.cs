@@ -1,3 +1,3 @@
-using ANest.UI;
-
-public class aStaticContainer : aContainerBase { }
+namespace ANest.UI {
+	public class aStaticContainer : aContainerBase { }
+}

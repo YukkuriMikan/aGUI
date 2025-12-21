@@ -86,7 +86,13 @@ namespace ANest.UI {
 
 		public UnityEvent ShowEvent => m_showEvent;
 		public UnityEvent HideEvent => m_hideEvent;
+		
+		public RectTransform RectTransform => m_rectTransform;
 
+		public RectTransform TargetRectTransform => m_targetRectTransform;
+
+		public Graphic TargetGraphic => m_targetGraphic;
+		
 		/// <summary> CanvasGroupのinteractableを中継するフラグ </summary>
 		public bool Interactable {
 			get => CanvasGroup.interactable;
@@ -411,7 +417,10 @@ namespace ANest.UI {
 			if(string.IsNullOrEmpty(prefix)) return;
 
 			string trimmedName = TrimKnownPrefixes(gameObject.name);
-			gameObject.name = $"{prefix}{trimmedName}";
+			string newName = $"{prefix}{trimmedName}";
+			if (gameObject.name != newName) {
+				gameObject.name = newName;
+			}
 		}
 
 		/// <summary> 既知のプレフィックスを取り除いて元の名前部分を取得する </summary>
@@ -443,7 +452,10 @@ namespace ANest.UI {
 
 			// アニメーション用に初期RectTransform値を保存
 			if(m_targetRectTransform != null) {
-				m_originalRectTransformValues = RectTransformValues.CreateValues(m_targetRectTransform);
+				var currentValues = RectTransformValues.CreateValues(m_targetRectTransform);
+				if (!currentValues.Equals(m_originalRectTransformValues)) {
+					m_originalRectTransformValues = currentValues;
+				}
 			}
 
 			// Graphicが未設定なら同オブジェクトから取得
@@ -459,17 +471,34 @@ namespace ANest.UI {
 
 		/// <summary> エディタ上で子階層のSelectableをキャッシュする </summary>
 		private void CacheSelectablesInEditor() {
-			m_childSelectables = GetComponentsInChildren<Selectable>(true);
+			var currentSelectables = GetComponentsInChildren<Selectable>(true);
+			if (m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
+				m_childSelectables = currentSelectables;
+				return;
+			}
+
+			for (int i = 0; i < m_childSelectables.Length; i++) {
+				if (m_childSelectables[i] != currentSelectables[i]) {
+					m_childSelectables = currentSelectables;
+					return;
+				}
+			}
 		}
 
 		private void ApplySharedAnimationsFromSet() {
 			if(!m_useSharedAnimation) return;
 			if(m_sharedAnimation == null) return;
 
+			// アセットの内容をクローンして適用
+			// 毎回クローンすると参照が変わるため、変更があったかどうかの判定が難しい。
+			// ここでは SetDirty(this) の無条件呼び出しを避けることを優先する。
+			// 実際の開発では、共有アセット側が変更されたら OnValidate が走るはずなので
+			// 何らかの手段で「変更された」ことを検知したい。
+			// ひとまず、「現在のアニメーションが null の場合のみ」あるいは「常に上書きするが SetDirty はしない」
+			// 形にして、UnityEditor.EditorUtility.SetDirty(this) を削除。
+			
 			m_showAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.showAnimations);
 			m_hideAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.hideAnimations);
-
-			UnityEditor.EditorUtility.SetDirty(this);
 		}
 		#endif
 	}

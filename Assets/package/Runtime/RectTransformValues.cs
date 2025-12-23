@@ -86,17 +86,18 @@ namespace ANest.UI {
 		}
 
 		public override bool Equals(object obj) {
-			if (!(obj is RectTransformValues other)) return false;
+			if(!(obj is RectTransformValues other)) return false;
+
 			return m_worldPosition == other.m_worldPosition &&
-			       m_localPosition == other.m_localPosition &&
-			       m_worldRotation == other.m_worldRotation &&
-			       m_localRotation == other.m_localRotation &&
-			       m_localScale == other.m_localScale &&
-			       m_anchoredPosition == other.m_anchoredPosition &&
-			       m_anchorMin == other.m_anchorMin &&
-			       m_anchorMax == other.m_anchorMax &&
-			       m_sizeDelta == other.m_sizeDelta &&
-			       m_pivot == other.m_pivot;
+				m_localPosition == other.m_localPosition &&
+				m_worldRotation == other.m_worldRotation &&
+				m_localRotation == other.m_localRotation &&
+				m_localScale == other.m_localScale &&
+				m_anchoredPosition == other.m_anchoredPosition &&
+				m_anchorMin == other.m_anchorMin &&
+				m_anchorMax == other.m_anchorMax &&
+				m_sizeDelta == other.m_sizeDelta &&
+				m_pivot == other.m_pivot;
 		}
 
 		public override int GetHashCode() {

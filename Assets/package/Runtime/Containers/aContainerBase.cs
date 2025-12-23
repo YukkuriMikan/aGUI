@@ -93,6 +93,8 @@ namespace ANest.UI {
 
 		public Graphic TargetGraphic => m_targetGraphic;
 		
+		public RectTransformValues OriginalRectTransformValues => m_originalRectTransformValues;
+		
 		/// <summary> CanvasGroupのinteractableを中継するフラグ </summary>
 		public bool Interactable {
 			get => CanvasGroup.interactable;
@@ -250,13 +252,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Private Methods
-		/// <summary> 実行時に子階層のSelectableをまとめてキャッシュする </summary>
-		private void CacheSelectablesRuntime() {
-			m_childSelectables = GetComponentsInChildren<Selectable>(true);
-		}
-
-		// アニメーション待機ロジックは削除済み
-
 		/// <summary> Show実行時に履歴へ登録し最新のコンテナとして記録する </summary>
 		private void RegisterShowHistory() {
 			if(!Application.isPlaying) return;
@@ -389,7 +384,7 @@ namespace ANest.UI {
 
 		#if UNITY_EDITOR
 		[SerializeField]
-		private bool m_debugMode = true;
+		private bool m_debugMode = false;
 
 		protected virtual string ContainerNamePrefix => "Container - ";
 
@@ -405,7 +400,6 @@ namespace ANest.UI {
 		/// <summary> エディタ上で参照キャッシュを更新し、設定漏れを防ぐ </summary>
 		protected virtual void OnValidate() {
 			if(Application.isPlaying) return;
-			AutoRenameInEditor();
 			CacheSelectablesInEditor();
 			CacheReferences();
 			ApplySharedAnimationsFromSet();
@@ -453,6 +447,7 @@ namespace ANest.UI {
 			// アニメーション用に初期RectTransform値を保存
 			if(m_targetRectTransform != null) {
 				var currentValues = RectTransformValues.CreateValues(m_targetRectTransform);
+				
 				if (!currentValues.Equals(m_originalRectTransformValues)) {
 					m_originalRectTransformValues = currentValues;
 				}
@@ -461,11 +456,6 @@ namespace ANest.UI {
 			// Graphicが未設定なら同オブジェクトから取得
 			if(m_targetGraphic == null) {
 				m_targetGraphic = GetComponent<Graphic>();
-			}
-
-			// 実行時に子Selectableキャッシュが空なら取得
-			if(Application.isPlaying && (m_childSelectables == null || m_childSelectables.Length == 0)) {
-				CacheSelectablesRuntime();
 			}
 		}
 

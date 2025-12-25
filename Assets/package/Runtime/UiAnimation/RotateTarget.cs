@@ -3,11 +3,12 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary> CanvasGroup のアルファを補間するフェードアニメーション </summary>
-	public class Fade : IUiAnimation {
+	/// <summary> 回転アニメーション </summary>
+	public class RotateTarget : IUiAnimation {
 		#region SerializeField
-		[SerializeField] private float m_startValue = 0;                                        // フェード開始時のアルファ
-		[SerializeField] private float m_endValue = 0;                                          // フェード終了時のアルファ
+		[SerializeField] private aGuiInfo m_target;
+		[SerializeField] private Vector3 m_startValue = Vector3.zero;                           // 回転開始時の相対オイラー角
+		[SerializeField] private Vector3 m_endValue = Vector3.zero;                             // 回転終了時の相対オイラー角
 		[SerializeField] private float m_delay;                                                 // 再生までの遅延秒数
 		[SerializeField] private float m_duration = 0.5f;                                       // 再生時間
 		[SerializeField] private bool m_isYoYo;                                                 // ヨーヨー再生か？
@@ -41,19 +42,19 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		/// <summary> CanvasGroup のアルファをフェードさせるアニメーションを実行 </summary>
-		/// <param name="graphic">アニメーション対象の Graphic</param>
-		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
-		/// <param name="original">復元用のRectTransform初期値</param>
-		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
-			if(callerRect == null) return null;
+		/// <summary> RectTransform の回転を補間するアニメーションを実行 </summary>
+		/// <param name="_">アニメーション対象の Graphic（未使用）</param>
+		/// <param name="__">アニメーション対象の RectTransform</param>
+		/// <param name="___">復元用のRectTransform初期値</param>
+		public Tween DoAnimate(Graphic _, RectTransform __, RectTransformValues ___) {
+			// 初期回転を設定（元の回転に相対オフセットを適用）
+			var startRotation = m_target.OriginalRectTransformValues.LocalRotation * Quaternion.Euler(m_startValue);
+			var endRotation = m_target.OriginalRectTransformValues.LocalRotation * Quaternion.Euler(m_endValue);
+			m_target.RectTransform.localRotation = startRotation;
 
-			// 初期値
-			graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, m_startValue);
-
-			m_tween = DOTween
-				.To(() => graphic.color.a, value => graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, value), m_endValue, m_duration / 2f)
-				.SetDelay(Delay).OnComplete(() => Debug.Log($"{callerRect.name}"));
+			m_tween = m_target.RectTransform
+				.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
+				.SetDelay(Delay);
 
 			if(UseCurve) {
 				if(IsYoYo) {
@@ -71,6 +72,6 @@ namespace ANest.UI {
 
 			return m_tween;
 		}
-	#endregion
+		#endregion
 	}
 }

@@ -46,12 +46,12 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
-		private Selectable m_lastSelected;     // Hide時に記録した選択中のSelectable
-		private RectTransform m_rectTransform; // 自身のRectTransformキャッシュ
-		private bool m_initialized;            // 初期化済みか
-		private bool m_isQuitting;             // アプリ終了フラグ
-		protected bool m_suppressAnimation;    // 内部専用アニメーション抑制フラグ
-		private bool m_suppressActiveWarning;  // 内部SetActive実行中の警告抑制フラグ
+		private Selectable m_lastSelected;              // Hide時に記録した選択中のSelectable
+		private RectTransform m_rectTransform;          // 自身のRectTransformキャッシュ
+		private bool m_initialized;                     // 初期化済みか
+		private bool m_isQuitting;                      // アプリ終了フラグ
+		protected bool m_suppressAnimation;             // 内部専用アニメーション抑制フラグ
+		private bool m_suppressActiveWarning;           // 内部SetActive実行中の警告抑制フラグ
 		private CancellationTokenSource m_animationCts; // アニメーションとコールバックのキャンセル用
 		#endregion
 
@@ -86,15 +86,15 @@ namespace ANest.UI {
 
 		public UnityEvent ShowEvent => m_showEvent;
 		public UnityEvent HideEvent => m_hideEvent;
-		
+
 		public RectTransform RectTransform => m_rectTransform;
 
 		public RectTransform TargetRectTransform => m_targetRectTransform;
 
 		public Graphic TargetGraphic => m_targetGraphic;
-		
+
 		public RectTransformValues OriginalRectTransformValues => m_originalRectTransformValues;
-		
+
 		/// <summary> CanvasGroupのinteractableを中継するフラグ </summary>
 		public bool Interactable {
 			get => CanvasGroup.interactable;
@@ -161,7 +161,7 @@ namespace ANest.UI {
 		}
 
 		private void CancelAnimation() {
-			if (m_animationCts != null) {
+			if(m_animationCts != null) {
 				m_animationCts.Cancel();
 				m_animationCts.Dispose();
 				m_animationCts = null;
@@ -172,13 +172,13 @@ namespace ANest.UI {
 		#region Public Methods
 		/// <summary> 非同期Show。必要に応じて選択をリジュームする </summary>
 		public virtual void Show() {
-			if(m_isVisible) return;
+			if(m_isVisible && this.isActiveAndEnabled) return;
 			ShowInternal();
 		}
 
 		/// <summary> 非同期Hide </summary>
 		public virtual void Hide() {
-			if(!m_isVisible) return;
+			if(!m_isVisible && !this.isActiveAndEnabled) return;
 			HideInternal();
 		}
 		#endregion
@@ -243,7 +243,7 @@ namespace ANest.UI {
 			// アニメーションを開始のみして即座に非表示へ
 			TryPlayAnimations(HideAnimations,
 				() => {
-					if (m_isVisible) return;
+					if(m_isVisible) return;
 					SetActiveInternal(false);
 				});
 
@@ -412,7 +412,7 @@ namespace ANest.UI {
 
 			string trimmedName = TrimKnownPrefixes(gameObject.name);
 			string newName = $"{prefix}{trimmedName}";
-			if (gameObject.name != newName) {
+			if(gameObject.name != newName) {
 				gameObject.name = newName;
 			}
 		}
@@ -447,8 +447,8 @@ namespace ANest.UI {
 			// アニメーション用に初期RectTransform値を保存
 			if(m_targetRectTransform != null) {
 				var currentValues = RectTransformValues.CreateValues(m_targetRectTransform);
-				
-				if (!currentValues.Equals(m_originalRectTransformValues)) {
+
+				if(!currentValues.Equals(m_originalRectTransformValues)) {
 					m_originalRectTransformValues = currentValues;
 				}
 			}
@@ -462,13 +462,13 @@ namespace ANest.UI {
 		/// <summary> エディタ上で子階層のSelectableをキャッシュする </summary>
 		private void CacheSelectablesInEditor() {
 			var currentSelectables = GetComponentsInChildren<Selectable>(true);
-			if (m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
+			if(m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
 				m_childSelectables = currentSelectables;
 				return;
 			}
 
 			for (int i = 0; i < m_childSelectables.Length; i++) {
-				if (m_childSelectables[i] != currentSelectables[i]) {
+				if(m_childSelectables[i] != currentSelectables[i]) {
 					m_childSelectables = currentSelectables;
 					return;
 				}
@@ -486,7 +486,7 @@ namespace ANest.UI {
 			// 何らかの手段で「変更された」ことを検知したい。
 			// ひとまず、「現在のアニメーションが null の場合のみ」あるいは「常に上書きするが SetDirty はしない」
 			// 形にして、UnityEditor.EditorUtility.SetDirty(this) を削除。
-			
+
 			m_showAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.showAnimations);
 			m_hideAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.hideAnimations);
 		}

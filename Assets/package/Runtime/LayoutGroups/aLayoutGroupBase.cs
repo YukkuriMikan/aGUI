@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
@@ -91,7 +92,7 @@ namespace ANest.UI {
 		/// <summary> 子Transform変更時の処理 </summary>
 		protected virtual void OnTransformChildrenChanged() {
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
-				AlignEditor();
+				AlignWithFrameWaitAsync().Forget();
 			}
 		}
 
@@ -142,6 +143,13 @@ namespace ANest.UI {
 			}
 			CalculateLayout();
 			EmitCompleteLayoutRect();
+		}
+
+		/// <summary> 1フレーム待ってから整列する </summary>
+		public async UniTask AlignWithFrameWaitAsync() {
+			await UniTask.DelayFrame(1);
+
+			Align();
 		}
 
 		/// <summary> 初期化条件を満たした際にレイアウトを構築 </summary>

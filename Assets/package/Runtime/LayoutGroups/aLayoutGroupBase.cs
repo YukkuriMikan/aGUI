@@ -92,7 +92,7 @@ namespace ANest.UI {
 		/// <summary> 子Transform変更時の処理 </summary>
 		protected virtual void OnTransformChildrenChanged() {
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
-				AlignWithFrameWaitAsync().Forget();
+				AlignWithFrameWaitAndCollectionAsync().Forget();
 			}
 		}
 
@@ -143,6 +143,13 @@ namespace ANest.UI {
 			}
 			CalculateLayout();
 			EmitCompleteLayoutRect();
+		}
+
+		/// <summary> 1フレーム待ってから整列する </summary>
+		public async UniTask AlignWithFrameWaitAndCollectionAsync() {
+			await UniTask.DelayFrame(1);
+
+			AlignWithCollection();
 		}
 
 		/// <summary> 1フレーム待ってから整列する </summary>

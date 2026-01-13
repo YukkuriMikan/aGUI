@@ -319,9 +319,7 @@ namespace ANest.UI {
 			float paddedMinY = minY - paddingTop;
 			float paddedMaxY = maxY + paddingBottom;
 
-			var nonPaddedRect = Rect.MinMaxRect(minX, minY, maxX, maxY);
 			var rect = Rect.MinMaxRect(paddedMinX, paddedMinY, paddedMaxX, paddedMaxY);
-			rect.position = nonPaddedRect.position;
 			m_completeLayoutSubject.OnNext(rect);
 		}
 

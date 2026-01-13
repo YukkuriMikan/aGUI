@@ -1,0 +1,190 @@
+using DG.Tweening;
+using UniRx;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace ANest.UI {
+	/// <summary>
+	/// aContainerBase の CurrentSelectable に追従するカーソルを制御するクラス
+	/// </summary>
+	public class aContainerCursor : MonoBehaviour {
+		#region Enums
+		/// <summary> 移動モード </summary>
+		public enum MoveMode {
+			/// <summary> 即座に移動 </summary>
+			Instant,
+			/// <summary> アニメーションを伴って移動 </summary>
+			Animation
+		}
+
+		/// <summary> サイズ変更モード </summary>
+		public enum SizeMode {
+			/// <summary> 固定サイズ </summary>
+			Fixed,
+			/// <summary> 選択対象のサイズに合わせる </summary>
+			MatchSelectable
+		}
+
+		/// <summary> 更新モード </summary>
+		public enum UpdateMode {
+			/// <summary> 選択対象が変更された時のみ更新 </summary>
+			OnSelectChanged,
+			/// <summary> 毎フレーム（LateUpdate）更新 </summary>
+			EveryFrame
+		}
+		#endregion
+
+		#region Serialize Fields
+		[Tooltip("追従対象のコンテナ")]
+		[SerializeField] private aContainerBase m_container; // 追従対象のコンテナ
+
+		[Tooltip("カーソルとして扱うRectTransform")]
+		[SerializeField] private RectTransform m_cursorRect; // カーソルとして扱うRectTransform
+
+		[Tooltip("カーソルとして表示するイメージ")]
+		[SerializeField] private Image m_cursorImage; // カーソルイメージ
+
+		[Tooltip("更新タイミングの設定")]
+		[SerializeField] private UpdateMode m_updateMode = UpdateMode.EveryFrame; // 更新モード
+
+		[Header("Move Settings")]
+		[Tooltip("移動の演出モード")]
+		[SerializeField] private MoveMode m_moveMode = MoveMode.Animation; // 移動モード
+		[Tooltip("移動にかかる時間（秒）")]
+		[SerializeField] private float m_moveDuration = 0.2f; // 移動時間
+		[Tooltip("移動のイージング設定")]
+		[SerializeField] private Ease m_moveEase = Ease.OutQuad; // 移動イージング
+
+		[Header("Size Settings")]
+		[Tooltip("サイズの演出モード")]
+		[SerializeField] private SizeMode m_sizeMode = SizeMode.MatchSelectable; // サイズ変更モード
+		[Tooltip("ターゲットサイズに対するパディング")]
+		[SerializeField] private Vector2 m_padding = Vector2.zero; // サイズパディング
+		[Tooltip("サイズ変更にかかる時間（秒）")]
+		[SerializeField] private float m_sizeChangeDuration = 0.2f; // サイズ変更時間
+		[Tooltip("サイズ変更のイージング設定")]
+		[SerializeField] private Ease m_sizeChangeEase = Ease.OutQuad; // サイズ変更イージング
+		#endregion
+
+		#region Private Fields
+		private RectTransform m_currentTargetRect;         // 現在のターゲットRectTransform
+		private CompositeDisposable m_disposables = new(); // 購読管理用
+		private Tweener m_moveTween;                       // 移動アニメーション用Tween
+		private Tweener m_sizeTween;                       // サイズ変更アニメーション用Tween
+		#endregion
+
+		#region Lifecycle Methods
+		/// <summary> 開始時にコンテナの選択変更を購読する </summary>
+		private void Start() {
+			if(m_container != null) {
+				m_container.ObserveEveryValueChanged(c => c.CurrentSelectable)
+					.Subscribe(OnSelectableChanged)
+					.AddTo(m_disposables);
+			}
+		}
+
+		/// <summary> ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する </summary>
+		private void LateUpdate() {
+			if(m_updateMode == UpdateMode.EveryFrame) {
+				UpdateCursor(m_currentTargetRect);
+			}
+		}
+
+		/// <summary> 破棄時に購読解除とTweenの破棄を行う </summary>
+		private void OnDestroy() {
+			m_disposables.Dispose();
+			m_moveTween?.Kill();
+			m_sizeTween?.Kill();
+		}
+		#endregion
+
+		#region Internal Logic
+		/// <summary> 選択対象が変更された際のコールバック </summary>
+		/// <param name="selectable">新しく選択されたSelectable</param>
+		private void OnSelectableChanged(Selectable selectable) {
+			m_currentTargetRect = selectable != null ? selectable.GetComponent<RectTransform>() : null;
+
+			if(m_cursorRect == null && m_cursorImage != null) {
+				m_cursorRect = m_cursorImage.rectTransform;
+			}
+
+			if(m_currentTargetRect != null && m_cursorRect != null) {
+				// ターゲットが切り替わった瞬間に、アンカーとピボットを合わせる
+				m_cursorRect.anchorMin = m_currentTargetRect.anchorMin;
+				m_cursorRect.anchorMax = m_currentTargetRect.anchorMax;
+				m_cursorRect.pivot = m_currentTargetRect.pivot;
+
+				// アニメーションモードの場合、既存のTweenをリセットして再開させる準備をする
+				if(m_moveMode == MoveMode.Animation) {
+					m_moveTween?.Kill();
+					m_sizeTween?.Kill();
+				}
+
+				// 選択変更時のみ更新のモードなら、ここで一度更新を実行する
+				if(m_updateMode == UpdateMode.OnSelectChanged) {
+					UpdateCursor(m_currentTargetRect);
+				}
+			}
+		}
+
+		/// <summary> カーソルの位置とサイズを選択対象に合わせる </summary>
+		/// <param name="targetRect">ターゲットのRectTransform</param>
+		private void UpdateCursor(RectTransform targetRect) {
+			if(targetRect == null || m_cursorRect == null) return;
+
+			// カーソルの位置は CurrentSelectable の位置に移動する
+			// Canvas内での絶対座標を合わせるために、ワールド座標を使用する
+			Vector3 targetWorldPos = targetRect.position;
+
+			if(m_moveMode == MoveMode.Instant) {
+				m_moveTween?.Kill();
+				m_cursorRect.position = targetWorldPos;
+			} else {
+				if(m_moveTween != null && m_moveTween.IsActive()) {
+					// アニメーション中なら、ターゲットの最新位置を終着点として更新し続ける（追従）
+					m_moveTween.ChangeEndValue(targetWorldPos, true);
+				} else {
+					// OnSelectableChanged で Kill された後、最初の更新で Tween を生成する
+					if(m_moveTween == null || !m_moveTween.IsActive()) {
+						m_moveTween = m_cursorRect.DOMove(targetWorldPos, m_moveDuration).SetEase(m_moveEase);
+					}
+				}
+			}
+
+			// サイズ変更
+			if(m_sizeMode == SizeMode.MatchSelectable) {
+				Vector2 targetSize = targetRect.rect.size + m_padding;
+				if(m_moveMode == MoveMode.Instant) {
+					m_sizeTween?.Kill();
+					m_cursorRect.sizeDelta = targetSize;
+				} else {
+					if(m_sizeTween != null && m_sizeTween.IsActive()) {
+						// アニメーション中なら、ターゲットの最新サイズを終着点として更新し続ける（追従）
+						m_sizeTween.ChangeEndValue(targetSize, true);
+					} else {
+						if(m_sizeTween == null || !m_sizeTween.IsActive()) {
+							m_sizeTween = DOTween.To(() => m_cursorRect.sizeDelta, x => m_cursorRect.sizeDelta = x, targetSize, m_sizeChangeDuration)
+								.SetEase(m_sizeChangeEase);
+						}
+					}
+				}
+			}
+		}
+		#endregion
+
+		#region Editor Support
+#if UNITY_EDITOR
+		/// <summary> インスペクターでの値変更時に参照を更新する </summary>
+		private void OnValidate() {
+			if(m_container == null) {
+				m_container = GetComponentInParent<aContainerBase>();
+			}
+
+			if(m_cursorImage != null && m_cursorRect == null) {
+				m_cursorRect = m_cursorImage.rectTransform;
+			}
+		}
+#endif
+		#endregion
+	}
+}

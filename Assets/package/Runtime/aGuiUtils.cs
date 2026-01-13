@@ -35,13 +35,13 @@ namespace ANest.UI {
 			return cloned;
 		}
 
-		public static void PlayAnimation(IUiAnimation[] animations, RectTransform targetRect, Graphic targetGraphic, RectTransformValues originalValues, Action callback = null) {
+		public static void PlayAnimation(IUiAnimation[] animations, RectTransform targetRect, Graphic targetGraphic, RectTransformValues originalValues, Action completeCallback = null, Action killCallback = null) {
 			if(animations == null || animations.Length == 0) {
-				callback?.Invoke();
+				completeCallback?.Invoke();
 				return;
 			}
 			if(targetRect == null) {
-				callback?.Invoke();
+				completeCallback?.Invoke();
 				return;
 			}
 
@@ -54,7 +54,7 @@ namespace ANest.UI {
 			IUiAnimation lastEndAnim = null;
 			float maxDuration = 0f;
 
-			if(callback != null) {
+			if(completeCallback != null) {
 				//最後に終わるアニメーションを取得
 				for (int i = 0; i < animations.Length; i++) {
 					var anim = animations[i];
@@ -78,24 +78,24 @@ namespace ANest.UI {
 				if(anim != null) {
 					var tween = anim.DoAnimate(targetGraphic, targetRect, originalValues);
 
-					if(lastEndAnim == anim && callback != null) {
+					if(lastEndAnim == anim && completeCallback != null) {
 						tween?.OnKill(() => {
-							if (callbackInvoked) return;
+							if(callbackInvoked) return;
 							callbackInvoked = true;
-							callback();
+							killCallback?.Invoke();
 						});
 						tween?.OnComplete(() => {
-							if (callbackInvoked) return;
+							if(callbackInvoked) return;
 							callbackInvoked = true;
-							callback();
+							completeCallback();
 						});
 					}
 				}
 			}
 
 			// すべてのアニメーションがnullなどで、コールバックが登録されているが呼ばれていない場合のフォールバック
-			if (callback != null && !callbackInvoked && lastEndAnim == null) {
-				callback();
+			if(completeCallback != null && !callbackInvoked && lastEndAnim == null) {
+				completeCallback();
 			}
 		}
 

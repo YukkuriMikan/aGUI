@@ -6,41 +6,60 @@ using TMPro;
 
 namespace ANest.UI {
 	/// <summary> 各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle </summary>
+	[RequireComponent(typeof(aGuiInfo))]
 	public class aToggle : Toggle {
 		#region SerializeField
 		[Header("Shared Parameters")]
-		[SerializeField] private bool useSharedParameters;                      // 共通パラメータを使用するか
+		[Tooltip("共通パラメータを使用するかどうか")]
+		[SerializeField] private bool useSharedParameters; // 共通パラメータを使用するか
+		[Tooltip("共通パラメータの参照")]
 		[SerializeField] private aSelectablesSharedParameters sharedParameters; // 共通パラメータの参照
 
 		[Header("Initial Guard")]
-		[SerializeField] private bool useInitialGuard = true;       // 有効化直後の入力を抑制するか
+		[Tooltip("有効化直後の入力を抑制するかどうか")]
+		[SerializeField] private bool useInitialGuard = true; // 有効化直後の入力を抑制するか
+		[Tooltip("有効化直後に抑制する秒数")]
 		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
 
 		[Header("Multiple Input Guard")]
-		[SerializeField] private bool useMultipleInputGuard = true;       // 入力ガードを使うか
+		[Tooltip("入力ガード（連打防止）を使用するかどうか")]
+		[SerializeField] private bool useMultipleInputGuard = true; // 入力ガードを使うか
+		[Tooltip("入力ガードの待機秒数")]
 		[SerializeField] private float multipleInputGuardInterval = 0.5f; // 入力ガードの待機秒数
 
 		[Header("Text Transition")]
-		[SerializeField] private TMP_Text targetText;                                              // 遷移対象のテキスト
+		[Tooltip("状態遷移に合わせてテキストを変更する対象")]
+		[SerializeField] private TMP_Text targetText; // 遷移対象のテキスト
+		[Tooltip("テキスト遷移の種別")]
 		[SerializeField] private TextTransitionType textTransition = TextTransitionType.TextColor; // テキスト遷移種別
-		[SerializeField] private ColorBlock textColors = ColorBlock.defaultColorBlock;             // テキストカラー設定
-		[SerializeField] private TextSwapState textSwapState;                                      // テキスト差し替え設定
-		[SerializeField] private AnimationTriggers textAnimationTriggers = new();                  // テキストアニメーション用トリガー
-		[SerializeField] private Animator textAnimator;                                            // テキスト用アニメーター
+		[Tooltip("テキストカラー設定")]
+		[SerializeField] private ColorBlock textColors = ColorBlock.defaultColorBlock; // テキストカラー設定
+		[Tooltip("テキスト差し替え設定")]
+		[SerializeField] private TextSwapState textSwapState; // テキスト差し替え設定
+		[Tooltip("テキストアニメーション用トリガー")]
+		[SerializeField] private AnimationTriggers textAnimationTriggers = new(); // テキストアニメーション用トリガー
+		[Tooltip("テキスト用アニメーター")]
+		[SerializeField] private Animator textAnimator; // テキスト用アニメーター
 
 		[Header("Animation")]
-		[SerializeField] private bool m_useCustomAnimation;                                        // カスタムアニメーションを使用するか
-		[SerializeField] private bool m_useSharedAnimation = false;                                // 共有アニメーションを使用するか
-		[SerializeField] private UiAnimationSet m_sharedAnimation;                                 // 共有アニメーション設定
+		[Tooltip("個別のアニメーション設定を使用するかどうか")]
+		[SerializeField] private bool m_useCustomAnimation; // カスタムアニメーションを使用するか
+		[Tooltip("共通のアニメーションセットを使用するかどうか")]
+		[SerializeField] private bool m_useSharedAnimation = false; // 共有アニメーションを使用するか
+		[Tooltip("共通のアニメーション設定")]
+		[SerializeField] private UiAnimationSet m_sharedAnimation; // 共有アニメーション設定
+		[Tooltip("クリック時に再生するアニメーション")]
 		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_clickAnimations; // クリック時のカスタムアニメーション
-		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_onAnimations;    // ON時のカスタムアニメーション
-		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_offAnimations;   // OFF時のカスタムアニメーション
+		[Tooltip("ON時に再生するアニメーション")]
+		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_onAnimations; // ON時のカスタムアニメーション
+		[Tooltip("OFF時に再生するアニメーション")]
+		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_offAnimations; // OFF時のカスタムアニメーション
 
-		[Header("RectTransform")]
-		[SerializeField] private RectTransform m_rectTransform;                           // 自身のRectTransformキャッシュ
-		[SerializeField] private RectTransform m_targetRectTransform;                     // Toggleのgraphicの RectTransform キャッシュ
-		[SerializeField] private RectTransformValues m_originalTargetRectTransformValues; // 自身の初期RectTransform値
-		[SerializeField] private RectTransformValues m_originalToggleRectTransformValues; // Toggleのgraphicの初期RectTransform値
+		[Header("Reference")]
+		[Tooltip("GUI情報の参照")]
+		[SerializeField] private aGuiInfo m_guiInfo; // GUI情報の参照
+		[Tooltip("トグルグラフィック（チェックマーク等）用のGUI情報の参照")]
+		[SerializeField] private aGuiInfo m_graphicGuiInfo; // トグルグラフィック用のGUI情報の参照
 		#endregion
 
 
@@ -50,7 +69,7 @@ namespace ANest.UI {
 		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
 		#endregion
 
-	    #region Unity Methods
+		#region Unity Methods
 		/// <summary> 有効化時に初期化とRectTransformの初期値取得を行う </summary>
 		protected override void OnEnable() {
 			ApplySharedParametersIfNeeded();
@@ -137,14 +156,15 @@ namespace ANest.UI {
 
 			//ToggleのGraphic指定がないなら無視
 			if(graphic == null) return;
+			if(m_graphicGuiInfo == null) return;
 
 			if(isOn) {
-				aGuiUtils.PlayAnimation(m_onAnimations, graphic.rectTransform, graphic, m_originalToggleRectTransformValues);
+				aGuiUtils.PlayAnimation(m_onAnimations, m_graphicGuiInfo.RectTransform, graphic, m_graphicGuiInfo.OriginalRectTransformValues);
 			} else {
 				//デフォルト処理によるトグルグラフィックの透明化を抑制
 				graphic.canvasRenderer.SetAlpha(1f);
 
-				aGuiUtils.PlayAnimation(m_offAnimations, graphic.rectTransform, graphic, m_originalToggleRectTransformValues,
+				aGuiUtils.PlayAnimation(m_offAnimations, m_graphicGuiInfo.RectTransform, graphic, m_graphicGuiInfo.OriginalRectTransformValues,
 					() => {
 						// OFF時、最後は非表示になるようにトグル標準の非表示処理を適用
 						if(graphic != null) {
@@ -158,11 +178,9 @@ namespace ANest.UI {
 		private void PlayClickAnimations() {
 			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
 			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
-			if(m_rectTransform == null) return;
+			if(m_guiInfo == null) return;
 
-			var target = m_rectTransform != null ? m_rectTransform : m_targetRectTransform;
-
-			aGuiUtils.PlayAnimation(m_clickAnimations, target, targetGraphic, m_originalTargetRectTransformValues);
+			aGuiUtils.PlayAnimation(m_clickAnimations, m_guiInfo.RectTransform, targetGraphic, m_guiInfo.OriginalRectTransformValues);
 		}
 		#endregion
 
@@ -224,5 +242,40 @@ namespace ANest.UI {
 			textAnimationTriggers = sharedParameters.textAnimationTriggers;
 		}
 	        #endregion
+
+		#if UNITY_EDITOR
+		/// <summary> インスペクターでの値変更時の処理 </summary>
+		protected override void OnValidate() {
+			base.OnValidate();
+			if(Application.isPlaying) return;
+
+			ApplySharedParametersIfNeeded();
+			ApplySharedAnimationsFromSet();
+
+			if(m_guiInfo == null) {
+				m_guiInfo = GetComponent<aGuiInfo>();
+			}
+
+			if(m_graphicGuiInfo == null && graphic != null) {
+				m_graphicGuiInfo = graphic.GetComponent<aGuiInfo>();
+			}
+
+			if(targetGraphic == null) {
+				targetGraphic = GetComponentInChildren<Graphic>();
+			}
+		}
+
+		/// <summary> 共有アニメーションセットからアニメーションを複製して適用する </summary>
+		private void ApplySharedAnimationsFromSet() {
+			if(!m_useSharedAnimation) return;
+			if(m_sharedAnimation == null) return;
+
+			m_clickAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.clickAnimations);
+			m_onAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.onAnimations);
+			m_offAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.offAnimations);
+
+			UnityEditor.EditorUtility.SetDirty(this);
+		}
+		#endif
 	}
 }

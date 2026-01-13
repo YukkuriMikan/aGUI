@@ -1,68 +1,96 @@
 using System;
-using System.Collections.Generic;
-using System.Threading;
+using UniRx;
+using UniRx.Triggers;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary> UIコンテナの基底クラス </summary>
-	[RequireComponent(typeof(CanvasGroup))]
+	[RequireComponent(typeof(CanvasGroup))][RequireComponent(typeof(aGuiInfo))]
 	public abstract class aContainerBase : MonoBehaviour {
-		/// <summary> コンテナーの表示履歴 </summary>
-		public static List<aContainerBase> ContainerHistory { get; } = new(8);
-
-		#region SerializeField
+		#region Serialize Fields
 		[Header("Animation")]
+		[Tooltip("個別のアニメーション設定を使用するかどうか")]
 		[SerializeField] protected bool m_useCustomAnimations = true;
+		[Tooltip("共通のアニメーションセットを使用するかどうか")]
 		[SerializeField] protected bool m_useSharedAnimation = false;
+		[Tooltip("共通のアニメーション設定")]
 		[SerializeField] protected UiAnimationSet m_sharedAnimation;
-		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_showAnimations; // Show時に再生するアニメーション
-		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_hideAnimations; // Hide時に再生するアニメーション
+		[Tooltip("表示(Show)時に再生するアニメーション")]
+		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_showAnimations;
+		[Tooltip("非表示(Hide)時に再生するアニメーション")]
+		[SerializeReference, SerializeReferenceDropdown] private IUiAnimation[] m_hideAnimations;
 
 		[Header("Selection")]
-		[SerializeField] private Selectable[] m_childSelectables;            // 子Selectableのキャッシュ
-		[SerializeField] private Selectable m_initialSelectable;             // Show時に初期選択するSelectable
-		[SerializeField] private bool m_defaultResumeSelectionOnShow = true; // Show時にリジュームを優先するか
-
-		[Header("Target")]
-		[SerializeField] private Graphic m_targetGraphic;             // アニメーション対象のGraphic
-		[SerializeField] private RectTransform m_targetRectTransform; // アニメーション対象のRectTransform
-		[SerializeField] private CanvasGroup m_canvasGroup;           // 自身のCanvasGroup
+		[Tooltip("子要素にあるSelectableのキャッシュ")]
+		[SerializeField] private Selectable[] m_childSelectables;
+		[Tooltip("表示(Show)時に最初に選択されるSelectable")]
+		[SerializeField] private Selectable m_initialSelectable;
+		[Tooltip("現在選択されているSelectable")]
+		[SerializeField] private Selectable m_currentSelectable;
+		[Tooltip("表示時に、前回の選択状態を復元(Resume)することを優先するかどうか")]
+		[SerializeField] private bool m_defaultResumeSelectionOnShow = true;
+		[Tooltip("CurrentSelectableがNullになる事を許可しない")]
+		[SerializeField] private bool m_disallowNullSelection = true;
 
 		[Header("State")]
-		[SerializeField] protected bool m_isVisible; // 表示中かどうか
+		[Tooltip("現在表示中（表示プロセス中を含む）かどうか")]
+		[SerializeField] protected bool m_isVisible;
+
+		[Header("Guard")]
+		[Tooltip("表示直後の操作をブロックするか？")]
+		[SerializeField] private bool m_initialGuard;
+		[Tooltip("初期ガードする時間(秒)")]
+		[SerializeField] private float m_initialGuardDuration;
+
+		[Header("Reference")]
+		[Tooltip("キャンバスグループの参照")]
+		[SerializeField] private CanvasGroup m_canvasGroup;
+		[Tooltip("GUI情報の参照")]
+		[SerializeField] private aGuiInfo m_guiInfo;
 
 		[Header("Layout")]
+		[Tooltip("レイアウトグループの参照")]
 		[SerializeField] private aLayoutGroupBase m_layoutGroup;
 
 		[Header("Event")]
-		[SerializeField] private UnityEvent m_showEvent = new(); // Show完了時イベント
-		[SerializeField] private UnityEvent m_hideEvent = new(); // Hide完了時イベント
-
-		[SerializeField]
-		private RectTransformValues m_originalRectTransformValues; // アニメーション用RectTransform初期値
+		[Tooltip("選択状態が変更された時のイベント")]
+		[SerializeField] private UnityEvent<Selectable> m_onSelectChanged = new();
+		[FormerlySerializedAs("m_showEvent")]
+		[Tooltip("表示(Show)完了時のイベント")]
+		[SerializeField] private UnityEvent m_onShow = new();
+		[FormerlySerializedAs("m_hideEvent")]
+		[Tooltip("非表示(Hide)完了時のイベント")]
+		[SerializeField] private UnityEvent m_onHide = new();
 		#endregion
 
-		#region Fields
-		private Selectable m_lastSelected;              // Hide時に記録した選択中のSelectable
-		private RectTransform m_rectTransform;          // 自身のRectTransformキャッシュ
-		private bool m_initialized;                     // 初期化済みか
-		private bool m_isQuitting;                      // アプリ終了フラグ
-		protected bool m_suppressAnimation;             // 内部専用アニメーション抑制フラグ
-		private bool m_suppressActiveWarning;           // 内部SetActive実行中の警告抑制フラグ
-		private CancellationTokenSource m_animationCts; // アニメーションとコールバックのキャンセル用
+		#region Private Fields
+		private Selectable m_lastSelected;                                // 非表示時に記録した、最後に選択されていたSelectable
+		private RectTransform m_rectTransform;                            // 自身のRectTransformのキャッシュ
+		private bool m_initialized;                                       // 初期化が完了しているかどうか
+		private bool m_isQuitting;                                        // アプリケーションが終了処理中かどうか
+		protected bool m_suppressAnimation;                               // 内部処理用：一時的にアニメーション再生を抑制するフラグ
+		private bool m_suppressActiveWarning;                             // 内部処理用：SetActive実行時の警告を一時的に抑制するフラグ
+		private bool m_nowShowing;                                        // 現在表示処理中かどうか
+		private bool m_nowHiding;                                         // 現在非表示処理中かどうか
+		private readonly CompositeDisposable m_selectDisposables = new(); // 選択監視用
+
+		private readonly Subject<Unit> m_showStartSubject = new(); // 表示開始通知用
+		private readonly Subject<Unit> m_showEndSubject = new();   // 表示完了通知用
+		private readonly Subject<Unit> m_hideStartSubject = new(); // 非表示開始通知用
+		private readonly Subject<Unit> m_hideEndSubject = new();   // 非表示完了通知用
 		#endregion
 
 		#region Properties
 		/// <summary> レイアウトグループ </summary>
 		public aLayoutGroupBase LayoutGroup => m_layoutGroup;
 
-		/// <summary> コンテナと紐つくCanvasGroup </summary>
+		/// <summary> コンテナに紐付くCanvasGroup </summary>
 		public CanvasGroup CanvasGroup => m_canvasGroup;
 
-		/// <summary> 表示状態 </summary>
+		/// <summary> 表示状態（get: 現在の状態 / set: 状態に応じたShow/Hideの実行） </summary>
 		public bool IsVisible {
 			get => m_isVisible;
 			set {
@@ -75,45 +103,84 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary> CurrentSelectableがNullになる事を許可しないかどうか </summary>
+		public bool DisallowNullSelection {
+			get => m_disallowNullSelection;
+			set => m_disallowNullSelection = value;
+		}
+
+		/// <summary> 現在選択されているSelectable </summary>
+		public Selectable CurrentSelectable => m_currentSelectable;
+
+		/// <summary> Show時、デフォルトで選択するSelectable </summary>
+		/// <remarks>Resumeが有効の場合はそちらが優先される</remarks>
+		public Selectable InitialSelectable {
+			get => m_initialSelectable;
+			set => m_initialSelectable = value;
+		}
+
+		/// <summary> カスタムアニメーションを使用するかどうか </summary>
 		public bool UseCustomAnimations {
 			get => m_useCustomAnimations;
 			set => m_useCustomAnimations = value;
 		}
 
+		/// <summary> 表示時に再生するアニメーション配列 </summary>
 		private IUiAnimation[] ShowAnimations => m_showAnimations;
 
+		/// <summary> 非表示時に再生するアニメーション配列 </summary>
 		private IUiAnimation[] HideAnimations => m_hideAnimations;
 
-		public UnityEvent ShowEvent => m_showEvent;
-		public UnityEvent HideEvent => m_hideEvent;
+		/// <summary> 表示完了時のイベント </summary>
+		public UnityEvent OnShow => m_onShow;
 
+		/// <summary> 非表示完了時のイベント </summary>
+		public UnityEvent OnHide => m_onHide;
+
+		/// <summary> 選択対象が変更された時のイベント </summary>
+		public UnityEvent<Selectable> OnSelectChanged => m_onSelectChanged;
+
+		/// <summary> 表示開始時の通知用Observable </summary>
+		public IObservable<Unit> ShowStartObservable => m_showStartSubject;
+
+		/// <summary> 表示完了時の通知用Observable </summary>
+		public IObservable<Unit> ShowEndObservable => m_showEndSubject;
+
+		/// <summary> 非表示開始時の通知用Observable </summary>
+		public IObservable<Unit> HideStartObservable => m_hideStartSubject;
+
+		/// <summary> 非表示完了時の通知用Observable </summary>
+		public IObservable<Unit> HideEndObservable => m_hideEndSubject;
+
+		/// <summary> 自身のRectTransform </summary>
 		public RectTransform RectTransform => m_rectTransform;
 
-		public RectTransform TargetRectTransform => m_targetRectTransform;
-
-		public Graphic TargetGraphic => m_targetGraphic;
-
-		public RectTransformValues OriginalRectTransformValues => m_originalRectTransformValues;
-
-		/// <summary> CanvasGroupのinteractableを中継するフラグ </summary>
+		/// <summary> CanvasGroupのinteractableへのアクセサ </summary>
 		public bool Interactable {
 			get => CanvasGroup.interactable;
 			set {
+				if(CanvasGroup == null) return;
 				if(CanvasGroup.interactable == value) return;
-
-				if(CanvasGroup != null) {
-					CanvasGroup.interactable = value;
-				}
+				CanvasGroup.interactable = value;
 			}
 		}
 		#endregion
 
-		#region Unity Methods
-		/// <summary> 参照キャッシュを初期化する </summary>
+		#region Lifecycle Methods
+		/// <summary> 参照のキャッシュと初期化を行う </summary>
 		protected virtual void Awake() {
 			Initialize();
 		}
 
+		/// <summary> 開始時の処理。初期表示状態の反映を完了させる </summary>
+		protected virtual void Start() {
+			// 初期状態で表示中の場合、選択状態の復元を試みる
+			if(m_isVisible) {
+				ResumeSelection();
+			}
+		}
+
+		/// <summary> 有効化時の処理。意図しないSetActiveへの警告チェックを含む </summary>
 		protected virtual void OnEnable() {
 			if(!m_suppressActiveWarning) {
 				WarnActiveChange();
@@ -121,22 +188,37 @@ namespace ANest.UI {
 			m_suppressActiveWarning = false;
 		}
 
+		/// <summary> 無効化時の処理。意図しないSetActiveへの警告チェックを含む </summary>
 		protected virtual void OnDisable() {
-			CancelAnimation();
 			if(!m_suppressActiveWarning) {
 				WarnActiveChange();
 			}
 			m_suppressActiveWarning = false;
 		}
 
-		/// <summary> 初期化時に初期化やシリアライズ状態の適用、直接SetActiveされた場合の警告制御を行う </summary>
+		/// <summary> コンテナの初期状態を設定する。二重初期化は防止される </summary>
 		protected virtual void Initialize() {
 			if(m_initialized) return;
 
-			m_initialized = true;
+			// 必要な参照の取得
+			if(m_canvasGroup == null) m_canvasGroup = GetComponent<CanvasGroup>();
+			if(m_guiInfo == null) m_guiInfo = GetComponent<aGuiInfo>();
+			if(m_rectTransform == null) m_rectTransform = GetComponent<RectTransform>();
+			if(m_childSelectables == null || m_childSelectables.Length == 0) {
+				// 子要素の更新とイベントの監視開始
+				RefreshChildSelectables();
+			} else {
+				// 選択イベントの監視開始
+				ObserveSelectables();
+			}
 
-			// 初期化は強制的にアニメーション無し
+			// 管理対象に登録
+			aContainerManager.Add(this);
+
+			// 初期化時はアニメーションなしで状態を適用
 			m_suppressAnimation = true;
+			// 初回の状態適用による警告を抑制
+			m_suppressActiveWarning = true;
 
 			if(m_isVisible) {
 				ShowInternal();
@@ -145,47 +227,81 @@ namespace ANest.UI {
 			}
 
 			m_suppressAnimation = false;
+			m_suppressActiveWarning = false;
 
-			// 最初のOnEnableの警告を防ぐ
-			m_suppressActiveWarning = true;
+			m_initialized = true;
 		}
 
-		/// <summary> アプリ終了時に終了フラグを立て、以降の警告を抑制する </summary>
+		/// <summary> アプリ終了時のフラグを立て、終了時の警告を抑制する </summary>
 		protected virtual void OnApplicationQuit() {
 			m_isQuitting = true;
-			CancelAnimation();
 		}
 
+		/// <summary> 破棄時の処理 </summary>
 		protected virtual void OnDestroy() {
-			CancelAnimation();
-		}
-
-		private void CancelAnimation() {
-			if(m_animationCts != null) {
-				m_animationCts.Cancel();
-				m_animationCts.Dispose();
-				m_animationCts = null;
-			}
+			aContainerManager.Remove(this);
+			m_selectDisposables.Dispose();
+			m_showStartSubject.OnCompleted();
+			m_showEndSubject.OnCompleted();
+			m_hideStartSubject.OnCompleted();
+			m_hideEndSubject.OnCompleted();
 		}
 		#endregion
 
 		#region Public Methods
-		/// <summary> 非同期Show。必要に応じて選択をリジュームする </summary>
+		/// <summary> コンテナを表示する </summary>
 		public virtual void Show() {
-			if(m_isVisible && this.isActiveAndEnabled) return;
+			if(m_nowShowing) return;
+
 			ShowInternal();
 		}
 
-		/// <summary> 非同期Hide </summary>
+		/// <summary> コンテナを非表示にする </summary>
 		public virtual void Hide() {
-			if(!m_isVisible && !this.isActiveAndEnabled) return;
+			if(m_nowHiding) return;
+
 			HideInternal();
+		}
+
+		/// <summary> 子要素のSelectableを検索してキャッシュする </summary>
+		public void RefreshChildSelectables() {
+			var currentSelectables = GetComponentsInChildren<Selectable>(true);
+			if(m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
+				m_childSelectables = currentSelectables;
+				ObserveSelectables(); // キャッシュ更新時に監視も更新
+				return;
+			}
+
+			for (int i = 0; i < m_childSelectables.Length; i++) {
+				if(m_childSelectables[i] != currentSelectables[i]) {
+					m_childSelectables = currentSelectables;
+				}
+			}
+
+			ObserveSelectables(); // キャッシュ更新時に監視も更新
 		}
 		#endregion
 
-		#region Internal Methods
-		/// <summary> Showの実処理 </summary>
+		#region Internal Logic
+		/// <summary> 表示処理の実装 </summary>
 		protected virtual void ShowInternal() {
+			m_nowShowing = true;
+			m_canvasGroup.blocksRaycasts = true;
+
+			aContainerManager.Add(this);
+
+			// InitialGuard機能の実行
+			if(m_initialGuard && m_initialGuardDuration > 0) {
+				m_canvasGroup.blocksRaycasts = false;
+				Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
+					.TakeUntilDestroy(this)
+					.Subscribe(_ => {
+						if(this != null && m_canvasGroup != null) {
+							m_canvasGroup.blocksRaycasts = true;
+						}
+					});
+			}
+
 #if UNITY_EDITOR
 			if(m_debugMode) {
 				var stackTrace = new System.Diagnostics.StackTrace();
@@ -194,29 +310,34 @@ namespace ANest.UI {
 			}
 #endif
 
-			CancelAnimation();
-			m_animationCts = new CancellationTokenSource();
-			var token = m_animationCts.Token;
-
-			// 表示状態とインタラクト状態を更新
+			// 1. 状態の更新とGameObjectの有効化
 			UpdateStateForShow();
-
 			SetActiveInternal(true);
+			m_onShow?.Invoke();
 
-			RegisterShowHistory();
+			// 2. アニメーションの再生（完了を待たずに選択復帰へ進む）
+			TryPlayAnimations(ShowAnimations, () => {
+				m_nowShowing = false;
+				m_showEndSubject.OnNext(Unit.Default);
+			}, () => {
+				m_nowShowing = false;
+			});
 
-
-			m_showEvent?.Invoke();
-
-			// アニメーションを開始し、待たずに選択を復帰
-			TryPlayAnimations(ShowAnimations);
-			ResumeSelection();
+			// 3. 選択状態の復帰
+			// 初期化中（Awake）の場合は Start で実行するためここではスキップ
+			if(m_initialized && !m_suppressAnimation) {
+				ResumeSelection();
+			}
 
 			m_suppressActiveWarning = false;
+			m_showStartSubject.OnNext(Unit.Default);
 		}
 
-		/// <summary> Hideの実処理 </summary>
+		/// <summary> 非表示処理の実装 </summary>
 		protected virtual void HideInternal() {
+			m_nowHiding = true;
+			m_canvasGroup.blocksRaycasts = false;
+
 #if UNITY_EDITOR
 			if(m_debugMode) {
 				var stackTrace = new System.Diagnostics.StackTrace();
@@ -225,133 +346,80 @@ namespace ANest.UI {
 			}
 #endif
 
-			CancelAnimation();
-			m_animationCts = new CancellationTokenSource();
-			var token = m_animationCts.Token;
-
-			// 現在の選択状態を退避
+			// 1. 現在の選択状態を保存
 			CaptureCurrentSelection();
 
-			// 表示/操作を無効化
+			// 2. 状態の更新
 			UpdateStateForHide();
+			m_onHide?.Invoke();
 
-			// 履歴から直前コンテナへフォーカスを戻す
-			FocusPreviousContainerFromHistory();
-
-			m_hideEvent?.Invoke();
-
-			// アニメーションを開始のみして即座に非表示へ
+			// 3. アニメーションの再生。完了時にGameObjectを非アクティブにする
 			TryPlayAnimations(HideAnimations,
 				() => {
-					if(m_isVisible) return;
+					// アニメーション完了時のみGameObjectを非表示にする
+					m_nowHiding = false;
 					SetActiveInternal(false);
+				},
+				() => {
+					// アニメーションが中断（Kill）された場合は、後続のShow処理を優先するため非表示化は行わない
+					m_nowHiding = false;
 				});
 
 			m_suppressActiveWarning = false;
 		}
-		#endregion
 
-		#region Private Methods
-		/// <summary> Show実行時に履歴へ登録し最新のコンテナとして記録する </summary>
-		private void RegisterShowHistory() {
-			if(!Application.isPlaying) return;
-
-			CleanHistory();
-			ContainerHistory.Remove(this);
-			ContainerHistory.Add(this);
-		}
-
-		/// <summary> Hide時に自身を履歴から除外し、直前の可視コンテナへフォーカスを戻す </summary>
-		private void FocusPreviousContainerFromHistory() {
-			if(!Application.isPlaying) return;
-
-			CleanHistory();
-			ContainerHistory.Remove(this);
-
-			// 履歴を後方から走査し、有効かつ表示中のコンテナを探す
-			for (int i = ContainerHistory.Count - 1; i >= 0; i--) {
-				var container = ContainerHistory[i];
-				if(container == null) {
-					ContainerHistory.RemoveAt(i);
-					continue;
-				}
-				if(!container.gameObject.activeInHierarchy) {
-					ContainerHistory.RemoveAt(i);
-					continue;
-				}
-				if(!container.m_isVisible) continue;
-
-				container.RestoreFocusFromHistory();
-				break;
-			}
-		}
-
-		/// <summary> 履歴から復帰する際に操作可否と選択状態を元に戻す </summary>
-		private void RestoreFocusFromHistory() {
-			Interactable = true;
-			ResumeSelection();
-		}
-
-		/// <summary> 無効化時などに履歴から自身を除外する </summary>
-		private void UnregisterFromHistory() {
-			if(!Application.isPlaying) return;
-
-			CleanHistory();
-			ContainerHistory.Remove(this);
-		}
-
-		/// <summary> 履歴内のnullエントリを除去して整合性を保つ </summary>
-		private static void CleanHistory() {
-			for (int i = ContainerHistory.Count - 1; i >= 0; i--) {
-				if(ContainerHistory[i] == null) {
-					ContainerHistory.RemoveAt(i);
-				}
-			}
-		}
-
-		/// <summary> SetActive実行時の警告抑制を行いながらActive状態を変更する </summary>
+		/// <summary> SetActive時の警告を回避しつつ、GameObjectの活性状態を切り替える </summary>
 		private void SetActiveInternal(bool active) {
 			if(gameObject.activeSelf == active) return;
 
 			m_suppressActiveWarning = true;
 			gameObject.SetActive(active);
+			m_suppressActiveWarning = false;
 		}
 
-		/// <summary> 非待機版のアニメーション実行。アニメーションが設定されていればその場で再生する </summary>
-		private void TryPlayAnimations(IUiAnimation[] animations, Action callback = null) {
+		/// <summary> アニメーションの再生を試行する。抑制フラグや設定がない場合は即座にコールバックを呼ぶ </summary>
+		private void TryPlayAnimations(IUiAnimation[] animations, Action completeCallback = null, Action killCallback = null) {
 			if(m_suppressAnimation || (!m_useCustomAnimations && !m_useSharedAnimation)) {
-				callback?.Invoke();
+				completeCallback?.Invoke();
 				return;
 			}
 
-			aGuiUtils.PlayAnimation(animations, m_targetRectTransform, m_targetGraphic, m_originalRectTransformValues, () => {
-				callback?.Invoke();
-			});
+			aGuiUtils.PlayAnimation(animations, m_guiInfo.RectTransform, m_guiInfo.TargetGraphic, m_guiInfo.OriginalRectTransformValues,
+				() => completeCallback?.Invoke(),
+				() => killCallback?.Invoke());
 		}
 
-
-		/// <summary> Hide前に現在選択されているSelectableを記録する </summary>
+		/// <summary> 現在フォーカスされているSelectableがこのコンテナ内であれば記録する </summary>
 		private void CaptureCurrentSelection() {
-			var es = EventSystem.current;
+			var es = aGuiManager.EventSystem;
 			if(es == null) return;
 			var selected = es.currentSelectedGameObject;
-			if(selected == null) return;
-			if(!selected.transform.IsChildOf(transform)) return;
+			if(selected == null) {
+				m_currentSelectable = null;
+				return;
+			}
+
+			// 自身の子要素である場合のみ記録
+			if(!selected.transform.IsChildOf(transform)) {
+				m_currentSelectable = null;
+				return;
+			}
 			m_lastSelected = selected.GetComponent<Selectable>();
+			m_currentSelectable = m_lastSelected;
 		}
 
-		/// <summary> 記録済みSelectableまたは初期Selectableへ選択状態を復帰する </summary>
+		/// <summary> 最後に選択されていた、または初期設定のSelectableにフォーカスを戻す </summary>
 		private void ResumeSelection() {
-			var es = EventSystem.current;
+			var es = aGuiManager.EventSystem;
 			if(es == null) return;
 
 			Selectable target = null;
-			// リジュームを優先する設定の場合は最後に選択されていた要素を採用
+			// リジューム設定が有効で、前回選択があった場合はそれを優先
 			if(m_defaultResumeSelectionOnShow && m_lastSelected != null && m_lastSelected.IsActive() && m_lastSelected.IsInteractable()) {
 				target = m_lastSelected;
 			}
 
-			// フォールバックとして初期Selectableを使用
+			// 候補がない場合は初期選択ターゲットを使用
 			if(target == null) {
 				target = m_initialSelectable;
 			}
@@ -362,50 +430,91 @@ namespace ANest.UI {
 			es.SetSelectedGameObject(target.gameObject);
 		}
 
-
-		/// <summary> Show時に表示フラグと操作可否をセットする </summary>
+		/// <summary> 表示状態の内部フラグを更新する </summary>
 		private void UpdateStateForShow() {
 			m_isVisible = true;
 			Interactable = true;
 		}
 
-		/// <summary> Hide時に表示フラグを下げ、操作を無効化する </summary>
+		/// <summary> 非表示状態の内部フラグを更新する </summary>
 		private void UpdateStateForHide() {
 			m_isVisible = false;
 			Interactable = false;
 		}
 
-		/// <summary> 外部からの直接SetActive操作を検知し、Show/Hide利用を促す警告を出す </summary>
+		/// <summary> 子要素のSelectableの選択イベントを監視する </summary>
+		protected void ObserveSelectables() {
+			m_selectDisposables.Clear();
+			if(m_childSelectables == null) return;
+
+			foreach (var selectable in m_childSelectables) {
+				if(selectable == null) continue;
+
+				// 選択された時の処理
+				selectable.OnSelectAsObservable()
+					.Subscribe(_ => {
+						m_currentSelectable = selectable;
+						m_onSelectChanged?.Invoke(selectable);
+					})
+					.AddTo(m_selectDisposables);
+
+				// 選択解除された時の処理
+				selectable.OnDeselectAsObservable()
+					.Subscribe(_ => {
+						if(!m_disallowNullSelection) return;
+
+						// 1フレーム待ってから再選択を試みる（Deselectの直後にSelectを呼ぶ必要があるため）
+						Observable.NextFrame().Subscribe(__ => {
+							// 自身が非アクティブになっていたら何もしない
+							if(this == null || !gameObject.activeInHierarchy) return;
+
+							// 最新のDisallowNullSelection有効コンテナである場合のみ再選択を行う
+							if(!aContainerManager.IsLatestContainer(this)) return;
+
+							if(aGuiManager.EventSystem != null && aGuiManager.EventSystem.currentSelectedGameObject == null) {
+								if(m_currentSelectable != null) {
+									m_currentSelectable.Select();
+								}
+							}
+						}).AddTo(m_selectDisposables);
+					})
+					.AddTo(m_selectDisposables);
+			}
+		}
+
+		/// <summary> 直接GameObject.SetActiveが呼ばれた場合に警告を出力する </summary>
 		private void WarnActiveChange() {
 			if(m_isQuitting) return;
 			Debug.LogWarning($"[{nameof(aContainerBase)}] {name} の gameObject.SetActive が直接変更されました。Show/Hide または表示フラグを使用してください。", this);
 		}
 		#endregion
 
-		#if UNITY_EDITOR
+		#region Editor Support
+#if UNITY_EDITOR
 		[SerializeField]
-		private bool m_debugMode = false;
+		private bool m_debugMode = false; // デバッグログの出力フラグ
 
+		/// <summary> コンテナ名の接頭辞 </summary>
 		protected virtual string ContainerNamePrefix => "Container - ";
 
-		/// <summary> コンポーネント追加時に自動リネームとキャッシュ更新を行う </summary>
+		/// <summary> コンポーネント追加・リセット時の処理 </summary>
 		private void Reset() {
 			if(Application.isPlaying) return;
 			AutoRenameInEditor();
-			CacheSelectablesInEditor();
+			RefreshChildSelectables();
 			CacheReferences();
 			ApplySharedAnimationsFromSet();
 		}
 
-		/// <summary> エディタ上で参照キャッシュを更新し、設定漏れを防ぐ </summary>
+		/// <summary> Inspectorでの値変更時の処理 </summary>
 		protected virtual void OnValidate() {
 			if(Application.isPlaying) return;
-			CacheSelectablesInEditor();
+			RefreshChildSelectables();
 			CacheReferences();
 			ApplySharedAnimationsFromSet();
 		}
 
-		/// <summary> コンテナ追加時にGameObject名へ接頭辞を付与する </summary>
+		/// <summary> GameObject名をルールに従って自動リネームする </summary>
 		private void AutoRenameInEditor() {
 			string prefix = ContainerNamePrefix;
 			if(string.IsNullOrEmpty(prefix)) return;
@@ -417,79 +526,37 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 既知のプレフィックスを取り除いて元の名前部分を取得する </summary>
+		/// <summary> 既知の接頭辞を削除した名前を取得する </summary>
 		protected virtual string TrimKnownPrefixes(string currentName) {
 			string prefix = ContainerNamePrefix;
 			if(string.IsNullOrEmpty(prefix)) return currentName;
 			return currentName.StartsWith(prefix) ? currentName.Substring(prefix.Length) : currentName;
 		}
 
-		/// <summary> RectTransformやCanvasGroupなど必要な参照を確保し、不足していれば生成する </summary>
+		/// <summary> 必要なコンポーネント参照をキャッシュする </summary>
 		private void CacheReferences() {
 			if(m_rectTransform == null) {
 				m_rectTransform = transform as RectTransform;
 			}
 
-			// CanvasGroupが未設定なら取得または新規追加
 			if(m_canvasGroup == null) {
 				m_canvasGroup = GetComponent<CanvasGroup>();
 			}
 
-			if(m_canvasGroup == null) {
-				m_canvasGroup = gameObject.AddComponent<CanvasGroup>();
-			}
-
-			// アニメーション対象のRectTransformを補完
-			if(m_targetRectTransform == null) {
-				m_targetRectTransform = m_rectTransform;
-			}
-
-			// アニメーション用に初期RectTransform値を保存
-			if(m_targetRectTransform != null) {
-				var currentValues = RectTransformValues.CreateValues(m_targetRectTransform);
-
-				if(!currentValues.Equals(m_originalRectTransformValues)) {
-					m_originalRectTransformValues = currentValues;
-				}
-			}
-
-			// Graphicが未設定なら同オブジェクトから取得
-			if(m_targetGraphic == null) {
-				m_targetGraphic = GetComponent<Graphic>();
+			if(m_guiInfo == null) {
+				m_guiInfo = GetComponent<aGuiInfo>();
 			}
 		}
 
-		/// <summary> エディタ上で子階層のSelectableをキャッシュする </summary>
-		private void CacheSelectablesInEditor() {
-			var currentSelectables = GetComponentsInChildren<Selectable>(true);
-			if(m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
-				m_childSelectables = currentSelectables;
-				return;
-			}
-
-			for (int i = 0; i < m_childSelectables.Length; i++) {
-				if(m_childSelectables[i] != currentSelectables[i]) {
-					m_childSelectables = currentSelectables;
-					return;
-				}
-			}
-		}
-
+		/// <summary> 共有アニメーションセットからアニメーションを複製して適用する </summary>
 		private void ApplySharedAnimationsFromSet() {
 			if(!m_useSharedAnimation) return;
 			if(m_sharedAnimation == null) return;
 
-			// アセットの内容をクローンして適用
-			// 毎回クローンすると参照が変わるため、変更があったかどうかの判定が難しい。
-			// ここでは SetDirty(this) の無条件呼び出しを避けることを優先する。
-			// 実際の開発では、共有アセット側が変更されたら OnValidate が走るはずなので
-			// 何らかの手段で「変更された」ことを検知したい。
-			// ひとまず、「現在のアニメーションが null の場合のみ」あるいは「常に上書きするが SetDirty はしない」
-			// 形にして、UnityEditor.EditorUtility.SetDirty(this) を削除。
-
 			m_showAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.showAnimations);
 			m_hideAnimations = aGuiUtils.CloneAnimations(m_sharedAnimation.hideAnimations);
 		}
-		#endif
+#endif
+		#endregion
 	}
 }

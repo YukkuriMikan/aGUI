@@ -1,11 +1,13 @@
 {
-    "name": "ContainerTests",
+    "name": "aGuiTest",
     "rootNamespace": "",
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "aGUI",
-        "Unity.TextMeshPro"
+        "UniRx",
+        "UniTask",
+        "DOTweenPro.Scripts"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -53,16 +53,16 @@ namespace ANest.UI {
 
 		private void SubscribeToMainContainer() {
 			if(m_mainContainer == null) return;
-			m_mainContainer.ShowEvent.RemoveListener(OnMainContainerShow);
-			m_mainContainer.HideEvent.RemoveListener(OnMainContainerHide);
-			m_mainContainer.ShowEvent.AddListener(OnMainContainerShow);
-			m_mainContainer.HideEvent.AddListener(OnMainContainerHide);
+			m_mainContainer.OnShow.RemoveListener(OnMainContainerShow);
+			m_mainContainer.OnHide.RemoveListener(OnMainContainerHide);
+			m_mainContainer.OnShow.AddListener(OnMainContainerShow);
+			m_mainContainer.OnHide.AddListener(OnMainContainerHide);
 		}
 
 		private void UnsubscribeFromMainContainer() {
 			if(m_mainContainer == null) return;
-			m_mainContainer.ShowEvent.RemoveListener(OnMainContainerShow);
-			m_mainContainer.HideEvent.RemoveListener(OnMainContainerHide);
+			m_mainContainer.OnShow.RemoveListener(OnMainContainerShow);
+			m_mainContainer.OnHide.RemoveListener(OnMainContainerHide);
 		}
 
 		private void SyncWithMainVisibility() {

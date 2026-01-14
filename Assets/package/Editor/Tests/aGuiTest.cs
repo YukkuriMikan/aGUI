@@ -4,7 +4,10 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 
+/// <summary>aGuiManagerのEventSystem切替挙動を検証するテスト</summary>
 public class aGuiTest {
+	#region Tests
+	/// <summary>UpdateEventSystemがシーン内のEventSystemを参照することを確認する</summary>
 	[Test]
 	public void EventSystemTest() {
 		var go = new GameObject("EventSystem");
@@ -18,6 +21,7 @@ public class aGuiTest {
 		}
 	}
 
+	/// <summary>DontDestroyOnLoadシーンのEventSystemが優先されることを検証する</summary>
 	[UnityTest]
 	public IEnumerator EventSystemPriorityTest() {
 		var goNormal = new GameObject("NormalSceneEventSystem");
@@ -37,4 +41,5 @@ public class aGuiTest {
 			aGuiManager.UpdateEventSystem();
 		}
 	}
+	#endregion
 }

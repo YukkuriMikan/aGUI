@@ -8,8 +8,11 @@ namespace ANest.UI.Editor {
 	/// <summary> SerializeReference フィールドをドロップダウンで型選択できるようにするプロパティドロワー </summary>
 	[CustomPropertyDrawer(typeof(SerializeReferenceDropdownAttribute))]
 	public class SerializeReferenceDropdownDrawer : PropertyDrawer {
-		private const string NullEntryName = "(None)";
+		#region Fields
+		private const string NullEntryName = "(None)"; // 「なし」選択時に表示する名称
+		#endregion
 
+		#region Methods
 		/// <summary> ドロップダウン＋折りたたみ付きの描画処理 </summary>
 		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
 			EditorGUI.BeginProperty(position, label, property);
@@ -137,5 +140,6 @@ namespace ANest.UI.Editor {
 
 			return Type.GetType($"{typeName}, {assemblyName}");
 		}
+		#endregion
 	}
 }

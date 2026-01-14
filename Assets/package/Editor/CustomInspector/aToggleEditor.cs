@@ -4,52 +4,58 @@ using UnityEditor.UI;
 using UnityEngine;
 using UnityEngine.UI;
 
+
 namespace ANest.UI.Editor {
+	/// <summary>aToggleのインスペクタを拡張し、共有設定・ガード・アニメーション・RectTransform情報を整理して編集できるようにする。</summary>
 	[CustomEditor(typeof(aToggle), true)]
 	[CanEditMultipleObjects]
 	public class aToggleEditor : SelectableEditor {
-		private SerializedProperty interactableProp;
-		private SerializedProperty targetGraphicProp;
-		private SerializedProperty transitionProp;
-		private SerializedProperty colorBlockProp;
-		private SerializedProperty spriteStateProp;
-		private SerializedProperty animTriggerProp;
-		private SerializedProperty navigationProp;
-		private SerializedProperty useSharedParametersProp;
-		private SerializedProperty sharedParametersProp;
+		#region Fields
+		private SerializedProperty interactableProp;                   // interactable プロパティへの参照
+		private SerializedProperty targetGraphicProp;                  // targetGraphic プロパティへの参照
+		private SerializedProperty transitionProp;                     // transition プロパティへの参照
+		private SerializedProperty colorBlockProp;                     // colors プロパティへの参照
+		private SerializedProperty spriteStateProp;                    // spriteState プロパティへの参照
+		private SerializedProperty animTriggerProp;                    // animationTriggers プロパティへの参照
+		private SerializedProperty navigationProp;                     // navigation プロパティへの参照
+		private SerializedProperty useSharedParametersProp;            // 共有パラメータ使用フラグへの参照
+		private SerializedProperty sharedParametersProp;               // 共有パラメータオブジェクトへの参照
 
-		private SerializedProperty toggleTransitionProp;
-		private SerializedProperty toggleGraphicProp;
-		private SerializedProperty groupProp;
-		private SerializedProperty isOnProp;
-		private SerializedProperty onValueChangedProp;
+		private SerializedProperty toggleTransitionProp;               // トグルTransition種別への参照
+		private SerializedProperty toggleGraphicProp;                  // チェックマークGraphicへの参照
+		private SerializedProperty groupProp;                          // ToggleGroup参照への参照
+		private SerializedProperty isOnProp;                           // 初期状態フラグへの参照
+		private SerializedProperty onValueChangedProp;                 // 値変更イベントへの参照
 
-		private SerializedProperty useInitialGuardProp;
-		private SerializedProperty initialGuardDurationProp;
-		private SerializedProperty useMultipleInputGuardProp;
-		private SerializedProperty multipleInputGuardIntervalProp;
+		private SerializedProperty useInitialGuardProp;                // 初期ガード使用フラグへの参照
+		private SerializedProperty initialGuardDurationProp;           // 初期ガード時間への参照
+		private SerializedProperty useMultipleInputGuardProp;          // 連打ガード使用フラグへの参照
+		private SerializedProperty multipleInputGuardIntervalProp;     // 連打ガード間隔への参照
 
-		private SerializedProperty targetTextProp;
-		private SerializedProperty textTransitionProp;
-		private SerializedProperty textColorsProp;
-		private SerializedProperty textSwapStateProp;
-		private SerializedProperty textAnimationTriggersProp;
-		private SerializedProperty textAnimatorProp;
+		private SerializedProperty targetTextProp;                    // テキスト対象への参照
+		private SerializedProperty textTransitionProp;                // テキスト遷移種別への参照
+		private SerializedProperty textColorsProp;                    // テキストカラー設定への参照
+		private SerializedProperty textSwapStateProp;                 // テキスト差し替え設定への参照
+		private SerializedProperty textAnimationTriggersProp;         // テキストアニメーショントリガーへの参照
+		private SerializedProperty textAnimatorProp;                  // テキスト用Animatorへの参照
 
-		private SerializedProperty useCustomAnimationProp;
-		private SerializedProperty useSharedAnimationProp;
-		private SerializedProperty sharedAnimationProp;
-		private SerializedProperty clickAnimationsProp;
-		private SerializedProperty onAnimationsProp;
-		private SerializedProperty offAnimationsProp;
-		private SerializedProperty m_rectTransformProp;
-		private SerializedProperty m_targetRectTransformProp;
-		private SerializedProperty m_originalTargetRectTransformValuesProp;
-		private SerializedProperty m_originalToggleRectTransformValuesProp;
+		private SerializedProperty useCustomAnimationProp;            // 個別アニメーション使用フラグへの参照
+		private SerializedProperty useSharedAnimationProp;            // 共有アニメーション使用フラグへの参照
+		private SerializedProperty sharedAnimationProp;               // 共有アニメーションアセットへの参照
+		private SerializedProperty clickAnimationsProp;               // クリックアニメーション配列への参照
+		private SerializedProperty onAnimationsProp;                  // ONアニメーション配列への参照
+		private SerializedProperty offAnimationsProp;                 // OFFアニメーション配列への参照
+		private SerializedProperty m_rectTransformProp;               // 自身のRectTransform参照
+		private SerializedProperty m_targetRectTransformProp;         // 対象RectTransform参照
+		private SerializedProperty m_originalTargetRectTransformValuesProp; // 対象RectTransformの初期値
+		private SerializedProperty m_originalToggleRectTransformValuesProp; // Toggle用RectTransformの初期値
 
-		private static bool showNavigation;
-		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation";
+		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
+		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態の保存キー
+		#endregion
 
+		#region Unity Methods
+		/// <summary>インスペクタ描画に用いるSerializedProperty参照を初期化し、初期状態を補正する。</summary>
 		protected override void OnEnable() {
 			base.OnEnable();
 
@@ -101,6 +107,7 @@ namespace ANest.UI.Editor {
 			ValidateAndRefresh();
 		}
 
+		/// <summary>トグルの共有設定/ガード/アニメーション/イベントをまとめて描画する。</summary>
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
@@ -238,7 +245,10 @@ namespace ANest.UI.Editor {
 				ValidateAndRefresh();
 			}
 		}
+		#endregion
 
+		#region Validation
+		/// <summary>共有設定やアニメーションの反映、RectTransformキャッシュを更新する。</summary>
 		private void ValidateAndRefresh() {
 			if(Application.isPlaying) return;
 
@@ -321,7 +331,10 @@ namespace ANest.UI.Editor {
 				EditorUtility.SetDirty(toggle);
 			}
 		}
+		#endregion
 
+		#region Inspector Draw Methods
+		/// <summary>SelectableのTransition設定を描画し、共有設定と個別設定を切り替える。</summary>
 		private void DrawSelectableTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
 			EditorGUILayout.LabelField("Transition", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(targetGraphicProp);
@@ -360,6 +373,7 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 		}
 
+		/// <summary>ナビゲーション設定と可視化トグルを描画する。</summary>
 		private void DrawNavigationSection() {
 			EditorGUILayout.PropertyField(navigationProp);
 
@@ -373,11 +387,13 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>表示対象のSerializedPropertyからTransition種別を取得する。</summary>
 		private Selectable.Transition GetTransition(SerializedProperty transitionPropToShow = null) {
 			SerializedProperty source = transitionPropToShow ?? transitionProp;
 			return source == null ? (Selectable.Transition)transitionProp.enumValueIndex : (Selectable.Transition)source.enumValueIndex;
 		}
 
+		/// <summary>テキスト遷移設定を描画し、種類に応じた詳細設定UIを表示する。</summary>
 		private void DrawTextTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
 			SerializedProperty presetColorsProp = isSharedEnabled ? sharedSerializedObject?.FindProperty("textColors") : textColorsProp;
 
@@ -410,6 +426,7 @@ namespace ANest.UI.Editor {
 			EditorGUI.indentLevel--;
 		}
 
+		/// <summary>テキスト差し替え用の各ステート文字列設定を描画する。</summary>
 		private void DrawTextSwapFields(SerializedProperty swapStateProp) {
 			if(swapStateProp == null) return;
 
@@ -425,8 +442,10 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.PropertyField(selected, new GUIContent("Selected"));
 			EditorGUILayout.PropertyField(disabled, new GUIContent("Disabled"));
 		}
+		#endregion
 
-		/// <summary>ターゲットテキストが未設定の場合、既存のTextをTextMeshProUGUIに置換して設定する</summary>
+		#region Utilities
+		/// <summary>ターゲットテキストが未設定の場合、既存のTextをTextMeshProUGUIに置換して設定する。</summary>
 		private void TryAssignTargetText() {
 			if(targetTextProp == null) return;
 			if(targetTextProp.objectReferenceValue != null) return;
@@ -453,6 +472,7 @@ namespace ANest.UI.Editor {
 			serializedObject.ApplyModifiedProperties();
 		}
 
+		/// <summary>uGUI TextをTextMeshProUGUIへ置き換え、主要な表示設定を引き継ぐ。</summary>
 		private TMP_Text ConvertLegacyTextToTMP(Text legacy) {
 			if(legacy == null) return null;
 
@@ -481,6 +501,7 @@ namespace ANest.UI.Editor {
 			return tmp;
 		}
 
+		/// <summary>uGUIのTextAnchorをTMPのTextAlignmentOptionsへ変換する。</summary>
 		private TextAlignmentOptions ConvertAlignment(TextAnchor anchor) {
 			switch(anchor) {
 				case TextAnchor.UpperLeft: return TextAlignmentOptions.TopLeft;
@@ -496,6 +517,7 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>uGUIのFontStyleをTMPのFontStylesへ変換する。</summary>
 		private FontStyles ConvertFontStyle(FontStyle style) {
 			switch(style) {
 				case FontStyle.Bold: return FontStyles.Bold;
@@ -504,5 +526,6 @@ namespace ANest.UI.Editor {
 				default: return FontStyles.Normal;
 			}
 		}
+		#endregion
 	}
 }

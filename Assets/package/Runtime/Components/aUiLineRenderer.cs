@@ -6,49 +6,79 @@ using UnityEngine.Sprites;
 
 namespace ANest.UI {
 	public enum aUiLineRendererSpace {
-		Local,
-		World
+		Local, // ローカル座標系として扱う
+		World // ワールド座標系として扱う
 	}
 
 	public enum CapType {
-		Default,
-		Round,
-		Square
+		Default, // キャップなし（ストレート終端）
+		Round,   // 半円キャップで終端を丸める
+		Square   // 厚み分だけ延長する四角キャップ
 	}
 
 	public enum CornerType {
-		Default,
-		Round,
-		Bevel
+		Default, // 標準の角（ストレート接続）
+		Round,   // 丸めた角（ベジェ補間）
+		Bevel    // ベベルカットの角
 	}
 
-	/// <summary>
-	/// uGUI で LineRenderer 風の描画を行うコンポーネント
-	/// </summary>
+	/// <summary>uGUIでLineRenderer風の描画を行うコンポーネント</summary>
 	[RequireComponent(typeof(CanvasRenderer))]
 	[AddComponentMenu("UI/aUiLineRenderer")]
 	public class aUiLineRenderer : MaskableGraphic {
 		#region SerializeFields
-		[SerializeField] private float m_thickness = 2f;
-		[SerializeField] private AnimationCurve m_thicknessCurve = AnimationCurve.Linear(0f, 1f, 1f, 1f);
-		[SerializeField] private bool m_loop;
-		[SerializeField] private List<Vector2> m_points = new();
-		[SerializeField] private bool m_enableCornerInterpolation = true;
-		[SerializeField] private int m_cornerVertices = 8;
-		[SerializeField] private CornerType m_cornerType = CornerType.Default;
-		[SerializeField] private CapType m_startCap = CapType.Default;
-		[SerializeField] private CapType m_endCap = CapType.Default;
-		[SerializeField] private int m_startCapSegments = 8;
-		[SerializeField] private int m_endCapSegments = 8;
-		[SerializeField] private aUiLineRendererSpace m_space = aUiLineRendererSpace.Local;
-		[SerializeField] private Sprite m_sprite;
-		[SerializeField] private Vector2 m_uvTiling = Vector2.one;
-		[SerializeField] private Vector2 m_uvOffset = Vector2.zero;
-		[SerializeField] private bool m_swapUvAxes = false;
+		[Tooltip("線の太さ（ローカル座標）")]
+		[SerializeField]
+		private float m_thickness = 2f; // 線の太さ（ローカル座標）
+		[Tooltip("線の長さに対する太さの割合を制御するカーブ（0〜1）")]
+		[SerializeField]
+		private AnimationCurve m_thicknessCurve = AnimationCurve.Linear(0f, 1f, 1f, 1f); // 太さの変化カーブ
+		[Tooltip("始点と終点を繋いでループさせるかどうか")]
+		[SerializeField]
+		private bool m_loop; // 線をループさせるかどうか
+		[Tooltip("描画に使用するポイント（座標空間はSpaceに依存）")]
+		[SerializeField]
+		private List<Vector2> m_points = new(); // 描画ポイントのリスト
+		[Tooltip("角を補間して滑らかにするかどうか")]
+		[SerializeField]
+		private bool m_enableCornerInterpolation = true; // 角補間を行うかどうか
+		[Tooltip("角の丸めに使用する補間頂点数")]
+		[SerializeField]
+		private int m_cornerVertices = 8; // 丸め角の補間頂点数
+		[Tooltip("角をどのように描画するかの種類")]
+		[SerializeField]
+		private CornerType m_cornerType = CornerType.Default; // 角の描画タイプ
+		[Tooltip("始点側の終端キャップ形状")]
+		[SerializeField]
+		private CapType m_startCap = CapType.Default; // 始点キャップタイプ
+		[Tooltip("終点側の終端キャップ形状")]
+		[SerializeField]
+		private CapType m_endCap = CapType.Default; // 終点キャップタイプ
+		[Tooltip("始点キャップ（Round）の分割数")]
+		[SerializeField]
+		private int m_startCapSegments = 8; // 始点キャップの分割数
+		[Tooltip("終点キャップ（Round）の分割数")]
+		[SerializeField]
+		private int m_endCapSegments = 8; // 終点キャップの分割数
+		[Tooltip("ポイントの座標系の指定")]
+		[SerializeField]
+		private aUiLineRendererSpace m_space = aUiLineRendererSpace.Local; // ポイントの座標系
+		[Tooltip("描画に使用するスプライト（nullの場合はデフォルトテクスチャ）")]
+		[SerializeField]
+		private Sprite m_sprite; // 使用するスプライト
+		[Tooltip("UVのタイリング倍率")]
+		[SerializeField]
+		private Vector2 m_uvTiling = Vector2.one; // UVタイリング
+		[Tooltip("UVのオフセット値")]
+		[SerializeField]
+		private Vector2 m_uvOffset = Vector2.zero; // UVオフセット
+		[Tooltip("UVのX/Yを入れ替えるかどうか")]
+		[SerializeField]
+		private bool m_swapUvAxes = false; // UV軸を入れ替えるかどうか
 		#endregion
 
 		#region Properties
-		/// <summary> 線の太さ（ローカル座標） </summary>
+		/// <summary>線の太さ（ローカル座標）</summary>
 		public float Thickness {
 			get => m_thickness;
 			set {
@@ -57,7 +87,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 線の長さに対する太さの割合を制御するカーブ（0〜1） </summary>
+		/// <summary>線の長さに対する太さの割合を制御するカーブ（0〜1）</summary>
 		public AnimationCurve ThicknessCurve {
 			get => m_thicknessCurve;
 			set {
@@ -66,7 +96,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 始点終点をつなげるループ </summary>
+		/// <summary>始点終点をつなげるループ</summary>
 		public bool Loop {
 			get => m_loop;
 			set {
@@ -75,7 +105,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 角の丸めに使用する補間頂点数 </summary>
+		/// <summary>角の丸めに使用する補間頂点数</summary>
 		public int CornerVertices {
 			get => m_cornerVertices;
 			set {
@@ -84,7 +114,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 角の補間を行うかどうか </summary>
+		/// <summary>角の補間を行うかどうか</summary>
 		public bool EnableCornerInterpolation {
 			get => m_enableCornerInterpolation;
 			set {
@@ -93,7 +123,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> ポイントの座標空間 </summary>
+		/// <summary>ポイントの座標空間</summary>
 		public aUiLineRendererSpace Space {
 			get => m_space;
 			set {
@@ -102,40 +132,32 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 描画ポイントリスト（ローカル座標） </summary>
+		/// <summary>描画ポイントリスト（ローカル座標）</summary>
 		public IList<Vector2> Points => m_points;
 
-		/// <summary> 描画ポイント数 </summary>
+		/// <summary>描画ポイント数</summary>
 		public int PointsCount => m_points?.Count ?? 0;
 
-		/// <summary>
-		/// ポイントをすべてクリアします。
-		/// </summary>
+		/// <summary>ポイントをすべてクリアする</summary>
 		public void ClearPoints() {
 			m_points.Clear();
 			SetVerticesDirty();
 		}
 
-		/// <summary>
-		/// ポイントを追加します。
-		/// </summary>
+		/// <summary>ポイントを追加する</summary>
 		public void AddPoint(Vector2 point) {
 			m_points.Add(point);
 			SetVerticesDirty();
 		}
 
-		/// <summary>
-		/// 複数のポイントを追加します。
-		/// </summary>
+		/// <summary>複数のポイントを追加する</summary>
 		public void AddPoints(IEnumerable<Vector2> points) {
 			if(points == null) return;
 			m_points.AddRange(points);
 			SetVerticesDirty();
 		}
 
-		/// <summary>
-		/// 指定インデックスのポイントを削除します。
-		/// </summary>
+		/// <summary>指定インデックスのポイントを削除する</summary>
 		public bool RemovePoint(int index) {
 			if(index < 0 || index >= m_points.Count) return false;
 			m_points.RemoveAt(index);
@@ -143,9 +165,7 @@ namespace ANest.UI {
 			return true;
 		}
 
-		/// <summary>
-		/// 指定したインデックス範囲のポイントを削除します（両端含む）。
-		/// </summary>
+		/// <summary>指定したインデックス範囲のポイントを削除する（両端含む）</summary>
 		/// <param name="startIndex">削除を開始するインデックス</param>
 		/// <param name="endIndex">削除を終了するインデックス（包含）</param>
 		/// <returns>削除したポイント数</returns>
@@ -158,9 +178,7 @@ namespace ANest.UI {
 			return removeCount;
 		}
 
-		/// <summary>
-		/// 指定インデックスのポイントを置き換えます。
-		/// </summary>
+		/// <summary>指定インデックスのポイントを置き換える</summary>
 		public bool ReplacePoint(int index, Vector2 point) {
 			if(index < 0 || index >= m_points.Count) return false;
 			m_points[index] = point;
@@ -168,9 +186,7 @@ namespace ANest.UI {
 			return true;
 		}
 
-		/// <summary>
-		/// 指定インデックスにポイントを挿入します。
-		/// </summary>
+		/// <summary>指定インデックスにポイントを挿入する</summary>
 		public bool InsertPoint(int index, Vector2 point) {
 			if(index < 0 || index > m_points.Count) return false;
 			m_points.Insert(index, point);
@@ -178,7 +194,7 @@ namespace ANest.UI {
 			return true;
 		}
 
-		/// <summary> UV タイリング </summary>
+		/// <summary>UVタイリング</summary>
 		public Vector2 UvTiling {
 			get => m_uvTiling;
 			set {
@@ -187,7 +203,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> UV オフセット </summary>
+		/// <summary>UVオフセット</summary>
 		public Vector2 UvOffset {
 			get => m_uvOffset;
 			set {
@@ -196,7 +212,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> UV の X/Y を入れ替えるかどうか </summary>
+		/// <summary>UVのX/Yを入れ替えるかどうか</summary>
 		public bool SwapUvAxes {
 			get => m_swapUvAxes;
 			set {
@@ -205,7 +221,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 角のメッシュタイプ </summary>
+		/// <summary>角のメッシュタイプ</summary>
 		public CornerType CornerMeshType {
 			get => m_cornerType;
 			set {
@@ -214,7 +230,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 始点のキャップ種別 </summary>
+		/// <summary>始点のキャップ種別</summary>
 		public CapType StartCap {
 			get => m_startCap;
 			set {
@@ -223,7 +239,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 始点キャップのセグメント数（Round時のみ有効） </summary>
+		/// <summary>始点キャップのセグメント数（Round時のみ有効）</summary>
 		public int StartCapSegments {
 			get => m_startCapSegments;
 			set {
@@ -232,7 +248,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 終点のキャップ種別 </summary>
+		/// <summary>終点のキャップ種別</summary>
 		public CapType EndCap {
 			get => m_endCap;
 			set {
@@ -241,7 +257,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 終点キャップのセグメント数（Round時のみ有効） </summary>
+		/// <summary>終点キャップのセグメント数（Round時のみ有効）</summary>
 		public int EndCapSegments {
 			get => m_endCapSegments;
 			set {
@@ -250,7 +266,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 描画に使用するスプライト </summary>
+		/// <summary>描画に使用するスプライト</summary>
 		public Sprite Sprite {
 			get => m_sprite;
 			set {
@@ -262,8 +278,10 @@ namespace ANest.UI {
 		}
 		#endregion
 
+		/// <summary>描画に使用されるテクスチャを返す</summary>
 		public override Texture mainTexture => m_sprite != null ? m_sprite.texture : base.mainTexture;
 
+		/// <summary>UVをスプライト設定と入れ替え設定に基づき変換する</summary>
 		private Vector2 TransformUV(Vector2 uv) {
 			if(m_swapUvAxes) uv = new Vector2(uv.y, uv.x);
 			if(m_sprite == null) return uv;
@@ -274,12 +292,14 @@ namespace ANest.UI {
 
 		#region Unity Overrides
 		#if UNITY_EDITOR
+		/// <summary>エディタ上で値が変更された際にメッシュ更新を反映する</summary>
 		protected override void OnValidate() {
 			base.OnValidate();
 			SetVerticesDirty();
 		}
 		#endif
 
+		/// <summary>描画用メッシュを構築する</summary>
 		protected override void OnPopulateMesh(VertexHelper vh) {
 			vh.Clear();
 
@@ -294,8 +314,10 @@ namespace ANest.UI {
 		#endregion
 
 		#region Private Methods
+		/// <summary>補間設定から実際に使用する角タイプを算出する</summary>
 		private CornerType EffectiveCornerType => m_enableCornerInterpolation ? CornerType.Default : m_cornerType;
 
+		/// <summary>ストリップメッシュを構築する</summary>
 		private void BuildStripMesh(VertexHelper vh, IReadOnlyList<Vector2> points) {
 			var baseCount = points.Count;
 			var isLoop = m_loop && baseCount > 2;
@@ -344,6 +366,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>角用の分割ストリップを生成する</summary>
 		private void BuildSegmentedStrip(VertexHelper vh, IReadOnlyList<Vector2> points, IReadOnlyList<float> lengths, float totalLength, bool isLoop) {
 			var count = points.Count;
 			if(count < 2) return;
@@ -359,6 +382,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>1セグメント分のストリップを追加する</summary>
 		private void AddSegmentStrip(VertexHelper vh, Vector2 start, Vector2 end, float startLength, float endLength, float totalLength, bool trimStart, bool trimEnd) {
 			var dir = end - start;
 			if(dir.sqrMagnitude <= Mathf.Epsilon) return;
@@ -400,6 +424,7 @@ namespace ANest.UI {
 			vh.AddTriangle(baseIndex, baseIndex + 3, baseIndex + 2);
 		}
 
+		/// <summary>角部分のメッシュを追加する</summary>
 		private void AddCornerMeshes(VertexHelper vh, IReadOnlyList<Vector2> points, IReadOnlyList<float> lengths, float totalLength, bool isLoop, CornerType cornerType) {
 			var count = points.Count;
 			if(count < 2) return;
@@ -456,6 +481,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>ベベルタイプの角メッシュを追加する</summary>
 		private void AddBevelCornerMesh(VertexHelper vh, Vector2 center, Vector2 fromNormal, Vector2 toNormal, float halfThickness, float uvX, float uvBottom, float uvTop, bool leftTurn) {
 			// セグメントの進行方向を復元（法線の外向き符号を考慮）
 			var baseFromDir = new Vector2(fromNormal.y, -fromNormal.x);
@@ -484,6 +510,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>丸め角タイプのメッシュを追加する</summary>
 		private void AddRoundCornerMesh(VertexHelper vh, Vector2 center, Vector2 fromNormal, Vector2 toNormal, float halfThickness, float uvX, float uvBottom, float uvTop, bool leftTurn) {
 			var segments = Mathf.Max(1, m_cornerVertices);
 			var baseIndex = vh.currentVertCount;
@@ -548,6 +575,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>始点終点にキャップメッシュを追加する</summary>
 		private void AddCaps(VertexHelper vh, IReadOnlyList<Vector2> points, IReadOnlyList<Vector2> normals, IReadOnlyList<float> lengths, float totalLength) {
 			// 始点キャップ
 			if(m_startCap != CapType.Default) {
@@ -567,6 +595,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>キャップ種別に応じたメッシュを追加する</summary>
 		private void AddCapMesh(VertexHelper vh, Vector2 point, Vector2 dir, Vector2 normal, float length, float totalLength, CapType cap, int segments, bool isStart) {
 			if(cap == CapType.Default) return;
 			segments = Mathf.Max(1, segments);
@@ -624,6 +653,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>ストリップの頂点ペアを追加する</summary>
 		private void AddStripVertices(VertexHelper vh, Vector2 point, Vector2 normal, float length, float totalLength) {
 			var normalized = totalLength <= Mathf.Epsilon ? 0f : Mathf.Clamp01(length / totalLength);
 			var halfThickness = EvaluateThickness(normalized) * 0.5f;
@@ -637,17 +667,20 @@ namespace ANest.UI {
 			AddVertex(vh, point + offset, TransformUV(new Vector2(uvX, uvTop)));
 		}
 
+		/// <summary>指定座標とUVで頂点を追加する</summary>
 		private void AddVertex(VertexHelper vh, Vector2 point, Vector2 uv) {
 			var pos = new Vector3(point.x, point.y, 0f);
 			vh.AddVert(pos, color, uv);
 		}
 
+		/// <summary>正規化距離から太さを評価する</summary>
 		private float EvaluateThickness(float normalizedLength) {
 			var curveValue = m_thicknessCurve != null ? m_thicknessCurve.Evaluate(Mathf.Clamp01(normalizedLength)) : 1f;
 			var scale = Mathf.Max(0f, curveValue);
 			return m_thickness * scale;
 		}
 
+		/// <summary>座標空間設定に応じてポイントをローカル座標へ変換する</summary>
 		private Vector2 ToLocalPoint(Vector2 point) {
 			if(m_space == aUiLineRendererSpace.Local) return point;
 
@@ -655,6 +688,7 @@ namespace ANest.UI {
 			return rectTransform.InverseTransformPoint(worldPoint);
 		}
 
+		/// <summary>渡されたポイント群をローカル座標へ変換する</summary>
 		private List<Vector2> ConvertToLocalPoints(IReadOnlyList<Vector2> source) {
 			var result = new List<Vector2>(source.Count);
 			for (var i = 0; i < source.Count; i++) {
@@ -663,6 +697,7 @@ namespace ANest.UI {
 			return result;
 		}
 
+		/// <summary>角の設定に応じて描画用ポイント列を生成する</summary>
 		private List<Vector2> BuildDrawablePoints(IReadOnlyList<Vector2> localPoints) {
 			if(localPoints.Count < 2) return new List<Vector2>(localPoints);
 
@@ -693,6 +728,7 @@ namespace ANest.UI {
 			return result;
 		}
 
+		/// <summary>丸めた角を生成して出力リストに追加する</summary>
 		private void AppendRoundedCorner(List<Vector2> dst, Vector2 prev, Vector2 current, Vector2 next, bool addStart = false) {
 			var dirPrev = current - prev;
 			var dirNext = next - current;
@@ -724,11 +760,13 @@ namespace ANest.UI {
 			dst.Add(end);
 		}
 
+		/// <summary>二次ベジェ曲線上の座標を計算する</summary>
 		private Vector2 QuadraticBezier(Vector2 p0, Vector2 p1, Vector2 p2, float t) {
 			var u = 1f - t;
 			return (u * u * p0) + (2f * u * t * p1) + (t * t * p2);
 		}
 
+		/// <summary>各ポイントに対応する法線を計算する</summary>
 		private List<Vector2> CalculateNormals(IReadOnlyList<Vector2> points, bool isLoop) {
 			var count = points.Count;
 			var normals = new List<Vector2>(count);

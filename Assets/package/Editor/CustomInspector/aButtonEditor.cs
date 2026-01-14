@@ -4,45 +4,49 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI.Editor {
+	/// <summary>aButtonのインスペクタを拡張し、共有パラメータやガード、アニメーションを統一したUIで編集できるようにする。</summary>
 	[CustomEditor(typeof(aButton), true)]
 	[CanEditMultipleObjects]
 	public class aButtonEditor : SelectableEditor {
+		#region Fields
+		private SerializedProperty interactableProp;  // interactable プロパティへの参照
+		private SerializedProperty targetGraphicProp; // targetGraphic プロパティへの参照
+		private SerializedProperty transitionProp;    // transition プロパティへの参照
+		private SerializedProperty colorBlockProp;    // colors プロパティへの参照
+		private SerializedProperty spriteStateProp;   // spriteState プロパティへの参照
+		private SerializedProperty animTriggerProp;   // animationTriggers プロパティへの参照
+		private SerializedProperty navigationProp;    // navigation プロパティへの参照
 
-		private SerializedProperty interactableProp;
-		private SerializedProperty targetGraphicProp;
-		private SerializedProperty transitionProp;
-		private SerializedProperty colorBlockProp;
-		private SerializedProperty spriteStateProp;
-		private SerializedProperty animTriggerProp;
-		private SerializedProperty navigationProp;
+		private SerializedProperty onRightClickProp;               // 右クリックイベントへの参照
+		private SerializedProperty useSharedParametersProp;        // 共有パラメータ使用フラグへの参照
+		private SerializedProperty sharedParametersProp;           // 共有パラメータオブジェクトへの参照
+		private SerializedProperty useInitialGuardProp;            // 初期ガード使用フラグへの参照
+		private SerializedProperty initialGuardDurationProp;       // 初期ガード時間への参照
+		private SerializedProperty enableLongPressProp;            // 長押し有効フラグへの参照
+		private SerializedProperty longPressDurationProp;          // 長押し時間への参照
+		private SerializedProperty onLongPressProp;                // 長押し成立イベントへの参照
+		private SerializedProperty onLongPressCancelProp;          // 長押しキャンセルイベントへの参照
+		private SerializedProperty useMultipleInputGuardProp;      // 連打ガード使用フラグへの参照
+		private SerializedProperty multipleInputGuardIntervalProp; // 連打ガード間隔への参照
+		private SerializedProperty targetTextProp;                 // テキスト対象への参照
+		private SerializedProperty textTransitionProp;             // テキスト遷移種別への参照
+		private SerializedProperty textColorsProp;                 // テキストカラー設定への参照
+		private SerializedProperty textSwapStateProp;              // テキスト差し替え設定への参照
+		private SerializedProperty textAnimationTriggersProp;      // テキストアニメーショントリガーへの参照
+		private SerializedProperty textAnimatorProp;               // テキスト用Animatorへの参照
+		private SerializedProperty useCustomAnimationProp;         // 個別アニメーション使用フラグへの参照
+		private SerializedProperty useSharedAnimationProp;         // 共有アニメーション使用フラグへの参照
+		private SerializedProperty sharedAnimationProp;            // 共有アニメーションアセットへの参照
+		private SerializedProperty clickAnimationProp;             // クリックアニメーション配列への参照
+		private SerializedProperty longPressImageProp;             // 長押し進捗Imageへの参照
+		private SerializedProperty onClickProp;                    // OnClickイベントへの参照
 
-		private SerializedProperty onRightClickProp;
-		private SerializedProperty useSharedParametersProp;
-		private SerializedProperty sharedParametersProp;
-		private SerializedProperty useInitialGuardProp;
-		private SerializedProperty initialGuardDurationProp;
-		private SerializedProperty enableLongPressProp;
-		private SerializedProperty longPressDurationProp;
-		private SerializedProperty onLongPressProp;
-		private SerializedProperty onLongPressCancelProp;
-		private SerializedProperty useMultipleInputGuardProp;
-		private SerializedProperty multipleInputGuardIntervalProp;
-		private SerializedProperty targetTextProp;
-		private SerializedProperty textTransitionProp;
-		private SerializedProperty textColorsProp;
-		private SerializedProperty textSwapStateProp;
-		private SerializedProperty textAnimationTriggersProp;
-		private SerializedProperty textAnimatorProp;
-		private SerializedProperty useCustomAnimationProp;
-		private SerializedProperty useSharedAnimationProp;
-		private SerializedProperty sharedAnimationProp;
-		private SerializedProperty clickAnimationProp;
-		private SerializedProperty longPressImageProp;
-		private SerializedProperty onClickProp;
+		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
+		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態保存用キー
+		#endregion
 
-		private static bool showNavigation;
-		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation";
-
+		#region Unity Methods
+		/// <summary>インスペクタ描画で使用するSerializedProperty参照を初期化する。</summary>
 		protected override void OnEnable() {
 			base.OnEnable();
 
@@ -80,6 +84,7 @@ namespace ANest.UI.Editor {
 			showNavigation = EditorPrefs.GetBool(ShowNavigationKey);
 		}
 
+		/// <summary>インスペクタGUIを構築し、共有設定やガード・アニメーションの編集UIを描画する。</summary>
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
@@ -202,7 +207,10 @@ namespace ANest.UI.Editor {
 
 			serializedObject.ApplyModifiedProperties();
 		}
+		#endregion
 
+		#region Inspector Draw Methods
+		/// <summary>SelectableのTransition設定を描画し、共有設定と個別設定を切り替える。</summary>
 		private void DrawSelectableTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
 			EditorGUILayout.LabelField("Transition", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(targetGraphicProp);
@@ -241,6 +249,7 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 		}
 
+		/// <summary>ナビゲーション設定と可視化トグルを描画する。</summary>
 		private void DrawNavigationSection() {
 			EditorGUILayout.PropertyField(navigationProp);
 
@@ -254,11 +263,13 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>表示対象のSerializedPropertyからTransition種別を取得する。</summary>
 		private Selectable.Transition GetTransition(SerializedProperty transitionPropToShow = null) {
 			SerializedProperty source = transitionPropToShow ?? transitionProp;
 			return source == null ? (Selectable.Transition)transitionProp.enumValueIndex : (Selectable.Transition)source.enumValueIndex;
 		}
 
+		/// <summary>テキストの遷移設定を描画し、種類に応じた詳細設定UIを表示する。</summary>
 		private void DrawTextTransitionSection(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
 			SerializedProperty presetColorsProp = isSharedEnabled ? sharedSerializedObject?.FindProperty("textColors") : textColorsProp;
 
@@ -291,6 +302,7 @@ namespace ANest.UI.Editor {
 			EditorGUI.indentLevel--;
 		}
 
+		/// <summary>テキストスワップ用の各ステート文字列設定を描画する。</summary>
 		private void DrawTextSwapFields(bool isSharedEnabled, SerializedObject sharedSerializedObject) {
 			SerializedProperty swapStateProp = isSharedEnabled ? sharedSerializedObject?.FindProperty("textSwapState") : textSwapStateProp;
 			if(swapStateProp == null) return;
@@ -307,6 +319,6 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.PropertyField(selected, new GUIContent("Selected"));
 			EditorGUILayout.PropertyField(disabled, new GUIContent("Disabled"));
 		}
-
+		#endregion
 	}
 }

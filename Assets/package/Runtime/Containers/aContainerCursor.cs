@@ -4,33 +4,25 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary>
-	/// aContainerBase の CurrentSelectable に追従するカーソルを制御するクラス
-	/// </summary>
+	/// <summary>aContainerBase の CurrentSelectable に追従するカーソルを制御するコンポーネント</summary>
 	public class aContainerCursor : MonoBehaviour {
 		#region Enums
-		/// <summary> 移動モード </summary>
+		/// <summary>移動モード</summary>
 		public enum MoveMode {
-			/// <summary> 即座に移動 </summary>
-			Instant,
-			/// <summary> アニメーションを伴って移動 </summary>
-			Animation
+			Instant,   // 即座に移動
+			Animation  // アニメーションを伴って移動
 		}
 
-		/// <summary> サイズ変更モード </summary>
+		/// <summary>サイズ変更モード</summary>
 		public enum SizeMode {
-			/// <summary> 固定サイズ </summary>
-			Fixed,
-			/// <summary> 選択対象のサイズに合わせる </summary>
-			MatchSelectable
+			Fixed,            // 固定サイズ
+			MatchSelectable   // 選択対象のサイズに合わせる
 		}
 
-		/// <summary> 更新モード </summary>
+		/// <summary>更新モード</summary>
 		public enum UpdateMode {
-			/// <summary> 選択対象が変更された時のみ更新 </summary>
-			OnSelectChanged,
-			/// <summary> 毎フレーム（LateUpdate）更新 </summary>
-			EveryFrame
+			OnSelectChanged, // 選択対象が変更された時のみ更新
+			EveryFrame      // 毎フレーム（LateUpdate）更新
 		}
 		#endregion
 
@@ -74,7 +66,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Lifecycle Methods
-		/// <summary> 開始時にコンテナの選択変更を購読する </summary>
+		/// <summary>開始時にコンテナの選択変更を購読する</summary>
 		private void Start() {
 			if(m_container != null) {
 				m_container.ObserveEveryValueChanged(c => c.CurrentSelectable)
@@ -83,14 +75,14 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する </summary>
+		/// <summary>ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する</summary>
 		private void LateUpdate() {
 			if(m_updateMode == UpdateMode.EveryFrame) {
 				UpdateCursor(m_currentTargetRect);
 			}
 		}
 
-		/// <summary> 破棄時に購読解除とTweenの破棄を行う </summary>
+		/// <summary>破棄時に購読解除とTweenの破棄を行う</summary>
 		private void OnDestroy() {
 			m_disposables.Dispose();
 			m_moveTween?.Kill();
@@ -99,7 +91,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Internal Logic
-		/// <summary> 選択対象が変更された際のコールバック </summary>
+		/// <summary>選択対象が変更された際にカーソル追従の準備を行う</summary>
 		/// <param name="selectable">新しく選択されたSelectable</param>
 		private void OnSelectableChanged(Selectable selectable) {
 			m_currentTargetRect = selectable != null ? selectable.GetComponent<RectTransform>() : null;
@@ -127,7 +119,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> カーソルの位置とサイズを選択対象に合わせる </summary>
+		/// <summary>カーソルの位置とサイズを選択対象に合わせる</summary>
 		/// <param name="targetRect">ターゲットのRectTransform</param>
 		private void UpdateCursor(RectTransform targetRect) {
 			if(targetRect == null || m_cursorRect == null) return;
@@ -174,7 +166,7 @@ namespace ANest.UI {
 
 		#region Editor Support
 #if UNITY_EDITOR
-		/// <summary> インスペクターでの値変更時に参照を更新する </summary>
+		/// <summary>インスペクターでの値変更時に参照を更新する</summary>
 		private void OnValidate() {
 			if(m_container == null) {
 				m_container = GetComponentInParent<aContainerBase>();

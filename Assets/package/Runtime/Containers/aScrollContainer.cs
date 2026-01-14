@@ -4,32 +4,37 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
+	/// <summary>選択変更に応じてScrollRectを自動スクロールするコンテナ</summary>
 	public class aScrollContainer : aContainerBase {
-		[SerializeField]
-		private ScrollRect m_scrollRect;
+		[Tooltip("スクロール対象のScrollRect")]
+		[SerializeField] private ScrollRect m_scrollRect;       // スクロール対象のScrollRect
 
-		[SerializeField]
-		private float m_scrollDuration = 0.2f;
+		[Tooltip("スクロールにかける時間（秒）")]
+		[SerializeField] private float m_scrollDuration = 0.2f; // スクロール時間（秒）
 
-		[SerializeField]
-		private float m_scrollPadding = 20f;
+		[Tooltip("アイテム表示時の上下余白（ピクセル）")]
+		[SerializeField] private float m_scrollPadding = 20f;   // スクロール時の余白
 
-		private CancellationTokenSource m_scrollCancelSource;
-		private Selectable m_previousSelectable;
+		private CancellationTokenSource m_scrollCancelSource; // スクロールキャンセル用CTS
+		private Selectable m_previousSelectable;              // 直前に選択されていたSelectable
 
+		/// <summary>初期化時に選択変更リスナーを登録する</summary>
 		protected override void Initialize() {
 			base.Initialize();
 			OnSelectChanged.AddListener(OnSelectChangedAction);
 		}
 
+		/// <summary>破棄時にスクロールアニメーションをキャンセルする</summary>
 		protected override void OnDestroy() {
 			base.OnDestroy();
 			m_scrollCancelSource?.Cancel();
 			m_scrollCancelSource?.Dispose();
 		}
 
+		/// <summary>選択対象が変わった際にスクロールを開始する</summary>
+		/// <param name="selectable">現在選択されたSelectable</param>
 		private void OnSelectChangedAction(Selectable selectable) {
-			if (selectable == null) return;
+			if(selectable == null) return;
 
 			var item = selectable.GetComponent<RectTransform>();
 			var previousItem = m_previousSelectable != null ? m_previousSelectable.GetComponent<RectTransform>() : null;

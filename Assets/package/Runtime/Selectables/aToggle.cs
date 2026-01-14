@@ -5,7 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 
 namespace ANest.UI {
-	/// <summary> 各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle </summary>
+	/// <summary>各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle</summary>
 	[RequireComponent(typeof(aGuiInfo))]
 	public class aToggle : Toggle {
 		#region SerializeField
@@ -70,7 +70,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Unity Methods
-		/// <summary> 有効化時に初期化とRectTransformの初期値取得を行う </summary>
+		/// <summary>有効化時に初期化とRectTransformの初期値取得を行う</summary>
 		protected override void OnEnable() {
 			ApplySharedParametersIfNeeded();
 			base.OnEnable();
@@ -79,7 +79,7 @@ namespace ANest.UI {
 			RegisterToggleListener(true);
 		}
 
-		/// <summary> 無効化時にリスナー解除やアニメーションのキャンセルを行う </summary>
+		/// <summary>無効化時にリスナー解除やアニメーションのキャンセルを行う</summary>
 		protected override void OnDisable() {
 			base.OnDisable();
 
@@ -87,7 +87,7 @@ namespace ANest.UI {
 			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
 		}
 
-		/// <summary> クリック入力時のガード判定とアニメーション再生を処理する </summary>
+		/// <summary>クリック入力時のガード判定とアニメーション再生を処理する</summary>
 		public override void OnPointerClick(PointerEventData eventData) {
 			if(eventData.button != PointerEventData.InputButton.Left) return;
 			if(!IsActive() || !IsInteractable()) return;
@@ -100,7 +100,7 @@ namespace ANest.UI {
 			PlayClickAnimations();
 		}
 
-		/// <summary> Submit入力時にガードを適用する </summary>
+		/// <summary>Submit入力時にガードを適用する</summary>
 		public override void OnSubmit(BaseEventData eventData) {
 			if(!IsActive() || !IsInteractable()) return;
 
@@ -111,7 +111,7 @@ namespace ANest.UI {
 			base.OnSubmit(eventData);
 		}
 
-		/// <summary> ステート遷移に応じてテキスト遷移を適用する </summary>
+		/// <summary>ステート遷移に応じてテキスト遷移を適用する</summary>
 		protected override void DoStateTransition(SelectionState state, bool instant) {
 			base.DoStateTransition(state, instant);
 			if(targetText == null) return;
@@ -131,7 +131,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Toggle Events
-		/// <summary> トグルのON/OFFリスナーを登録または解除する </summary>
+		/// <summary>トグルのON/OFFリスナーを登録または解除する</summary>
 		private void RegisterToggleListener(bool register) {
 			if(register) {
 				onValueChanged.AddListener(OnToggleValueChanged);
@@ -140,7 +140,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> トグル状態変化時にカスタムアニメーションを再生する </summary>
+		/// <summary>トグル状態変化時にカスタムアニメーションを再生する</summary>
 		private void OnToggleValueChanged(bool isOn) {
 			if(!Application.isPlaying) return;
 			if(!m_useCustomAnimation) return;
@@ -150,7 +150,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Toggle Animation Async
-		/// <summary> ON/OFF切替時のカスタムアニメーションを非同期待機で再生する </summary>
+		/// <summary>ON/OFF切替時のカスタムアニメーションを非同期待機で再生する</summary>
 		private void PlayToggleAnimations(bool isOn) {
 			if(!m_useCustomAnimation) return;
 
@@ -174,7 +174,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> クリック時のカスタムアニメーションを再生する </summary>
+		/// <summary>クリック時のカスタムアニメーションを再生する</summary>
 		private void PlayClickAnimations() {
 			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
 			if(m_clickAnimations == null || m_clickAnimations.Length == 0) return;
@@ -185,7 +185,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Guards
-		/// <summary> 初期ガード・連打ガードの状態を判定する </summary>
+		/// <summary>初期ガード・連打ガードの状態を判定する</summary>
 		private bool IsGuardActive(float now) {
 			if(useInitialGuard && now < _initialGuardEndTime) {
 				#if UNITY_EDITOR
@@ -204,12 +204,12 @@ namespace ANest.UI {
 			return active;
 		}
 
-		/// <summary> 入力ガード開始時刻を記録する </summary>
+		/// <summary>入力ガード開始時刻を記録する</summary>
 		private void StartGuard(float now) {
 			_lastAcceptedClickTime = now;
 		}
 
-		/// <summary> 有効化直後の入力を一定時間抑制するための初期ガードを設定 </summary>
+		/// <summary>有効化直後の入力を一定時間抑制するための初期ガードを設定</summary>
 		private void StartInitialGuard() {
 			if(!useInitialGuard || initialGuardDuration <= 0f) {
 				_initialGuardEndTime = -999f;
@@ -220,7 +220,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Shared Apply
-		/// <summary> 共通パラメータを使用している場合に値を反映する </summary>
+		/// <summary>共通パラメータを使用している場合に値を反映する</summary>
 		private void ApplySharedParametersIfNeeded() {
 			if(!useSharedParameters) return;
 			if(sharedParameters == null) return;
@@ -241,10 +241,10 @@ namespace ANest.UI {
 			textSwapState = sharedParameters.textSwapState;
 			textAnimationTriggers = sharedParameters.textAnimationTriggers;
 		}
-	        #endregion
+		#endregion
 
 		#if UNITY_EDITOR
-		/// <summary> インスペクターでの値変更時の処理 </summary>
+		/// <summary>インスペクターでの値変更時の処理</summary>
 		protected override void OnValidate() {
 			base.OnValidate();
 			if(Application.isPlaying) return;
@@ -265,7 +265,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 共有アニメーションセットからアニメーションを複製して適用する </summary>
+		/// <summary>共有アニメーションセットからアニメーションを複製して適用する</summary>
 		private void ApplySharedAnimationsFromSet() {
 			if(!m_useSharedAnimation) return;
 			if(m_sharedAnimation == null) return;

@@ -8,7 +8,7 @@ using UnityEngine.UI;
 using TMPro;
 
 namespace ANest.UI {
-	/// <summary> 複数の入力ガードや長押し対応を備えた拡張Button </summary>
+	/// <summary>複数の入力ガードや長押し対応を備えた拡張Button</summary>
 	[RequireComponent(typeof(aGuiInfo))]
 	public class aButton : Button {
 		#region Serialize Fields

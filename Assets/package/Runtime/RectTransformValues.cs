@@ -2,48 +2,89 @@ using System;
 using UnityEngine;
 
 namespace ANest.UI {
-	/// <summary> トランスフォームの値の保存クラス </summary>
+	/// <summary>トランスフォームの値の保存クラス</summary>
 	[Serializable]
 	public struct RectTransformValues {
-		[SerializeField]
-		private Vector3 m_worldPosition; //座標のワールド値
-		[SerializeField]
-		private Vector3 m_localPosition; //座標のローカル値
-		[SerializeField]
-		private Quaternion m_worldRotation; //回転のワールド値
-		[SerializeField]
-		private Quaternion m_localRotation; //回転のローカル値
-		[SerializeField]
-		private Vector3 m_localScale; //スケールのローカル値
+		#region Field
 
+		[Tooltip("座標のワールド値")]
 		[SerializeField]
-		private Vector2 m_anchoredPosition;
+		private Vector3 m_worldPosition; // 座標のワールド値
+		[Tooltip("座標のローカル値")]
 		[SerializeField]
-		private Vector2 m_anchorMin;
+		private Vector3 m_localPosition; // 座標のローカル値
+		[Tooltip("回転のワールド値")]
 		[SerializeField]
-		private Vector2 m_anchorMax;
+		private Quaternion m_worldRotation; // 回転のワールド値
+		[Tooltip("回転のローカル値")]
 		[SerializeField]
-		private Vector2 m_sizeDelta;
+		private Quaternion m_localRotation; // 回転のローカル値
+		[Tooltip("スケールのローカル値")]
+		[SerializeField]
+		private Vector3 m_localScale; // スケールのローカル値
+		[Tooltip("アンカー基準の座標")]
+		[SerializeField]
+		private Vector2 m_anchoredPosition; // アンカー基準の座標
+		[Tooltip("最小アンカー")]
+		[SerializeField]
+		private Vector2 m_anchorMin; // 最小アンカー
+		[Tooltip("最大アンカー")]
+		[SerializeField]
+		private Vector2 m_anchorMax; // 最大アンカー
+		[Tooltip("サイズデルタ")]
+		[SerializeField]
+		private Vector2 m_sizeDelta; // サイズデルタ
+		[Tooltip("ピボットのローカル値")]
+		[SerializeField]
+		private Vector2 m_pivot; // ピボットのローカル値
+		[Tooltip("TransformのRect")]
+		[SerializeField]
+		private Rect m_rect; // TransformのRect
 
-		[SerializeField]
-		private Vector2 m_pivot; //ピボットのローカル値
-		[SerializeField]
-		private Rect m_rect; //TransformのRect
+		#endregion
 
+
+		#region Property
+
+		/// <summary>座標のワールド値</summary>
 		public Vector3 WorldPosition => m_worldPosition;
+
+		/// <summary>座標のローカル値</summary>
 		public Vector3 LocalPosition => m_localPosition;
+
+		/// <summary>回転のワールド値</summary>
 		public Quaternion WorldRotation => m_worldRotation;
+
+		/// <summary>回転のローカル値</summary>
 		public Quaternion LocalRotation => m_localRotation;
+
+		/// <summary>スケールのローカル値</summary>
 		public Vector3 LocalScale => m_localScale;
 
+		/// <summary>アンカー基準の座標</summary>
 		public Vector2 AnchoredPosition => m_anchoredPosition;
+
+		/// <summary>最小アンカー</summary>
 		public Vector2 AnchorMin => m_anchorMin;
+
+		/// <summary>最大アンカー</summary>
 		public Vector2 AnchorMax => m_anchorMax;
+
+		/// <summary>サイズデルタ</summary>
 		public Vector2 SizeDelta => m_sizeDelta;
 
+		/// <summary>ピボットのローカル値</summary>
 		public Vector2 Pivot => m_pivot;
+
+		/// <summary>TransformのRect</summary>
 		public Rect Rect => m_rect;
 
+		#endregion
+
+
+		#region Public Method
+
+		/// <summary>指定されたTransformから値を作成する</summary>
 		public static RectTransformValues CreateValues(Transform trans) {
 			var rect = trans as RectTransform;
 			var newValues = new RectTransformValues();
@@ -70,6 +111,7 @@ namespace ANest.UI {
 			return newValues;
 		}
 
+		/// <summary>RectTransformに値を適用する</summary>
 		public void Apply(RectTransform rectTrans) {
 			rectTrans.position = m_worldPosition;
 			rectTrans.localPosition = m_localPosition;
@@ -81,10 +123,11 @@ namespace ANest.UI {
 			rectTrans.anchorMax = m_anchorMax;
 			rectTrans.sizeDelta = m_sizeDelta;
 			rectTrans.pivot = m_pivot;
-			//rectは代入不可
-			//そもそもレイアウト計算の結果生成されるものなので代入不要
+			// rectは代入不可
+			// そもそもレイアウト計算の結果生成されるものなので代入不要
 		}
 
+		/// <summary>同一性の判定</summary>
 		public override bool Equals(object obj) {
 			if(!(obj is RectTransformValues other)) return false;
 
@@ -100,9 +143,12 @@ namespace ANest.UI {
 				m_pivot == other.m_pivot;
 		}
 
+		/// <summary>ハッシュコードの取得</summary>
 		public override int GetHashCode() {
 			return m_worldPosition.GetHashCode(); // 簡易的
 		}
+
+		#endregion
 	}
 
 }

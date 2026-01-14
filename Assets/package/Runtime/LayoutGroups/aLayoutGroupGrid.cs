@@ -3,30 +3,44 @@ using UnityEngine.UI;
 
 
 namespace ANest.UI {
-	/// <summary> グリッド状に子要素を配置するカスタムレイアウトグループ </summary>
+	/// <summary>グリッド状に子要素を配置するカスタムレイアウトグループ</summary>
 	public class aLayoutGroupGrid : aLayoutGroupBase {
-		/// <summary> グリッド配置の開始コーナー </summary>
-		public enum Corner { UpperLeft = 0, UpperRight = 1, LowerLeft = 2, LowerRight = 3 }
-		/// <summary> 主軸の方向 </summary>
-		public enum Axis { Horizontal = 0, Vertical = 1 }
-		/// <summary> グリッドの制約種別 </summary>
-		public enum Constraint { Flexible, FixedColumnCount, FixedRowCount }
+		/// <summary>グリッド配置の開始コーナー</summary>
+		public enum Corner {
+			UpperLeft = 0,  // 左上
+			UpperRight = 1, // 右上
+			LowerLeft = 2,  // 左下
+			LowerRight = 3  // 右下
+		}
+		/// <summary>主軸の方向</summary>
+		public enum Axis {
+			Horizontal = 0, // 横方向
+			Vertical = 1    // 縦方向
+		}
+		/// <summary>グリッドの制約種別</summary>
+		public enum Constraint {
+			Flexible,          // 可変（領域に収まるだけ配置）
+			FixedColumnCount,   // 列数固定
+			FixedRowCount       // 行数固定
+		}
 
 		#region SerializeField
+		[Tooltip("配置開始コーナー")]
 		[SerializeField] private Corner startCorner = Corner.UpperLeft;          // 配置開始コーナー
+		[Tooltip("主軸方向（横 or 縦）")]
 		[SerializeField] private Axis startAxis = Axis.Horizontal;                // 主軸方向（横 or 縦）
+		[Tooltip("セルのサイズ")]
 		[SerializeField] private Vector2 cellSize = new Vector2(100f, 100f);      // セルのサイズ
+		[Tooltip("セル間スペース（X, Y）")]
 		[SerializeField] private Vector2 spacingXY = Vector2.zero;                // セル間スペース（X, Y）
+		[Tooltip("グリッド制約設定")]
 		[SerializeField] private Constraint constraint = Constraint.Flexible;      // グリッド制約設定
+		[Tooltip("制約値（列・行固定時の数）")]
 		[SerializeField] private int constraintCount = 2;                         // 制約値（列・行固定時の数）
 		#endregion
 
 		#region Methods
-		/// <summary>
-		/// グリッド状に子要素を配置するレイアウト計算。
-		/// 制約設定（列/行固定やフレキシブル）・開始コーナー・主軸方向・セルサイズ/スペーシング・
-		/// 反転配置・子のスケールやサイズ制御フラグを踏まえて、必要セル数を算出し位置を決定する。
-		/// </summary>
+		/// <summary>制約設定・開始コーナー・主軸・セルサイズやスケールを考慮して子要素をグリッド配置する</summary>
 		protected override void CalculateLayout() {
 			if(RectTransform == null) return;
 
@@ -219,7 +233,7 @@ namespace ANest.UI {
 			ApplyNavigationGrid(grid, actualCellCountX, actualCellCountY);
 		}
 
-		/// <summary> グリッド上のSelectablesにナビゲーションを割り当てる </summary>
+		/// <summary>グリッド上のSelectablesにナビゲーションを割り当てる</summary>
 		private void ApplyNavigationGrid(RectTransform[,] grid, int cols, int rows) {
 			if(!setNavigation) return;
 			for (int y = 0; y < rows; y++) {
@@ -242,7 +256,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> グリッド内で指定方向の次のSelectableを探索 </summary>
+		/// <summary>グリッド内で指定方向の次のSelectableを探索</summary>
 		private Selectable FindSelectableInGrid(RectTransform[,] grid, int cols, int rows, int startX, int startY, int dx, int dy, bool loop) {
 			int x = startX + dx;
 			int y = startY + dy;

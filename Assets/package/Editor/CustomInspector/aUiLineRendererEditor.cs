@@ -2,14 +2,19 @@ using UnityEditor;
 using UnityEngine;
 
 namespace ANest.UI {
+	/// <summary>aUiLineRendererのインスペクタ/シーン操作を拡張し、ポイント編集を行いやすくするカスタムエディタ。</summary>
 	[CustomEditor(typeof(aUiLineRenderer))]
 	public class aUiLineRendererEditor : UnityEditor.Editor {
-		private aUiLineRenderer line;
-		private SerializedProperty pointsProp;
-		private SerializedProperty spaceProp;
-		private SerializedProperty enableCornerInterpolationProp;
-		private SerializedProperty cornerTypeProp;
+		#region Fields
+		private aUiLineRenderer line;                     // 編集対象のラインへの参照
+		private SerializedProperty pointsProp;            // ポイント配列プロパティへの参照
+		private SerializedProperty spaceProp;             // Space設定プロパティへの参照
+		private SerializedProperty enableCornerInterpolationProp; // 角補間有効プロパティへの参照
+		private SerializedProperty cornerTypeProp;        // 角の種類プロパティへの参照
+		#endregion
 
+		#region Unity Methods
+		/// <summary>描画に必要な参照とSerializedPropertyを初期化する。</summary>
 		private void OnEnable() {
 			line = (aUiLineRenderer)target;
 			pointsProp = serializedObject.FindProperty("m_points");
@@ -18,6 +23,7 @@ namespace ANest.UI {
 			cornerTypeProp = serializedObject.FindProperty("m_cornerType");
 		}
 
+		/// <summary>コーナー設定を挿入しながらポイント/描画プロパティを描画する。</summary>
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 			
@@ -42,6 +48,7 @@ namespace ANest.UI {
 			serializedObject.ApplyModifiedProperties();
 		}
 
+		/// <summary>シーン上でポイントハンドルとプレビューラインを描画し、ドラッグで座標を編集できるようにする。</summary>
 		private void OnSceneGUI() {
 			if(pointsProp == null || spaceProp == null) return;
 			serializedObject.Update();
@@ -87,5 +94,6 @@ namespace ANest.UI {
 
 			serializedObject.ApplyModifiedProperties();
 		}
+		#endregion
 	}
 }

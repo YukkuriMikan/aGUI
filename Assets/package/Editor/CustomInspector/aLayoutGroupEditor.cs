@@ -3,44 +3,45 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
+
 namespace ANest.UI.Editor {
-	/// <summary> aLayoutGroup 系のインスペクタを拡張するカスタムエディタ </summary>
+	/// <summary>aLayoutGroupBase系のインスペクタを拡張し、共通/派生プロパティを整理して表示するカスタムエディタ。</summary>
 	[CustomEditor(typeof(aLayoutGroupBase), true)]
 	[CanEditMultipleObjects]
 	public class aLayoutGroupEditor : UnityEditor.Editor {
 		#region Fields
-		private SerializedProperty paddingProp;                    // padding プロパティ
-		private SerializedProperty childAlignmentProp;             // childAlignment プロパティ
-		private SerializedProperty reverseArrangementProp;         // reverseArrangement プロパティ
-		private SerializedProperty updateModeProp;                 // updateMode プロパティ
-		private SerializedProperty rectChildrenProp;               // rectChildren プロパティ
-		private SerializedProperty excludedChildrenProp;           // excludedChildren プロパティ
-		private SerializedProperty spacingProp;                    // spacing プロパティ（HV用）
-		private SerializedProperty childForceExpandCircularProp;   // Circular: childForceExpand プロパティ
-		private SerializedProperty childControlWidthProp;          // childControlWidth プロパティ
-		private SerializedProperty childControlHeightProp;         // childControlHeight プロパティ
-		private SerializedProperty childScaleWidthProp;            // childScaleWidth プロパティ
-		private SerializedProperty childScaleHeightProp;           // childScaleHeight プロパティ
-		private SerializedProperty childForceExpandWidthProp;      // childForceExpandWidth プロパティ
-		private SerializedProperty childForceExpandHeightProp;     // childForceExpandHeight プロパティ
-		private SerializedProperty setNavigationProp;              // setNavigation プロパティ
-		private SerializedProperty navigationLoopProp;             // navigationLoop プロパティ
-		private SerializedProperty navigationAxisRangeProp;        // navigationAxisRange プロパティ
-		private SerializedProperty navigationTypeProp;             // navigationType プロパティ（Circular）
-		private SerializedProperty useAnimationProp;               // useAnimation プロパティ
-		private SerializedProperty animationDurationProp;          // animationDuration プロパティ
-		private SerializedProperty animationDistanceThresholdProp; // animationDistanceThreshold プロパティ
-		private SerializedProperty useAnimationCurveProp;          // useAnimationCurve プロパティ
-		private SerializedProperty animationCurveProp;             // animationCurve プロパティ
-		private SerializedProperty animationEaseProp;              // animationEase プロパティ
-		private SerializedProperty useCircularMoveProp;            // Circular: useCircularMove プロパティ
-		private SerializedProperty circularMoveTypeProp;           // Circular: circularMoveType プロパティ
-		private SerializedProperty startCornerProp;                // Grid: startCorner プロパティ
-		private SerializedProperty startAxisProp;                  // Grid: startAxis プロパティ
-		private SerializedProperty cellSizeProp;                   // Grid: cellSize プロパティ
-		private SerializedProperty spacingXYProp;                  // Grid: spacingXY プロパティ
-		private SerializedProperty constraintProp;                 // Grid: constraint プロパティ
-		private SerializedProperty constraintCountProp;            // Grid: constraintCount プロパティ
+		private SerializedProperty paddingProp;                    // padding プロパティへの参照
+		private SerializedProperty childAlignmentProp;             // childAlignment プロパティへの参照
+		private SerializedProperty reverseArrangementProp;         // reverseArrangement プロパティへの参照
+		private SerializedProperty updateModeProp;                 // updateMode プロパティへの参照
+		private SerializedProperty rectChildrenProp;               // rectChildren プロパティへの参照
+		private SerializedProperty excludedChildrenProp;           // excludedChildren プロパティへの参照
+		private SerializedProperty spacingProp;                    // spacing プロパティ（HV用）への参照
+		private SerializedProperty childForceExpandCircularProp;   // Circular: childForceExpand プロパティへの参照
+		private SerializedProperty childControlWidthProp;          // childControlWidth プロパティへの参照
+		private SerializedProperty childControlHeightProp;         // childControlHeight プロパティへの参照
+		private SerializedProperty childScaleWidthProp;            // childScaleWidth プロパティへの参照
+		private SerializedProperty childScaleHeightProp;           // childScaleHeight プロパティへの参照
+		private SerializedProperty childForceExpandWidthProp;      // childForceExpandWidth プロパティへの参照
+		private SerializedProperty childForceExpandHeightProp;     // childForceExpandHeight プロパティへの参照
+		private SerializedProperty setNavigationProp;              // setNavigation プロパティへの参照
+		private SerializedProperty navigationLoopProp;             // navigationLoop プロパティへの参照
+		private SerializedProperty navigationAxisRangeProp;        // navigationAxisRange プロパティへの参照
+		private SerializedProperty navigationTypeProp;             // navigationType プロパティ（Circular）への参照
+		private SerializedProperty useAnimationProp;               // useAnimation プロパティへの参照
+		private SerializedProperty animationDurationProp;          // animationDuration プロパティへの参照
+		private SerializedProperty animationDistanceThresholdProp; // animationDistanceThreshold プロパティへの参照
+		private SerializedProperty useAnimationCurveProp;          // useAnimationCurve プロパティへの参照
+		private SerializedProperty animationCurveProp;             // animationCurve プロパティへの参照
+		private SerializedProperty animationEaseProp;              // animationEase プロパティへの参照
+		private SerializedProperty useCircularMoveProp;            // Circular: useCircularMove プロパティへの参照
+		private SerializedProperty circularMoveTypeProp;           // Circular: circularMoveType プロパティへの参照
+		private SerializedProperty startCornerProp;                // Grid: startCorner プロパティへの参照
+		private SerializedProperty startAxisProp;                  // Grid: startAxis プロパティへの参照
+		private SerializedProperty cellSizeProp;                   // Grid: cellSize プロパティへの参照
+		private SerializedProperty spacingXYProp;                  // Grid: spacingXY プロパティへの参照
+		private SerializedProperty constraintProp;                 // Grid: constraint プロパティへの参照
+		private SerializedProperty constraintCountProp;            // Grid: constraintCount プロパティへの参照
 
 		private static readonly GUIContent childControlsLabel = new("Control Child Size");    // 子サイズ制御ラベル
 		private static readonly GUIContent childControlWidthLabel = new("Width");             // 幅ラベル
@@ -52,6 +53,8 @@ namespace ANest.UI.Editor {
 		private static readonly GUIContent navigationLoopLabel = new("Loop");                 // ナビループラベル
 		#endregion
 
+		#region Unity Methods
+		/// <summary>インスペクタで使用するSerializedProperty参照を初期化する。</summary>
 		private void OnEnable() {
 			paddingProp = serializedObject.FindProperty("padding");
 			childAlignmentProp = serializedObject.FindProperty("childAlignment");
@@ -87,6 +90,7 @@ namespace ANest.UI.Editor {
 			constraintCountProp = serializedObject.FindProperty("constraintCount");
 		}
 
+		/// <summary>共通/派生プロパティのGUIを描画し、再構築ボタンを提供する。</summary>
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
@@ -101,7 +105,7 @@ namespace ANest.UI.Editor {
 			}
 		}
 
-
+		/// <summary>RectTransformのPaddingを可視化し、ハンドルで編集できるようにする。</summary>
 		private void OnSceneGUI() {
 			if(target is not aLayoutGroupBase group) return;
 			var rectTransform = group.transform as RectTransform;
@@ -206,7 +210,10 @@ namespace ANest.UI.Editor {
 				Handles.color = prevColor;
 			}
 		}
+		#endregion
 
+		#region Inspector Draw Methods
+		/// <summary>共通のレイアウト設定と派生クラスの分岐を描画する。</summary>
 		private void DrawLayoutBaseProperties() {
 			DrawScriptField();
 			PropertyFieldSafe(updateModeProp);
@@ -244,7 +251,8 @@ namespace ANest.UI.Editor {
 				DrawAnimationSection();
 			}
 		}
-
+	
+		/// <summary>子要素のサイズ制御やナビゲーション設定を描画する。</summary>
 		private void DrawChildControlsSection() {
 			bool isCircular = target is aLayoutGroupCircular;
 			if(!isCircular) {
@@ -269,6 +277,7 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 		}
 
+		/// <summary>アニメーション有効時の各種パラメータを描画する。</summary>
 		private void DrawAnimationSection() {
 			if(useAnimationProp == null) return;
 			PropertyFieldSafe(useAnimationProp, new GUIContent("Use Animation"));
@@ -293,10 +302,12 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 		}
 
+		/// <summary>ラベル付きで2つのトグルを横並びに描画する。</summary>
 		private void DrawToggleRow(GUIContent rowLabel, SerializedProperty leftProp, SerializedProperty rightProp) {
 			DrawToggleRow(rowLabel, leftProp, rightProp, childControlWidthLabel, childControlHeightLabel);
 		}
 
+		/// <summary>カスタムラベルを指定して2つのトグルを横並びに描画する。</summary>
 		private void DrawToggleRow(GUIContent rowLabel, SerializedProperty leftProp, SerializedProperty rightProp, GUIContent leftLabel, GUIContent rightLabel) {
 			EditorGUILayout.BeginHorizontal();
 			EditorGUILayout.LabelField(rowLabel, GUILayout.Width(EditorGUIUtility.labelWidth - 4f));
@@ -308,6 +319,7 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.EndHorizontal();
 		}
 
+		/// <summary>派生クラス固有プロパティを描画し、Circular向け補足情報を表示する。</summary>
 		private void DrawDerivedProperties() {
 			bool isCircular = target is aLayoutGroupCircular;
 			SerializedProperty iterator = serializedObject.GetIterator();
@@ -339,6 +351,7 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>m_Scriptを読み取り専用で表示する。</summary>
 		private void DrawScriptField() {
 			SerializedProperty script = serializedObject.FindProperty("m_Script");
 			if(script == null) return;
@@ -346,15 +359,20 @@ namespace ANest.UI.Editor {
 				EditorGUILayout.PropertyField(script);
 			}
 		}
+		#endregion
 
+		#region Utilities
+		/// <summary>SerializedPropertyがnullでない場合のみ描画する（子要素を含めるか選択可能）。</summary>
 		private static void PropertyFieldSafe(SerializedProperty prop, bool includeChildren = false) {
 			if(prop != null) EditorGUILayout.PropertyField(prop, includeChildren);
 		}
 
+		/// <summary>SerializedPropertyがnullでない場合のみ指定ラベルで描画する。</summary>
 		private static void PropertyFieldSafe(SerializedProperty prop, GUIContent label) {
 			if(prop != null) EditorGUILayout.PropertyField(prop, label);
 		}
 
+		/// <summary>基底クラス側で処理するプロパティかどうか判定する。</summary>
 		private static bool IsBaseProperty(string propertyPath) {
 			switch(propertyPath) {
 				case "m_Script":
@@ -396,6 +414,7 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>選択中のレイアウトを再構築し、Undoを記録する。</summary>
 		private void RebuildTargets() {
 			Undo.IncrementCurrentGroup();
 			int undoGroup = Undo.GetCurrentGroup();
@@ -425,6 +444,7 @@ namespace ANest.UI.Editor {
 			EditorApplication.QueuePlayerLoopUpdate();
 		}
 
+		/// <summary>Undo対象に含めるオブジェクトを重複なく収集する。</summary>
 		private List<Object> CollectUndoTargets(aLayoutGroupBase group) {
 			var result = new List<Object>();
 			var seen = new HashSet<Object>();
@@ -450,5 +470,6 @@ namespace ANest.UI.Editor {
 
 			return result;
 		}
+		#endregion
 	}
 }

@@ -4,10 +4,7 @@ namespace ANest.UI {
 	/// <summary> 子要素を水平方向に配置するレイアウトグループ </summary>
 	public class aLayoutGroupHorizontal : aLayoutGroupLinear {
 		#region Methods
-		/// <summary>
-		/// 子要素を横方向に並べ、必要な幅を重みに応じて配分するレイアウト計算。
-		/// スケール・パディング・配置揃え・強制拡張フラグを考慮し、必要ならNavigationも再設定する。
-		/// </summary>
+		/// <summary>子要素を横方向に並べ、スケールやパディング、揃え、強制拡張設定を踏まえて重みに応じた幅配分とNavigation再設定を行うレイアウト計算。</summary>
 		protected override void CalculateLayout() {
 			if(RectTransform == null) return;
 

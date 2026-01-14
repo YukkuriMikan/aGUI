@@ -3,19 +3,23 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI.Editor {
-    [CustomEditor(typeof(aSelectablesSharedParameters))]
-    public class aSelectablesSharedParametersEditor : UnityEditor.Editor {
+	/// <summary>aSelectablesSharedParametersのインスペクタ表示を拡張するエディタ</summary>
+	[CustomEditor(typeof(aSelectablesSharedParameters))]
+	public class aSelectablesSharedParametersEditor : UnityEditor.Editor {
+		#region Fields
+		private SerializedProperty _transitionProp;            // transition プロパティ
+		private SerializedProperty _transitionColorsProp;      // transitionColors プロパティ
+		private SerializedProperty _spriteStateProp;           // spriteState プロパティ
+		private SerializedProperty _animationTriggersProp;     // selectableAnimationTriggers プロパティ
+		private SerializedProperty _textTransitionProp;        // textTransition プロパティ
+		private SerializedProperty _textColorsProp;            // textColors プロパティ
+		private SerializedProperty _textSwapStateProp;         // textSwapState プロパティ
+		private SerializedProperty _textAnimationTriggersProp; // textAnimationTriggers プロパティ
+		private SerializedProperty _textAnimatorProp;          // textAnimator プロパティ
+		#endregion
 
-		private SerializedProperty _transitionProp;
-		private SerializedProperty _transitionColorsProp;
-		private SerializedProperty _spriteStateProp;
-		private SerializedProperty _animationTriggersProp;
-		private SerializedProperty _textTransitionProp;
-		private SerializedProperty _textColorsProp;
-		private SerializedProperty _textSwapStateProp;
-		private SerializedProperty _textAnimationTriggersProp;
-		private SerializedProperty _textAnimatorProp;
-
+		#region Unity Methods
+		/// <summary>SerializedPropertyの参照を取得する</summary>
 		private void OnEnable() {
 			_transitionProp = serializedObject.FindProperty("transition");
 			_transitionColorsProp = serializedObject.FindProperty("transitionColors");
@@ -28,6 +32,7 @@ namespace ANest.UI.Editor {
 			_textAnimatorProp = serializedObject.FindProperty("textAnimator");
 		}
 
+		/// <summary>インスペクタGUIを描画する</summary>
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
@@ -48,7 +53,10 @@ namespace ANest.UI.Editor {
 
 			serializedObject.ApplyModifiedProperties();
 		}
+		#endregion
 
+		#region Inspector Helpers
+		/// <summary>Selectableのトランジション設定を描画する</summary>
 		private void DrawTransitionSection() {
 			EditorGUILayout.LabelField("Transition", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(_transitionProp);
@@ -70,16 +78,17 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 		}
 
+		/// <summary>テキストトランジション設定を描画する</summary>
 		private void DrawTextTransitionSection() {
 			EditorGUILayout.LabelField("Text Transition", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(_textTransitionProp, new GUIContent("Transition"));
 
 			++EditorGUI.indentLevel;
 			switch((TextTransitionType)_textTransitionProp.enumValueIndex) {
-    case TextTransitionType.TextColor:
-                    aGuiEditorUtils.DrawTextColorPresetButtons(_textColorsProp);
-                    EditorGUILayout.PropertyField(_textColorsProp, new GUIContent("Colors"));
-                    break;
+				case TextTransitionType.TextColor:
+					aGuiEditorUtils.DrawTextColorPresetButtons(_textColorsProp);
+					EditorGUILayout.PropertyField(_textColorsProp, new GUIContent("Colors"));
+					break;
 				case TextTransitionType.TextSwap:
 					DrawTextSwapFields();
 					break;
@@ -93,6 +102,7 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 		}
 
+		/// <summary>テキスト差し替え設定の各フィールドを描画する</summary>
 		private void DrawTextSwapFields() {
 			SerializedProperty normal = _textSwapStateProp.FindPropertyRelative("normalText");
 			SerializedProperty highlighted = _textSwapStateProp.FindPropertyRelative("highlightedText");
@@ -106,6 +116,6 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.PropertyField(selected, new GUIContent("Selected"));
 			EditorGUILayout.PropertyField(disabled, new GUIContent("Disabled"));
 		}
-
-    }
+		#endregion
+	}
 }

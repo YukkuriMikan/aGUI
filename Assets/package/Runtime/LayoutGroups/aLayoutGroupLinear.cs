@@ -7,6 +7,7 @@ namespace ANest.UI {
 	/// <summary> 横・縦方向の線形レイアウト用共通基底クラス </summary>
 	public abstract class aLayoutGroupLinear : aLayoutGroupBase {
 		#region SerializeField
+		[Tooltip("要素間スペース")]
 		[SerializeField] protected float spacing; // 要素間スペース
 		#endregion
 

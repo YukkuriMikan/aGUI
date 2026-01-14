@@ -8,10 +8,7 @@ using UniRx;
 
 
 namespace ANest.UI {
-	/// <summary>
-	/// uGUIのLayoutGroupに近い挙動を自前実装で提供するレイアウト基底クラス。
-	/// LayoutGroupを継承せずに子RectTransformを直接駆動する。
-	/// </summary>
+	/// <summary>uGUIのLayoutGroupに近い挙動を自前で提供し、LayoutGroupを継承せず子RectTransformを直接駆動するレイアウト基底クラス。</summary>
 	[DisallowMultipleComponent]
 	public abstract class aLayoutGroupBase : MonoBehaviour {
 		/// <summary> レイアウトを更新するタイミングの種類 </summary>
@@ -22,25 +19,45 @@ namespace ANest.UI {
 		}
 
 		#region SerializeField
+		[Tooltip("対象となる子RectTransform一覧")]
 		[SerializeField] protected List<RectTransform> rectChildren = new();                              // 対象となる子RectTransform一覧
+		[Tooltip("配置時に考慮するパディング")]
 		[SerializeField] protected RectOffset padding = new RectOffset();                                 // パディング
+		[Tooltip("子要素の配置基準")]
 		[SerializeField] protected TextAnchor childAlignment = TextAnchor.MiddleCenter;                   // 子の配置基準
+		[Tooltip("並び順を反転するか")]
 		[SerializeField] protected bool reverseArrangement;                                               // 並び順を反転するか
+		[Tooltip("レイアウトを更新するタイミング")]
 		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual;                             // レイアウト更新モード
+		[Tooltip("子の幅を制御するか")]
 		[SerializeField] protected bool childControlWidth = false;                                        // 子幅を制御するか
+		[Tooltip("子の高さを制御するか")]
 		[SerializeField] protected bool childControlHeight = false;                                       // 子高さを制御するか
+		[Tooltip("子の幅にスケールを反映するか")]
 		[SerializeField] protected bool childScaleWidth;                                                  // 子幅にスケールを反映するか
+		[Tooltip("子の高さにスケールを反映するか")]
 		[SerializeField] protected bool childScaleHeight;                                                 // 子高さにスケールを反映するか
+		[Tooltip("子の幅を強制的に拡張するか")]
 		[SerializeField] protected bool childForceExpandWidth = true;                                     // 子幅を強制拡張するか
+		[Tooltip("子の高さを強制的に拡張するか")]
 		[SerializeField] protected bool childForceExpandHeight = true;                                    // 子高さを強制拡張するか
+		[Tooltip("レイアウト計算から除外する子Transformリスト")]
 		[SerializeField] protected List<RectTransform> excludedChildren = new();                          // 除外する子Transform
+		[Tooltip("Navigationを設定するか")]
 		[SerializeField] protected bool setNavigation = true;                                             // ナビゲーションを設定するか
+		[Tooltip("Navigationをループさせるか")]
 		[SerializeField] protected bool navigationLoop = true;                                            // ナビゲーションをループさせるか
+		[Tooltip("レイアウト移動をアニメーションさせるか")]
 		[SerializeField] protected bool useAnimation;                                                     // レイアウト移動をアニメーションするか
+		[Tooltip("アニメーションの再生時間（秒）")]
 		[SerializeField] protected float animationDuration = 0.25f;                                       // アニメーション時間
+		[Tooltip("アニメーションを適用する距離の閾値")]
 		[SerializeField] protected float animationDistanceThreshold = 1000f;                              // アニメ適用距離閾値
+		[Tooltip("アニメーションでカーブを使用するか")]
 		[SerializeField] protected bool useAnimationCurve;                                                // カーブを使うか
+		[Tooltip("アニメーションに使用するカーブ")]
 		[SerializeField] protected AnimationCurve animationCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f); // アニメーションカーブ
+		[Tooltip("アニメーションのイージング設定")]
 		[SerializeField] protected Ease animationEase = Ease.OutQuad;                                     // アニメーションイージング
 		#endregion
 
@@ -351,11 +368,7 @@ namespace ANest.UI {
 			};
 		}
 
-		/// <summary>
-		/// 実際のレイアウト配置ロジックを実装する抽象メソッド。
-		/// 派生クラス側で収集済みの <see cref="rectChildren"/> を用いて
-		/// 子要素の位置・サイズを決定し、必要に応じてナビゲーションやアニメーションを適用する。
-		/// </summary>
+		/// <summary>収集済みのrectChildrenを用いて子要素の位置・サイズを決定し、必要に応じてナビゲーションやアニメーションを適用する抽象メソッド。</summary>
 		protected abstract void CalculateLayout();
 		#endregion
 

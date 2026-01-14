@@ -7,11 +7,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary>
-	/// aGUI の共通ユーティリティ
-	/// </summary>
+	/// <summary>aGUIの共通ユーティリティ</summary>
 	public static class aGuiUtils {
-		/// <summary> アニメーション配列のディープコピーを作成する </summary>
+		#region Public Method
+		/// <summary>アニメーション配列のディープコピーを作成する</summary>
 		public static IUiAnimation[] CloneAnimations(IUiAnimation[] animations) {
 			if(animations == null) return null;
 			if(animations.Length == 0) return Array.Empty<IUiAnimation>();
@@ -35,11 +34,13 @@ namespace ANest.UI {
 			return cloned;
 		}
 
+		/// <summary>指定されたオブジェクトに対してアニメーションを再生する</summary>
 		public static void PlayAnimation(IUiAnimation[] animations, RectTransform targetRect, Graphic targetGraphic, RectTransformValues originalValues, Action completeCallback = null, Action killCallback = null) {
 			if(animations == null || animations.Length == 0) {
 				completeCallback?.Invoke();
 				return;
 			}
+
 			if(targetRect == null) {
 				completeCallback?.Invoke();
 				return;
@@ -55,7 +56,7 @@ namespace ANest.UI {
 			float maxDuration = 0f;
 
 			if(completeCallback != null) {
-				//最後に終わるアニメーションを取得
+				// 最後に終わるアニメーションを取得
 				for (int i = 0; i < animations.Length; i++) {
 					var anim = animations[i];
 
@@ -99,7 +100,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> ステートに応じてテキストカラー遷移を適用する </summary>
+		/// <summary>ステートに応じてテキストカラー遷移を適用する</summary>
 		public static void ApplyTextColorTransition(
 			MonoBehaviour owner,
 			TMP_Text targetText,
@@ -128,7 +129,7 @@ namespace ANest.UI {
 			FadeTextColorAsync(targetText, targetColor, duration, token, onComplete).Forget();
 		}
 
-		/// <summary> 進行中のテキストカラー遷移を停止する </summary>
+		/// <summary>進行中のテキストカラー遷移を停止する</summary>
 		public static void StopTextColorTransition(ref CancellationTokenSource runningCts) {
 			if(runningCts == null) return;
 			runningCts.Cancel();
@@ -136,13 +137,13 @@ namespace ANest.UI {
 			runningCts = null;
 		}
 
-		/// <summary> ステートに応じたテキスト内容を差し替える </summary>
+		/// <summary>ステートに応じたテキスト内容を差し替える</summary>
 		public static void ApplyTextSwapTransition(TMP_Text targetText, TextSwapState swapState, int selectionState) {
 			if(targetText == null) return;
 			targetText.text = GetStateText(swapState, selectionState);
 		}
 
-		/// <summary> ステートに応じてテキストアニメーションを再生する </summary>
+		/// <summary>ステートに応じてテキストアニメーションを再生する</summary>
 		public static void ApplyTextAnimationTransition(TMP_Text targetText, Animator textAnimator, AnimationTriggers triggers, int selectionState) {
 			Animator animator = textAnimator != null ? textAnimator : targetText != null ? targetText.GetComponent<Animator>() : null;
 			if(animator == null || animator.runtimeAnimatorController == null) return;
@@ -166,7 +167,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> ステートに応じたColorBlockの色を取得する </summary>
+		/// <summary>ステートに応じたColorBlockの色を取得する</summary>
 		public static Color GetStateColor(ColorBlock colors, int selectionState) {
 			switch(selectionState) {
 				case 4: // Disabled
@@ -182,7 +183,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> ステートに対応するテキストを返す </summary>
+		/// <summary>ステートに対応するテキストを返す</summary>
 		public static string GetStateText(TextSwapState swapState, int selectionState) {
 			switch(selectionState) {
 				case 4: // Disabled
@@ -198,13 +199,17 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> テキストカラーを即時反映する </summary>
+		/// <summary>テキストカラーを即時反映する</summary>
 		public static void SetTextColorImmediate(TMP_Text targetText, Color color) {
 			if(targetText == null) return;
 			targetText.canvasRenderer.SetColor(color);
 			targetText.color = color;
 		}
+		#endregion
 
+
+		#region Private Method
+		/// <summary>テキストカラーを非同期でフェードさせる</summary>
 		private static async UniTask FadeTextColorAsync(TMP_Text targetText, Color targetColor, float duration, CancellationToken ct, Action onComplete) {
 			if(targetText == null) {
 				onComplete?.Invoke();
@@ -233,10 +238,12 @@ namespace ANest.UI {
 			onComplete?.Invoke();
 		}
 
+		/// <summary>指定されたトリガー名でアニメーションを再生する</summary>
 		private static void PlayTextAnimation(Animator animator, string stateName) {
 			if(string.IsNullOrEmpty(stateName)) return;
 			animator.ResetTrigger(stateName);
 			animator.SetTrigger(stateName);
 		}
+		#endregion
 	}
 }

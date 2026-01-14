@@ -19,22 +19,33 @@ namespace ANest.UI {
 			TwoAxis,       // 左右:前後, 上下:反対側
 			TwoAxisReverse // 左右を反転しつつ上下は反対側
 		}
-
+		
 		#region SerializeField
+		[Tooltip("円の半径（0以下なら利用可能サイズを採用）")]
 		[SerializeField] private float radius = 100f;                                                   // 円の半径（0以下なら利用可能サイズに合わせて決定）
+		[Tooltip("配置開始角度（度数法、時計回り正）")]
 		[SerializeField] private float startAngle = 0f;                                                 // 配置開始角度（度数法、時計回り正）
+		[Tooltip("配置終了角度（度数法、時計回り正）")]
 		[SerializeField] private float endAngle = 360f;                                                 // 配置終了角度（度数法、時計回り正）
+		[Tooltip("配置全体に加える角度オフセット（度数法）")]
 		[SerializeField] private float angleOffset = 0f;                                                // 配置全体の角度オフセット（度数法）
+		[Tooltip("要素間の角度間隔（度数法）")]
 		[SerializeField] private float spacing;                                                         // 要素間の角度間隔（度数法）
+		[Tooltip("子要素を均等角度で配置するか")]
 		[SerializeField] private bool childForceExpand = true;                                          // 子要素を均等角度で配置するか
+		[Tooltip("ピボット基準からの中心オフセット")]
 		[SerializeField] private Vector2 centerOffset = Vector2.zero;                                   // ピボット基準からの中心オフセット
+		[Tooltip("アニメーション時に円周上を移動させるか")]
 		[SerializeField] private bool useCircularMove = true;                                           // アニメーション時に円周上を移動させるか
+		[Tooltip("円周移動時の進行方向")]
 		[SerializeField] private CircularMoveType circularMoveType = CircularMoveType.ShortestDistance; // 円周移動方向
+		[Tooltip("Navigation方向判定に使う軸周囲の角度幅（片側度数）")]
 		[SerializeField] private float navigationAxisRange = 10f;                                       // 方向判定に使う軸周囲の角度幅（片側度数）
+		[Tooltip("Navigationの入力解釈タイプ")]
 		[SerializeField] private NavigationType navigationType = NavigationType.Default;                // Navigation の入力解釈
 		#endregion
-
-	    #region Fields
+		
+		#region Fields
 		private readonly System.Collections.Generic.Dictionary<RectTransform, CircularTarget> _circularTargets = new();
 		#endregion
 
@@ -95,10 +106,7 @@ namespace ANest.UI {
 				default: return 0f;
 			}
 		}
-		/// <summary>
-		/// 子要素を開始角度から終了角度まで等間隔で円周上に配置するレイアウト計算。
-		/// パディング・アライメント・反転配置・スケールを考慮し、必要に応じてアニメーションも適用する。
-		/// </summary>
+		/// <summary>開始角度から終了角度まで等間隔で子要素を円周上に配置し、パディングや反転、スケール、アニメーション、Navigationを考慮して計算する。</summary>
 		protected override void CalculateLayout() {
 			if(RectTransform == null) return;
 

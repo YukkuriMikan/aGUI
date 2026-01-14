@@ -2,16 +2,21 @@ using UnityEditor;
 using UnityEngine;
 
 namespace ANest.UI.Editor {
+	/// <summary>aContainerBaseのインスペクタにアニメーション設定と表示状態操作UIを追加するカスタムエディタ。</summary>
 	[CustomEditor(typeof(aContainerBase), true)]
 	[CanEditMultipleObjects]
 	public class aContainerEditor : UnityEditor.Editor {
-		private SerializedProperty _useCustomAnimationsProp;
-		private SerializedProperty _useSharedAnimationProp;
-		private SerializedProperty _sharedAnimationProp;
-		private SerializedProperty _showAnimationsProp;
-		private SerializedProperty _hideAnimationsProp;
-		private SerializedProperty _isVisibleProp;
+		#region Fields
+		private SerializedProperty _useCustomAnimationsProp; // 個別アニメーション使用フラグへの参照
+		private SerializedProperty _useSharedAnimationProp;  // 共有アニメーション使用フラグへの参照
+		private SerializedProperty _sharedAnimationProp;     // 共有アニメーションアセットへの参照
+		private SerializedProperty _showAnimationsProp;      // Show用アニメーション配列への参照
+		private SerializedProperty _hideAnimationsProp;      // Hide用アニメーション配列への参照
+		private SerializedProperty _isVisibleProp;           // 表示状態フラグへの参照
+		#endregion
 
+		#region Unity Methods
+		/// <summary>インスペクタ描画に使用するSerializedProperty参照を初期化する。</summary>
 		protected virtual void OnEnable() {
 			_useCustomAnimationsProp = serializedObject.FindProperty("m_useCustomAnimations");
 			_useSharedAnimationProp = serializedObject.FindProperty("m_useSharedAnimation");
@@ -21,6 +26,7 @@ namespace ANest.UI.Editor {
 			_isVisibleProp = serializedObject.FindProperty("m_isVisible");
 		}
 
+		/// <summary>アニメーション/状態の設定UIを描画し、その他のプロパティを表示する。</summary>
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
@@ -30,14 +36,17 @@ namespace ANest.UI.Editor {
 			DrawStateSection();
 
 			EditorGUILayout.Space();
-			
+
 			DrawPropertiesExcluding(serializedObject, GetExcludedProperties());
 
 			serializedObject.ApplyModifiedProperties();
 
 			DrawPlayButtons();
 		}
+		#endregion
 
+		#region Inspector Draw Methods
+		/// <summary>インスペクタから除外するプロパティ名の配列を返す。</summary>
 		protected virtual string[] GetExcludedProperties() {
 			return new[] {
 				"m_Script",
@@ -50,17 +59,18 @@ namespace ANest.UI.Editor {
 			};
 		}
 
+		/// <summary>表示状態のトグルを描画し、再生中は即座にShow/Hideへ反映する。</summary>
 		private void DrawStateSection() {
 			EditorGUILayout.LabelField("State", EditorStyles.boldLabel);
-			
+
 			EditorGUI.showMixedValue = _isVisibleProp.hasMultipleDifferentValues;
 			EditorGUI.BeginChangeCheck();
 			bool isVisible = EditorGUILayout.Toggle("Is Visible", _isVisibleProp.boolValue);
-			if (EditorGUI.EndChangeCheck()) {
-				if (Application.isPlaying) {
+			if(EditorGUI.EndChangeCheck()) {
+				if(Application.isPlaying) {
 					Undo.RecordObjects(targets, "Change Container Visibility");
 					foreach (var obj in targets) {
-						if (obj is aContainerBase container) {
+						if(obj is aContainerBase container) {
 							container.IsVisible = isVisible;
 							EditorUtility.SetDirty(container);
 						}
@@ -72,6 +82,7 @@ namespace ANest.UI.Editor {
 			EditorGUI.showMixedValue = false;
 		}
 
+		/// <summary>共有/個別アニメーション設定を描画し、適切な警告とプロパティ表示を行う。</summary>
 		private void DrawAnimationSection() {
 			bool hasSharedAsset = _sharedAnimationProp != null && _sharedAnimationProp.objectReferenceValue != null;
 			bool isSharedEnabled = _useSharedAnimationProp != null && _useSharedAnimationProp.boolValue && hasSharedAsset;
@@ -119,6 +130,7 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>再生中にShow/Hideを試行するテスト用ボタンを描画する。</summary>
 		private void DrawPlayButtons() {
 			EditorGUILayout.Space();
 
@@ -146,5 +158,6 @@ namespace ANest.UI.Editor {
 				EditorGUILayout.HelpBox("Show/Hide試験実行ボタンはエディタ再生中のみ使用できます。", MessageType.Info);
 			}
 		}
+		#endregion
 	}
 }

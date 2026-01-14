@@ -4,38 +4,46 @@ using UniRx;
 using UniRx.Triggers;
 
 namespace ANest.UI {
-	/// <summary>
-	/// 指定したターゲットの RectTransform と位置・サイズ・ピボット・アンカーを同期させるコンポーネント。
-	/// </summary>
+	/// <summary>指定したターゲットの RectTransform と位置・サイズ・ピボット・アンカーを同期させるコンポーネント。</summary>
 	[RequireComponent(typeof(RectTransform))]
 	public class RectSync : MonoBehaviour {
 		#region SerializeField
+		[Tooltip("同期対象のRectTransform")]
 		[SerializeField] private RectTransform target; // 同期対象
-		[SerializeField] private bool syncPosition = true;
-		[SerializeField] private bool syncSize = true;
-		[SerializeField] private bool syncPivot = true;
-		[SerializeField] private bool syncAnchors = true;
+		[Tooltip("位置(anchoredPosition)を同期するか")]
+		[SerializeField] private bool syncPosition = true; // 位置を同期するか
+		[Tooltip("サイズ(sizeDelta)を同期するか")]
+		[SerializeField] private bool syncSize = true; // サイズを同期するか
+		[Tooltip("ピボットを同期するか")]
+		[SerializeField] private bool syncPivot = true; // ピボットを同期するか
+		[Tooltip("アンカーを同期するか")]
+		[SerializeField] private bool syncAnchors = true; // アンカーを同期するか
 		#endregion
 
 		#region Fields
 		private RectTransform m_rectTransform;
+		/// <summary>自身のRectTransformキャッシュ</summary>
 		private RectTransform RectTransform => m_rectTransform ? m_rectTransform : (m_rectTransform = transform as RectTransform);
 		private IDisposable m_disposable;
 		#endregion
 
 		#region Unity Methods
+		/// <summary>有効化時に購読を開始する</summary>
 		private void OnEnable() {
 			Subscribe();
 		}
 
+		/// <summary>無効化時に購読を解除する</summary>
 		private void OnDisable() {
 			Unsubscribe();
 		}
 
+		/// <summary>破棄時に購読を解除する</summary>
 		private void OnDestroy() {
 			Unsubscribe();
 		}
 
+		/// <summary>毎フレームターゲットの変更をチェックして同期する</summary>
 		private void LateUpdate() {
 			// ターゲットの変更を毎フレームチェック（念のため）
 			Sync();
@@ -43,6 +51,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
+		/// <summary>ターゲットRectTransformの変化を監視する購読を開始する</summary>
 		private void Subscribe() {
 			Unsubscribe();
 			if(target == null) return;
@@ -53,14 +62,13 @@ namespace ANest.UI {
 				.AddTo(this);
 		}
 
+		/// <summary>購読を解除する</summary>
 		private void Unsubscribe() {
 			m_disposable?.Dispose();
 			m_disposable = null;
 		}
 
-		/// <summary>
-		/// ターゲットの状態を自身に同期させる
-		/// </summary>
+		/// <summary>ターゲットの状態を自身に同期させる</summary>
 		public void Sync() {
 			if(target == null || RectTransform == null) return;
 

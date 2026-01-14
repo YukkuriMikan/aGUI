@@ -3,81 +3,86 @@ using UniRx;
 using UnityEngine;
 
 namespace ANest.UI {
-	/// <summary> aLayoutGroupBase のレイアウト結果に合わせて自身のサイズを調整するフィッター </summary>
+	/// <summary>aLayoutGroupBase のレイアウト結果に合わせて自身のサイズを調整するフィッター</summary>
 	[RequireComponent(typeof(aLayoutGroupBase))]
 	[RequireComponent(typeof(RectTransform))]
 	public class aContentSizeFitter : MonoBehaviour {
 		public enum PivotType {
-			UpperLeft,
-			UpperCenter,
-			UpperRight,
-			MiddleLeft,
-			MiddleCenter,
-			MiddleRight,
-			LowerLeft,
-			LowerCenter,
-			LowerRight
+			UpperLeft,    // 左上
+			UpperCenter,  // 上中央
+			UpperRight,   // 右上
+			MiddleLeft,   // 左中央
+			MiddleCenter, // 中央
+			MiddleRight,  // 右中央
+			LowerLeft,    // 左下
+			LowerCenter,  // 下中央
+			LowerRight    // 右下
 		}
 
 		#region SerializeField
+		[Tooltip("横方向をフィットさせるか")]
 		[SerializeField] private bool fitWidth;                             // 横方向をフィットさせるか
+		[Tooltip("縦方向をフィットさせるか")]
 		[SerializeField] private bool fitHeight;                            // 縦方向をフィットさせるか
+		[Tooltip("フィット時に使用する基準ピボット")]
 		[SerializeField] private PivotType pivotType = PivotType.UpperLeft; // 基準点
+		[Tooltip("監視対象のレイアウトグループ")]
 		[SerializeField] private aLayoutGroupBase layoutGroup;              // 監視対象のレイアウトグループ
 		#endregion
 
 		#region Fields
 		private IDisposable _subscription;                                                                                      // レイアウト通知購読用
 		private RectTransform _rectTransform;                                                                                   // RectTransform キャッシュ
+		/// <summary>自身のRectTransformキャッシュ</summary>
 		private RectTransform RectTransform => _rectTransform ? _rectTransform : (_rectTransform = transform as RectTransform); // キャッシュプロパティ
 		private Rect _lastLayoutRect;                                                                                           // 直近のレイアウト領域
 		#endregion
 
 		#region Unity Methods
-		/// <summary> コンポーネントリセット時に参照を補完 </summary>
+		/// <summary>コンポーネントリセット時に参照を補完</summary>
 		private void Reset() {
 			AssignLayoutGroup();
 		}
 
-		/// <summary> インスペクタ変更時に参照を補完して購読を張り直す </summary>
+		/// <summary>インスペクタ変更時に参照を補完して購読を張り直す</summary>
 		private void OnValidate() {
 			AssignLayoutGroup();
 			Subscribe();
 		}
 
-		/// <summary> 有効化時に購読を開始 </summary>
+		/// <summary>有効化時に購読を開始</summary>
 		private void OnEnable() {
 			AssignLayoutGroup();
 			Subscribe();
 		}
 
-		/// <summary> 無効化時に購読を解除 </summary>
+		/// <summary>無効化時に購読を解除</summary>
 		private void OnDisable() {
 			Unsubscribe();
 		}
 
-		/// <summary> 破棄時に購読を解除 </summary>
+		/// <summary>破棄時に購読を解除</summary>
 		private void OnDestroy() {
 			Unsubscribe();
 		}
 		#endregion
 
 		#region Methods
-		/// <summary> layoutGroup が未設定なら自身から取得 </summary>
+		/// <summary>layoutGroup が未設定なら自身から取得</summary>
 		private void AssignLayoutGroup() {
 			if(layoutGroup == null) {
 				layoutGroup = GetComponent<aLayoutGroupBase>();
 			}
 		}
 
-		/// <summary> レイアウト完了通知の購読を開始 </summary>
+		/// <summary>レイアウト完了通知の購読を開始</summary>
 		private void Subscribe() {
 			Unsubscribe();
 			if(layoutGroup == null) return;
 			_subscription = layoutGroup.CompleteLayoutAsObservable.Subscribe(ApplyFitting);
 		}
 
-		/// <summary> レイアウト完了通知の購読を解除 </summary>
+		/// <summary>レイアウト完了通知の購読を解除</summary>
 		private void Unsubscribe() {
 			if(_subscription != null) {
 				_subscription.Dispose();
@@ -85,7 +90,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 受け取ったレイアウト領域に合わせて自身のサイズを更新 </summary>
+		/// <summary>受け取ったレイアウト領域に合わせて自身のサイズを更新</summary>
 		private void ApplyFitting(Rect layoutRect) {
 			if(RectTransform == null) return;
 			_lastLayoutRect = layoutRect;
@@ -142,10 +147,11 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>現在のRectを使用してフィット処理を実行する</summary>
 		public void ApplyFitting()
 			=> ApplyFitting(RectTransform.rect);
 
-		/// <summary> PivotType を Vector2 の座標に変換 </summary>
+		/// <summary>PivotType を Vector2 の座標に変換</summary>
 		private Vector2 GetPivotVector(PivotType type) {
 			switch(type) {
 				case PivotType.UpperLeft: return new Vector2(0f, 1f);
@@ -161,7 +167,7 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary> 指定軸方向にサイズをフィットさせる </summary>
+		/// <summary>指定軸方向にサイズをフィットさせる</summary>
 		private void HandleSelfFittingAlongAxis(int axis) {
 			bool fit = axis == 0 ? fitWidth : fitHeight;
 			if(!fit) return;

@@ -20,17 +20,17 @@ namespace ANest.UI {
 		}
 
 		#region SerializeField
-		[SerializeField] private bool fitWidth;                 // 横方向をフィットさせるか
-		[SerializeField] private bool fitHeight;                // 縦方向をフィットさせるか
+		[SerializeField] private bool fitWidth;                             // 横方向をフィットさせるか
+		[SerializeField] private bool fitHeight;                            // 縦方向をフィットさせるか
 		[SerializeField] private PivotType pivotType = PivotType.UpperLeft; // 基準点
-		[SerializeField] private aLayoutGroupBase layoutGroup;  // 監視対象のレイアウトグループ
+		[SerializeField] private aLayoutGroupBase layoutGroup;              // 監視対象のレイアウトグループ
 		#endregion
 
 		#region Fields
-		private IDisposable _subscription;         // レイアウト通知購読用
-		private RectTransform _rectTransform;      // RectTransform キャッシュ
+		private IDisposable _subscription;                                                                                      // レイアウト通知購読用
+		private RectTransform _rectTransform;                                                                                   // RectTransform キャッシュ
 		private RectTransform RectTransform => _rectTransform ? _rectTransform : (_rectTransform = transform as RectTransform); // キャッシュプロパティ
-		private Rect _lastLayoutRect;              // 直近のレイアウト領域
+		private Rect _lastLayoutRect;                                                                                           // 直近のレイアウト領域
 		#endregion
 
 		#region Unity Methods
@@ -89,10 +89,10 @@ namespace ANest.UI {
 		private void ApplyFitting(Rect layoutRect) {
 			if(RectTransform == null) return;
 			_lastLayoutRect = layoutRect;
-			
+
 			// 指定された pivotType に基づいて RectTransform.pivot を更新
 			Vector2 targetPivot = GetPivotVector(pivotType);
-			
+
 			// 現在の左上位置（アンカー基準）を計算しておく
 			// anchoredPosition は現在のピボット位置を指しているので、左上に変換する
 			Vector2 originalPivot = RectTransform.pivot;
@@ -103,30 +103,30 @@ namespace ANest.UI {
 
 			HandleSelfFittingAlongAxis(0);
 			HandleSelfFittingAlongAxis(1);
-			
+
 			Vector2 newSize = RectTransform.rect.size;
 
 			if(fitWidth || fitHeight) {
 				// aLayoutGroupBase の layoutRect は、自身の左上を (0,0) とした座標系での配置範囲
 				// (ただし EmitCompleteLayoutRect の実装上、x=左端, y=下端 となっている)
-				
+
 				// 新しい左上位置 = 現在の左上位置 + layoutRect.x(左端のズレ) と (layoutRect.y + layoutRect.height)(上端のズレ)
 				float deltaX = layoutRect.x;
 				float deltaY = layoutRect.y + layoutRect.height;
-				
+
 				Vector2 newTopLeft = currentTopLeft + new Vector2(deltaX, deltaY);
-				
+
 				// 新しい左上位置から、ターゲットピボットに応じた anchoredPosition を算出
 				Vector2 targetAnchoredPos = newTopLeft + new Vector2(newSize.x * targetPivot.x, -newSize.y * (1f - targetPivot.y));
 
 				// 一時的にターゲットピボットを適用して位置を計算・適用
 				RectTransform.pivot = targetPivot;
-				
+
 				// 浮動小数点の誤差を考慮して非常に小さな値の変化は無視する
 				if(Vector2.Distance(RectTransform.anchoredPosition, targetAnchoredPos) > 0.001f) {
 					RectTransform.anchoredPosition = targetAnchoredPos;
 				}
-				
+
 				// ピボットを元に戻す
 				RectTransform.pivot = originalPivot;
 
@@ -141,6 +141,9 @@ namespace ANest.UI {
 				RectTransform.pivot = originalPivot;
 			}
 		}
+
+		public void ApplyFitting()
+			=> ApplyFitting(RectTransform.rect);
 
 		/// <summary> PivotType を Vector2 の座標に変換 </summary>
 		private Vector2 GetPivotVector(PivotType type) {

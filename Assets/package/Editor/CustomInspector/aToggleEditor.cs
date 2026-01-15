@@ -31,6 +31,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty initialGuardDurationProp;           // 初期ガード時間への参照
 		private SerializedProperty useMultipleInputGuardProp;          // 連打ガード使用フラグへの参照
 		private SerializedProperty multipleInputGuardIntervalProp;     // 連打ガード間隔への参照
+		private SerializedProperty shortCutProp;                      // ショートカット入力への参照
 
 		private SerializedProperty targetTextProp;                    // テキスト対象への参照
 		private SerializedProperty textTransitionProp;                // テキスト遷移種別への参照
@@ -45,10 +46,6 @@ namespace ANest.UI.Editor {
 		private SerializedProperty clickAnimationsProp;               // クリックアニメーション配列への参照
 		private SerializedProperty onAnimationsProp;                  // ONアニメーション配列への参照
 		private SerializedProperty offAnimationsProp;                 // OFFアニメーション配列への参照
-		private SerializedProperty m_rectTransformProp;               // 自身のRectTransform参照
-		private SerializedProperty m_targetRectTransformProp;         // 対象RectTransform参照
-		private SerializedProperty m_originalTargetRectTransformValuesProp; // 対象RectTransformの初期値
-		private SerializedProperty m_originalToggleRectTransformValuesProp; // Toggle用RectTransformの初期値
 
 		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
 		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態の保存キー
@@ -79,6 +76,7 @@ namespace ANest.UI.Editor {
 			initialGuardDurationProp = serializedObject.FindProperty("initialGuardDuration");
 			useMultipleInputGuardProp = serializedObject.FindProperty("useMultipleInputGuard");
 			multipleInputGuardIntervalProp = serializedObject.FindProperty("multipleInputGuardInterval");
+			shortCutProp = serializedObject.FindProperty("shortCut");
 
 			targetTextProp = serializedObject.FindProperty("targetText");
 			textTransitionProp = serializedObject.FindProperty("textTransition");
@@ -93,11 +91,6 @@ namespace ANest.UI.Editor {
 			clickAnimationsProp = serializedObject.FindProperty("m_clickAnimations");
 			onAnimationsProp = serializedObject.FindProperty("m_onAnimations");
 			offAnimationsProp = serializedObject.FindProperty("m_offAnimations");
-
-			m_rectTransformProp = serializedObject.FindProperty("m_rectTransform");
-			m_targetRectTransformProp = serializedObject.FindProperty("m_targetRectTransform");
-			m_originalTargetRectTransformValuesProp = serializedObject.FindProperty("m_originalTargetRectTransformValues");
-			m_originalToggleRectTransformValuesProp = serializedObject.FindProperty("m_originalToggleRectTransformValues");
 
 			showNavigation = EditorPrefs.GetBool(ShowNavigationKey);
 
@@ -181,6 +174,10 @@ namespace ANest.UI.Editor {
 			}
 
 			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("ShortCut", EditorStyles.boldLabel);
+			EditorGUILayout.PropertyField(shortCutProp);
+
+			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
 			{
 				EditorGUILayout.PropertyField(useSharedAnimationProp, new GUIContent("Use Shared Animation"));
@@ -230,15 +227,6 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Events", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(onValueChangedProp, new GUIContent("On Value Changed"));
-
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("RectTransform", EditorStyles.boldLabel);
-			using (new EditorGUI.DisabledScope(true)) {
-				EditorGUILayout.PropertyField(m_rectTransformProp, new GUIContent("Self RectTransform"));
-				EditorGUILayout.PropertyField(m_targetRectTransformProp, new GUIContent("Target RectTransform"));
-				EditorGUILayout.PropertyField(m_originalTargetRectTransformValuesProp, new GUIContent("Original Target Values"));
-				EditorGUILayout.PropertyField(m_originalToggleRectTransformValuesProp, new GUIContent("Original Toggle Values"));
-			}
 
 			if(EditorGUI.EndChangeCheck()) {
 				serializedObject.ApplyModifiedProperties();
@@ -301,30 +289,39 @@ namespace ANest.UI.Editor {
 
 				// RectTransformとGraphicのキャッシュ
 				var rectProp = so.FindProperty("m_rectTransform");
-				if(rectProp.objectReferenceValue == null) {
-					rectProp.objectReferenceValue = toggle.GetComponent<RectTransform>();
-				}
-
 				var targetRectProp = so.FindProperty("m_targetRectTransform");
-				if(targetRectProp.objectReferenceValue == null) {
-					targetRectProp.objectReferenceValue = rectProp.objectReferenceValue;
-				}
-
-				var targetRect = targetRectProp.objectReferenceValue as RectTransform;
-				if(targetRect != null) {
-					so.FindProperty("m_originalTargetRectTransformValues").boxedValue = RectTransformValues.CreateValues(targetRect);
-				}
-
+				var originalTargetValuesProp = so.FindProperty("m_originalTargetRectTransformValues");
+				var originalToggleValuesProp = so.FindProperty("m_originalToggleRectTransformValues");
 				var graphicProp = so.FindProperty("graphic");
-				if(graphicProp.objectReferenceValue == null) {
-					graphicProp.objectReferenceValue = toggle.GetComponentInChildren<Graphic>();
-				}
 
-				var graphic = graphicProp.objectReferenceValue as Graphic;
-				if(graphic != null) {
-					so.FindProperty("m_originalToggleRectTransformValues").boxedValue = RectTransformValues.CreateValues(graphic.rectTransform);
-					// 表示状態の更新
-					graphic.canvasRenderer.SetAlpha(toggle.isOn ? 1f : 0f);
+				bool hasRectProps = rectProp != null && targetRectProp != null && originalTargetValuesProp != null && originalToggleValuesProp != null;
+
+				if(hasRectProps) {
+					if(rectProp.objectReferenceValue == null) {
+						rectProp.objectReferenceValue = toggle.GetComponent<RectTransform>();
+					}
+
+					if(targetRectProp.objectReferenceValue == null) {
+						targetRectProp.objectReferenceValue = rectProp.objectReferenceValue ?? toggle.GetComponent<RectTransform>();
+					}
+
+					var targetRect = targetRectProp.objectReferenceValue as RectTransform;
+					if(targetRect != null) {
+						originalTargetValuesProp.boxedValue = RectTransformValues.CreateValues(targetRect);
+					}
+
+					if(graphicProp != null) {
+						if(graphicProp.objectReferenceValue == null) {
+							graphicProp.objectReferenceValue = toggle.GetComponentInChildren<Graphic>();
+						}
+
+						var graphic = graphicProp.objectReferenceValue as Graphic;
+						if(graphic != null) {
+							originalToggleValuesProp.boxedValue = RectTransformValues.CreateValues(graphic.rectTransform);
+							// 表示状態の更新
+							graphic.canvasRenderer.SetAlpha(toggle.isOn ? 1f : 0f);
+						}
+					}
 				}
 
 				so.ApplyModifiedProperties();

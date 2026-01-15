@@ -28,6 +28,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty onLongPressCancelProp;          // 長押しキャンセルイベントへの参照
 		private SerializedProperty useMultipleInputGuardProp;      // 連打ガード使用フラグへの参照
 		private SerializedProperty multipleInputGuardIntervalProp; // 連打ガード間隔への参照
+		private SerializedProperty shortCutProp;                  // ショートカット入力への参照
 		private SerializedProperty targetTextProp;                 // テキスト対象への参照
 		private SerializedProperty textTransitionProp;             // テキスト遷移種別への参照
 		private SerializedProperty textColorsProp;                 // テキストカラー設定への参照
@@ -68,6 +69,7 @@ namespace ANest.UI.Editor {
 			onLongPressCancelProp = serializedObject.FindProperty("onLongPressCancel");
 			useMultipleInputGuardProp = serializedObject.FindProperty("useMultipleInputGuard");
 			multipleInputGuardIntervalProp = serializedObject.FindProperty("multipleInputGuardInterval");
+			shortCutProp = serializedObject.FindProperty("shortCut");
 			targetTextProp = serializedObject.FindProperty("targetText");
 			textTransitionProp = serializedObject.FindProperty("textTransition");
 			textColorsProp = serializedObject.FindProperty("textColors");
@@ -147,6 +149,10 @@ namespace ANest.UI.Editor {
 					}
 				}
 			}
+
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("ShortCut", EditorStyles.boldLabel);
+			EditorGUILayout.PropertyField(shortCutProp);
 
 			EditorGUILayout.Space();
 			{

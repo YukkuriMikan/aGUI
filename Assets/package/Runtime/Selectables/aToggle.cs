@@ -27,6 +27,10 @@ namespace ANest.UI {
 		[Tooltip("入力ガードの待機秒数")]
 		[SerializeField] private float multipleInputGuardInterval = 0.5f; // 入力ガードの待機秒数
 
+		[Header("ShortCut")]
+		[Tooltip("ショートカット入力の設定")]
+		[SerializeReference, SerializeReferenceDropdown] private IShortCut shortCut; // ショートカット入力
+
 		[Header("Text Transition")]
 		[Tooltip("状態遷移に合わせてテキストを変更する対象")]
 		[SerializeField] private TMP_Text targetText; // 遷移対象のテキスト
@@ -62,11 +66,12 @@ namespace ANest.UI {
 		[SerializeField] private aGuiInfo m_graphicGuiInfo; // トグルグラフィック用のGUI情報の参照
 		#endregion
 
-
 		#region Fields
 		private float _lastAcceptedClickTime = -999f;            // 最後に受理した入力時刻
 		private float _initialGuardEndTime = -999f;              // 有効化直後のガード解除時刻
 		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
+		private bool _shortCutPressed;                           // ショートカット押下状態
+		private bool _shortCutPressAccepted;                    // ショートカット入力がガードを通過したか
 		#endregion
 
 		#region Unity Methods
@@ -75,6 +80,7 @@ namespace ANest.UI {
 			ApplySharedParametersIfNeeded();
 			base.OnEnable();
 
+			ResetShortCutState();
 			StartInitialGuard();
 			RegisterToggleListener(true);
 		}
@@ -85,6 +91,12 @@ namespace ANest.UI {
 
 			RegisterToggleListener(false);
 			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
+			ResetShortCutState();
+		}
+
+		/// <summary>ショートカット入力を監視する</summary>
+		private void Update() {
+			UpdateShortCutState();
 		}
 
 		/// <summary>クリック入力時のガード判定とアニメーション再生を処理する</summary>
@@ -127,6 +139,54 @@ namespace ANest.UI {
 					aGuiUtils.ApplyTextAnimationTransition(targetText, textAnimator, textAnimationTriggers, (int)state);
 					break;
 			}
+		}
+		#endregion
+
+		#region ShortCut Support
+		/// <summary>ショートカット入力状態の更新と押下・解放処理</summary>
+		private void UpdateShortCutState() {
+			if(shortCut == null) return;
+
+			bool isPressed = shortCut.IsPressed;
+
+			if(isPressed && !_shortCutPressed) {
+				HandleShortCutPress();
+			} else if(!isPressed && _shortCutPressed) {
+				HandleShortCutRelease();
+			}
+
+			_shortCutPressed = isPressed;
+		}
+
+		/// <summary>ショートカット押下開始時の処理</summary>
+		private void HandleShortCutPress() {
+			if(!IsActive() || !IsInteractable()) return;
+
+			float now = Time.unscaledTime;
+			if(IsGuardActive(now)) return;
+
+			StartGuard(now);
+			_shortCutPressAccepted = true;
+		}
+
+		/// <summary>ショートカット押下終了時の処理</summary>
+		private void HandleShortCutRelease() {
+			if(!_shortCutPressAccepted) {
+				_shortCutPressed = false;
+				return;
+			}
+
+			var eventSystem = aGuiManager.EventSystem;
+			base.OnSubmit(eventSystem != null ? new BaseEventData(eventSystem) : null);
+			PlayClickAnimations();
+
+			_shortCutPressAccepted = false;
+		}
+
+		/// <summary>ショートカット状態をリセットする</summary>
+		private void ResetShortCutState() {
+			_shortCutPressed = false;
+			_shortCutPressAccepted = false;
 		}
 		#endregion
 

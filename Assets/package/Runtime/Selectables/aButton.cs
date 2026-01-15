@@ -30,6 +30,10 @@ namespace ANest.UI {
 		[Tooltip("入力ガードの待機秒数")]
 		[SerializeField] private float multipleInputGuardInterval = 0.5f; // 入力ガードの待機秒数
 
+		[Header("ShortCut")]
+		[Tooltip("ショートカット入力の設定")]
+		[SerializeReference, SerializeReferenceDropdown] private IShortCut shortCut; // ショートカット入力
+
 		[Header("Text Transition")]
 		[Tooltip("状態遷移に合わせてテキストを変更する対象")]
 		[SerializeField] private TMP_Text targetText; // 遷移対象のテキスト
@@ -88,6 +92,7 @@ namespace ANest.UI {
 		private BaseEventData _cachedSubmitEventData;             // Submit入力を後段処理に渡すためのキャッシュ
 		private object _inputSystemSubmitAction;                  // Input SystemのSubmitアクション（リフレクションで扱う）
 		private bool _inputSystemSubmitModuleActive;              // Input System UI Module経由のSubmit入力か
+		private bool _shortCutPressed;                           // ショートカット入力の押下状態
 		private static Type s_inputSystemUIModuleType;            // InputSystemUIInputModule型キャッシュ
 		private static Type s_inputActionReferenceType;           // InputActionReference型キャッシュ
 		private static Type s_inputActionType;                    // InputAction型キャッシュ
@@ -137,6 +142,7 @@ namespace ANest.UI {
 		/// <summary> フレーム更新で長押しの進捗を監視 </summary>
 		private void Update() {
 			UpdateSubmitPressState();
+			UpdateShortCutState();
 
 			if(!enableLongPress || !_pressAccepted || !_isPointerDown || _longPressTriggered) return;
 			if(!IsActive() || !IsInteractable()) return;
@@ -350,8 +356,8 @@ namespace ANest.UI {
 			_cachedSubmitEventData = null;
 			_inputSystemSubmitAction = null;
 			_inputSystemSubmitModuleActive = false;
+			_shortCutPressed = false;
 			aGuiUtils.StopTextColorTransition(ref _textColorTransitionCts);
-			UpdateLongPressImage();
 		}
 
 		/// <summary> 共通パラメータを使用している場合に値を反映する </summary>
@@ -377,6 +383,61 @@ namespace ANest.UI {
 			textColors = sharedParameters.textColors;
 			textSwapState = sharedParameters.textSwapState;
 			textAnimationTriggers = sharedParameters.textAnimationTriggers;
+		}
+		#endregion
+
+		#region ShortCut Support
+		/// <summary> ショートカット入力状態の更新と押下・解放処理 </summary>
+		private void UpdateShortCutState() {
+			if(shortCut == null) return;
+
+			bool isPressed = shortCut.IsPressed;
+
+			if(isPressed && !_shortCutPressed) {
+				HandleShortCutPress();
+			} else if(!isPressed && _shortCutPressed) {
+				HandleShortCutRelease();
+			}
+
+			_shortCutPressed = isPressed;
+		}
+
+		/// <summary> ショートカット押下開始時の処理 </summary>
+		private void HandleShortCutPress() {
+			if(!IsActive() || !IsInteractable()) return;
+
+			float now = Time.unscaledTime;
+			if(IsGuardActive(now)) return;
+
+			StartGuard(now);
+			_pressAccepted = true;
+			_isPointerDown = true;
+			_longPressTriggered = false;
+			_pointerDownTime = now;
+			LongPressProgress = 0f;
+			UpdateLongPressImage();
+		}
+
+		/// <summary> ショートカット押下終了時の処理 </summary>
+		private void HandleShortCutRelease() {
+			if(!_pressAccepted) {
+				_shortCutPressed = false;
+				return;
+			}
+
+			TryInvokeLongPressCancel();
+
+			_isPointerDown = false;
+			LongPressProgress = 0f;
+			UpdateLongPressImage();
+
+			if(!_longPressTriggered) {
+				var eventSystem = aGuiManager.EventSystem;
+				base.OnSubmit(eventSystem != null ? new BaseEventData(eventSystem) : null);
+				PlayClickAnimations();
+			}
+
+			_pressAccepted = false;
 		}
 		#endregion
 

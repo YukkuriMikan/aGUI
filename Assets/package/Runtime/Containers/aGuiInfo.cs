@@ -6,11 +6,11 @@ namespace ANest.UI {
 	public class aGuiInfo : MonoBehaviour {
 		#region SerializeField
 		[Tooltip("自身のRectTransform")]
-		[SerializeField] private RectTransform m_rectTransform;                     // 自身のRectTransform
+		[SerializeField] private RectTransform m_rectTransform; // 自身のRectTransform
 		[Tooltip("RectTransformの初期値キャッシュ")]
 		[SerializeField] private RectTransformValues m_originalRectTransformValues; // RectTransformの初期値
 		[Tooltip("対象グラフィック")]
-		[SerializeField] private Graphic m_targetGraphic;                          // 対象グラフィック
+		[SerializeField] private Graphic m_targetGraphic; // 対象グラフィック
 		#endregion
 
 		#region Properties
@@ -23,6 +23,11 @@ namespace ANest.UI {
 		/// <summary>対象のGraphic</summary>
 		public Graphic TargetGraphic => m_targetGraphic;
 		#endregion
+
+		/// <summary> 情報の更新を行う </summary>
+		public void Refresh() {
+			m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
+		}
 
 		#if UNITY_EDITOR
 		/// <summary>コンポーネント追加・リセット時に参照を取得</summary>

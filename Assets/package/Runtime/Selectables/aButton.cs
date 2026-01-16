@@ -92,7 +92,7 @@ namespace ANest.UI {
 		private BaseEventData _cachedSubmitEventData;             // Submit入力を後段処理に渡すためのキャッシュ
 		private object _inputSystemSubmitAction;                  // Input SystemのSubmitアクション（リフレクションで扱う）
 		private bool _inputSystemSubmitModuleActive;              // Input System UI Module経由のSubmit入力か
-		private bool _shortCutPressed;                           // ショートカット入力の押下状態
+		private bool _shortCutPressed;                            // ショートカット入力の押下状態
 		private static Type s_inputSystemUIModuleType;            // InputSystemUIInputModule型キャッシュ
 		private static Type s_inputActionReferenceType;           // InputActionReference型キャッシュ
 		private static Type s_inputActionType;                    // InputAction型キャッシュ
@@ -141,6 +141,8 @@ namespace ANest.UI {
 
 		/// <summary> フレーム更新で長押しの進捗を監視 </summary>
 		private void Update() {
+			if(!Application.isPlaying) return;
+
 			UpdateSubmitPressState();
 			UpdateShortCutState();
 

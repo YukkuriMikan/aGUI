@@ -71,7 +71,7 @@ namespace ANest.UI {
 		private float _initialGuardEndTime = -999f;              // 有効化直後のガード解除時刻
 		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
 		private bool _shortCutPressed;                           // ショートカット押下状態
-		private bool _shortCutPressAccepted;                    // ショートカット入力がガードを通過したか
+		private bool _shortCutPressAccepted;                     // ショートカット入力がガードを通過したか
 		#endregion
 
 		#region Unity Methods
@@ -96,6 +96,8 @@ namespace ANest.UI {
 
 		/// <summary>ショートカット入力を監視する</summary>
 		private void Update() {
+			if(!Application.isPlaying) return;
+
 			UpdateShortCutState();
 		}
 

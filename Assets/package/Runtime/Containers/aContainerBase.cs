@@ -53,10 +53,10 @@ namespace ANest.UI {
 		[Header("Guard")]
 		[Tooltip("表示直後の操作をブロックするか？")]
 		[SerializeField]
-		private bool m_initialGuard; // 表示直後の操作をブロックするか？
+		private bool m_initialGuard = true; // 表示直後の操作をブロックするか？
 		[Tooltip("初期ガードする時間(秒)")]
 		[SerializeField]
-		private float m_initialGuardDuration; // 初期ガードする時間(秒)
+		private float m_initialGuardDuration = 0.05f; // 初期ガードする時間(秒)
 
 		[Header("Reference")]
 		[Tooltip("キャンバスグループの参照")]
@@ -98,7 +98,6 @@ namespace ANest.UI {
 		private readonly Subject<Unit> m_hideStartSubject = new();        // 非表示開始通知用
 		private readonly Subject<Unit> m_hideEndSubject = new();          // 非表示完了通知用
 		#endregion
-
 
 		#region Property
 		/// <summary>レイアウトグループ</summary>
@@ -182,7 +181,6 @@ namespace ANest.UI {
 		}
 		#endregion
 
-
 		#region Unity Event
 		/// <summary>参照のキャッシュと初期化を行う</summary>
 		protected virtual void Awake() {
@@ -231,7 +229,6 @@ namespace ANest.UI {
 		}
 		#endregion
 
-
 		#region Public Method
 		/// <summary>コンテナを表示する</summary>
 		public virtual void Show() {
@@ -265,7 +262,6 @@ namespace ANest.UI {
 			ObserveSelectables(); // キャッシュ更新時に監視も更新
 		}
 		#endregion
-
 
 		#region Protected Method
 		/// <summary>コンテナの初期状態を設定する。二重初期化は防止される</summary>
@@ -430,7 +426,6 @@ namespace ANest.UI {
 		}
 		#endregion
 
-
 		#region Private Method
 		/// <summary>SetActive時の警告を回避しつつ、GameObjectの活性状態を切り替える</summary>
 		private void SetActiveInternal(bool active) {
@@ -513,7 +508,6 @@ namespace ANest.UI {
 			Debug.LogWarning($"[{nameof(aContainerBase)}] {name} の gameObject.SetActive が直接変更されました。Show/Hide または表示フラグを使用してください。", this);
 		}
 		#endregion
-
 
 		#region Unity Editor
 #if UNITY_EDITOR

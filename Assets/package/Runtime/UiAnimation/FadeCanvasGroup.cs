@@ -51,6 +51,10 @@ namespace ANest.UI {
 		/// <param name="original">復元用のRectTransform初期値</param>
 		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
 			if(callerRect == null) return null;
+			if(m_canvasGroup == null) {
+				Debug.LogError("CanvasGroup is not assigned in FadeCanvasGroup.");
+				return null;
+			}
 
 			// 初期値設定
 			m_canvasGroup.alpha = m_startValue;

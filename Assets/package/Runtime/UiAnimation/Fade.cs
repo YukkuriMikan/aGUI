@@ -47,6 +47,10 @@ namespace ANest.UI {
 		/// <param name="original">復元用のRectTransform初期値</param>
 		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
 			if(callerRect == null) return null;
+			if(graphic == null) {
+				Debug.LogError($"[Fade] Graphic is null. Cannot animate on {callerRect.name}");
+				return null;
+			}
 
 			// 初期値
 			graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, m_startValue);

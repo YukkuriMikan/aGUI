@@ -79,9 +79,6 @@ namespace ANest.UI {
 					.Subscribe(_ => m_wasHidden = true)
 					.AddTo(m_disposables);
 			}
-
-			// 初期状態で非表示にする
-			SetCursorVisible(false);
 		}
 
 		/// <summary>ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する</summary>

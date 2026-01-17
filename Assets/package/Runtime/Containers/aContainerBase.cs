@@ -66,11 +66,6 @@ namespace ANest.UI {
 		[SerializeField]
 		private aGuiInfo m_guiInfo; // GUI情報の参照
 
-		[Header("Layout")]
-		[Tooltip("レイアウトグループの参照")]
-		[SerializeField]
-		private aLayoutGroupBase m_layoutGroup; // レイアウトグループの参照
-
 		[Header("Event")]
 		[Tooltip("選択状態が変更された時のイベント")]
 		[SerializeField]
@@ -100,9 +95,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Property
-		/// <summary>レイアウトグループ</summary>
-		public aLayoutGroupBase LayoutGroup => m_layoutGroup;
-
 		/// <summary>コンテナに紐付くCanvasGroup</summary>
 		public CanvasGroup CanvasGroup => m_canvasGroup;
 

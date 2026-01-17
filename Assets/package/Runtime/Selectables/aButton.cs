@@ -20,9 +20,9 @@ namespace ANest.UI {
 
 		[Header("Initial Guard")]
 		[Tooltip("有効化直後の入力を抑制するかどうか")]
-		[SerializeField] private bool useInitialGuard = true; // 有効化直後の入力を抑制するか
+		[SerializeField] private bool useInitialGuard = false; // 有効化直後の入力を抑制するか、基本的にContainer側の機能を使うのでデフォルトはfalse
 		[Tooltip("有効化直後に抑制する秒数")]
-		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
+		[SerializeField] private float initialGuardDuration = 0.05f; // 有効化直後に抑制する秒数
 
 		[Header("Multiple Input Guard")]
 		[Tooltip("入力ガード（連打防止）を使用するかどうか")]

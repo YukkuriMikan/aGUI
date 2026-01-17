@@ -58,21 +58,30 @@ namespace ANest.UI {
 		[SerializeField] private Ease m_sizeChangeEase = Ease.OutQuad; // サイズ変更イージング
 		#endregion
 
-		#region Private Fields
+ 	#region Private Fields
 		private RectTransform m_currentTargetRect;         // 現在のターゲットRectTransform
 		private CompositeDisposable m_disposables = new(); // 購読管理用
 		private Tweener m_moveTween;                       // 移動アニメーション用Tween
 		private Tweener m_sizeTween;                       // サイズ変更アニメーション用Tween
+		private bool m_wasHidden = true;                   // 前フレームで非表示だったかどうか（瞬間移動判定用）
 		#endregion
 
-		#region Lifecycle Methods
+ 	#region Lifecycle Methods
 		/// <summary>開始時にコンテナの選択変更を購読する</summary>
 		private void Start() {
 			if(m_container != null) {
 				m_container.ObserveEveryValueChanged(c => c.CurrentSelectable)
 					.Subscribe(OnSelectableChanged)
 					.AddTo(m_disposables);
+
+				// コンテナがShowされた時に瞬間移動フラグを立てる
+				m_container.ShowStartObservable
+					.Subscribe(_ => m_wasHidden = true)
+					.AddTo(m_disposables);
 			}
+
+			// 初期状態で非表示にする
+			SetCursorVisible(false);
 		}
 
 		/// <summary>ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する</summary>
@@ -90,17 +99,32 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#region Internal Logic
+ 	#region Internal Logic
 		/// <summary>選択対象が変更された際にカーソル追従の準備を行う</summary>
 		/// <param name="selectable">新しく選択されたSelectable</param>
 		private void OnSelectableChanged(Selectable selectable) {
+			bool wasNull = m_currentTargetRect == null;
 			m_currentTargetRect = selectable != null ? selectable.GetComponent<RectTransform>() : null;
 
 			if(m_cursorRect == null && m_cursorImage != null) {
 				m_cursorRect = m_cursorImage.rectTransform;
 			}
 
-			if(m_currentTargetRect != null && m_cursorRect != null) {
+			// ターゲットがnullになった場合は非表示にする
+			if(m_currentTargetRect == null) {
+				SetCursorVisible(false);
+				return;
+			}
+
+			// nullから有効なターゲットに変わった場合は瞬間移動フラグを立てる
+			if(wasNull) {
+				m_wasHidden = true;
+			}
+
+			// ターゲットが有効な場合は表示する
+			SetCursorVisible(true);
+
+			if(m_cursorRect != null) {
 				// ターゲットが切り替わった瞬間に、アンカーとピボットを合わせる
 				m_cursorRect.anchorMin = m_currentTargetRect.anchorMin;
 				m_cursorRect.anchorMax = m_currentTargetRect.anchorMax;
@@ -119,6 +143,14 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>カーソルの表示/非表示を切り替える</summary>
+		/// <param name="visible">表示するかどうか</param>
+		private void SetCursorVisible(bool visible) {
+			if(m_cursorImage != null) {
+				m_cursorImage.enabled = visible;
+			}
+		}
+
 		/// <summary>カーソルの位置とサイズを選択対象に合わせる</summary>
 		/// <param name="targetRect">ターゲットのRectTransform</param>
 		private void UpdateCursor(RectTransform targetRect) {
@@ -128,9 +160,13 @@ namespace ANest.UI {
 			// Canvas内での絶対座標を合わせるために、ワールド座標を使用する
 			Vector3 targetWorldPos = targetRect.position;
 
-			if(m_moveMode == MoveMode.Instant) {
+			// 非表示状態から表示状態に遷移した場合は瞬間移動する
+			bool shouldInstantMove = m_wasHidden || m_moveMode == MoveMode.Instant;
+
+			if(shouldInstantMove) {
 				m_moveTween?.Kill();
 				m_cursorRect.position = targetWorldPos;
+				m_wasHidden = false;
 			} else {
 				if(m_moveTween != null && m_moveTween.IsActive()) {
 					// アニメーション中なら、ターゲットの最新位置を終着点として更新し続ける（追従）
@@ -146,7 +182,7 @@ namespace ANest.UI {
 			// サイズ変更
 			if(m_sizeMode == SizeMode.MatchSelectable) {
 				Vector2 targetSize = targetRect.rect.size + m_padding;
-				if(m_moveMode == MoveMode.Instant) {
+				if(shouldInstantMove) {
 					m_sizeTween?.Kill();
 					m_cursorRect.sizeDelta = targetSize;
 				} else {

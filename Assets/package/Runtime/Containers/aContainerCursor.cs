@@ -9,20 +9,20 @@ namespace ANest.UI {
 		#region Enums
 		/// <summary>移動モード</summary>
 		public enum MoveMode {
-			Instant,   // 即座に移動
-			Animation  // アニメーションを伴って移動
+			Instant,  // 即座に移動
+			Animation // アニメーションを伴って移動
 		}
 
 		/// <summary>サイズ変更モード</summary>
 		public enum SizeMode {
-			Fixed,            // 固定サイズ
-			MatchSelectable   // 選択対象のサイズに合わせる
+			Fixed,          // 固定サイズ
+			MatchSelectable // 選択対象のサイズに合わせる
 		}
 
 		/// <summary>更新モード</summary>
 		public enum UpdateMode {
 			OnSelectChanged, // 選択対象が変更された時のみ更新
-			EveryFrame      // 毎フレーム（LateUpdate）更新
+			EveryFrame       // 毎フレーム（LateUpdate）更新
 		}
 		#endregion
 
@@ -172,6 +172,21 @@ namespace ANest.UI {
 				m_container = GetComponentInParent<aContainerBase>();
 			}
 
+			if(m_container == null) {
+				m_container = GetComponentInChildren<aContainerBase>();
+			}
+
+			// RectもイメージもないならCursorって名前が付いたオブジェクトを探す
+			if(m_cursorRect == null && m_cursorImage == null) {
+				m_cursorRect = transform.Find("Cursor")?.GetComponent<RectTransform>();
+			}
+
+			// Rectがあってイメージが無いなら、Rectの配下からImageを取る
+			if(m_cursorRect != null && m_cursorImage == null) {
+				m_cursorImage = m_cursorRect.GetComponentInChildren<Image>();
+			}
+
+			// イメージがあってRectがないならイメージからRectを取る
 			if(m_cursorImage != null && m_cursorRect == null) {
 				m_cursorRect = m_cursorImage.rectTransform;
 			}

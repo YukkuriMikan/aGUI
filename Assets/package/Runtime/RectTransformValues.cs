@@ -6,7 +6,6 @@ namespace ANest.UI {
 	[Serializable]
 	public struct RectTransformValues {
 		#region Field
-
 		[Tooltip("座標のワールド値")]
 		[SerializeField]
 		private Vector3 m_worldPosition; // 座標のワールド値
@@ -40,12 +39,9 @@ namespace ANest.UI {
 		[Tooltip("TransformのRect")]
 		[SerializeField]
 		private Rect m_rect; // TransformのRect
-
 		#endregion
 
-
 		#region Property
-
 		/// <summary>座標のワールド値</summary>
 		public Vector3 WorldPosition => m_worldPosition;
 
@@ -78,20 +74,17 @@ namespace ANest.UI {
 
 		/// <summary>TransformのRect</summary>
 		public Rect Rect => m_rect;
-
 		#endregion
 
-
 		#region Public Method
-
 		/// <summary>指定されたTransformから値を作成する</summary>
 		public static RectTransformValues CreateValues(Transform trans) {
 			var rect = trans as RectTransform;
 			var newValues = new RectTransformValues();
 
 			if(rect == null) {
-#if KKRW_DEBUG
-				Debug.Log("RectTransformではありません");
+#if UNITY_EDITOR
+				Debug.Log("RectTransformではありません", trans.gameObject);
 #endif
 				return newValues;
 			}
@@ -147,7 +140,6 @@ namespace ANest.UI {
 		public override int GetHashCode() {
 			return m_worldPosition.GetHashCode(); // 簡易的
 		}
-
 		#endregion
 	}
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
@@ -97,6 +98,9 @@ namespace ANest.UI {
 		#region Property
 		/// <summary>コンテナに紐付くCanvasGroup</summary>
 		public CanvasGroup CanvasGroup => m_canvasGroup;
+
+		/// <summary> 子要素にあるSelectableのキャッシュ </summary>
+		public IEnumerable<Selectable> ChildSelectables => m_childSelectables;
 
 		/// <summary>表示状態（get: 現在の状態 / set: 状態に応じたShow/Hideの実行）</summary>
 		public bool IsVisible {

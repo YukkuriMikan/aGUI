@@ -10,6 +10,7 @@ namespace ANest.UI {
 	/// <summary>aGUIの共通ユーティリティ</summary>
 	public static class aGuiUtils {
 		#region Public Method
+		
 		/// <summary>アニメーション配列のディープコピーを作成する</summary>
 		public static IUiAnimation[] CloneAnimations(IUiAnimation[] animations) {
 			if(animations == null) return null;
@@ -206,7 +207,6 @@ namespace ANest.UI {
 			targetText.color = color;
 		}
 		#endregion
-
 
 		#region Private Method
 		/// <summary>テキストカラーを非同期でフェードさせる</summary>

@@ -1,11 +1,8 @@
 using System;
-using System.Collections.Generic;
 using UniRx;
-using UniRx.Triggers;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
-using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>UIコンテナの基底クラス</summary>
@@ -29,35 +26,10 @@ namespace ANest.UI {
 		[SerializeReference, SerializeReferenceDropdown]
 		private IUiAnimation[] m_hideAnimations; // 非表示(Hide)時に再生するアニメーション
 
-		[Header("Selection")]
-		[Tooltip("子要素にあるSelectableのキャッシュ")]
-		[SerializeField]
-		private Selectable[] m_childSelectables; // 子要素にあるSelectableのキャッシュ
-		[Tooltip("表示(Show)時に最初に選択されるSelectable")]
-		[SerializeField]
-		private Selectable m_initialSelectable; // 表示(Show)時に最初に選択されるSelectable
-		[Tooltip("現在選択されているSelectable")]
-		[SerializeField]
-		private Selectable m_currentSelectable; // 現在選択されているSelectable
-		[Tooltip("表示時に、前回の選択状態を復元(Resume)することを優先するかどうか")]
-		[SerializeField]
-		private bool m_defaultResumeSelectionOnShow = true; // 表示時に、前回の選択状態を復元(Resume)することを優先するかどうか
-		[Tooltip("CurrentSelectableがNullになる事を許可しない")]
-		[SerializeField]
-		private bool m_disallowNullSelection = true; // CurrentSelectableがNullになる事を許可しない
-
 		[Header("State")]
 		[Tooltip("現在表示中（表示プロセス中を含む）かどうか")]
 		[SerializeField]
 		protected bool m_isVisible; // 現在表示中（表示プロセス中を含む）かどうか
-
-		[Header("Guard")]
-		[Tooltip("表示直後の操作をブロックするか？")]
-		[SerializeField]
-		private bool m_initialGuard = true; // 表示直後の操作をブロックするか？
-		[Tooltip("初期ガードする時間(秒)")]
-		[SerializeField]
-		private float m_initialGuardDuration = 0.05f; // 初期ガードする時間(秒)
 
 		[Header("Reference")]
 		[Tooltip("キャンバスグループの参照")]
@@ -68,10 +40,6 @@ namespace ANest.UI {
 		private aGuiInfo m_guiInfo; // GUI情報の参照
 
 		[Header("Event")]
-		[Tooltip("選択状態が変更された時のイベント")]
-		[SerializeField]
-		private UnityEvent<Selectable> m_onSelectChanged = new(); // 選択状態が変更された時のイベント
-		[FormerlySerializedAs("m_showEvent")]
 		[Tooltip("表示(Show)完了時のイベント")]
 		[SerializeField]
 		private UnityEvent m_onShow = new(); // 表示(Show)完了時のイベント
@@ -80,27 +48,22 @@ namespace ANest.UI {
 		[SerializeField]
 		private UnityEvent m_onHide = new(); // 非表示(Hide)完了時のイベント
 
-		private Selectable m_lastSelected;                                // 非表示時に記録した、最後に選択されていたSelectable
-		private RectTransform m_rectTransform;                            // 自身のRectTransformのキャッシュ
-		private bool m_initialized;                                       // 初期化が完了しているかどうか
-		private bool m_isQuitting;                                        // アプリケーションが終了処理中かどうか
-		protected bool m_suppressAnimation;                               // 内部処理用：一時的にアニメーション再生を抑制するフラグ
-		private bool m_suppressActiveWarning;                             // 内部処理用：SetActive実行時の警告を一時的に抑制するフラグ
-		private bool m_nowShowing;                                        // 現在表示処理中かどうか
-		private bool m_nowHiding;                                         // 現在非表示処理中かどうか
-		private readonly CompositeDisposable m_selectDisposables = new(); // 選択監視用
-		private readonly Subject<Unit> m_showStartSubject = new();        // 表示開始通知用
-		private readonly Subject<Unit> m_showEndSubject = new();          // 表示完了通知用
-		private readonly Subject<Unit> m_hideStartSubject = new();        // 非表示開始通知用
-		private readonly Subject<Unit> m_hideEndSubject = new();          // 非表示完了通知用
+		protected RectTransform m_rectTransform;                   // 自身のRectTransformのキャッシュ
+		protected bool m_initialized;                              // 初期化が完了しているかどうか
+		private bool m_isQuitting;                                 // アプリケーションが終了処理中かどうか
+		protected bool m_suppressAnimation;                        // 内部処理用：一時的にアニメーション再生を抑制するフラグ
+		private bool m_suppressActiveWarning;                      // 内部処理用：SetActive実行時の警告を一時的に抑制するフラグ
+		private bool m_nowShowing;                                 // 現在表示処理中かどうか
+		private bool m_nowHiding;                                  // 現在非表示処理中かどうか
+		private readonly Subject<Unit> m_showStartSubject = new(); // 表示開始通知用
+		private readonly Subject<Unit> m_showEndSubject = new();   // 表示完了通知用
+		private readonly Subject<Unit> m_hideStartSubject = new(); // 非表示開始通知用
+		private readonly Subject<Unit> m_hideEndSubject = new();   // 非表示完了通知用
 		#endregion
 
 		#region Property
 		/// <summary>コンテナに紐付くCanvasGroup</summary>
 		public CanvasGroup CanvasGroup => m_canvasGroup;
-
-		/// <summary> 子要素にあるSelectableのキャッシュ </summary>
-		public IEnumerable<Selectable> ChildSelectables => m_childSelectables;
 
 		/// <summary>表示状態（get: 現在の状態 / set: 状態に応じたShow/Hideの実行）</summary>
 		public bool IsVisible {
@@ -113,21 +76,6 @@ namespace ANest.UI {
 					Hide();
 				}
 			}
-		}
-
-		/// <summary>CurrentSelectableがNullになる事を許可しないかどうか</summary>
-		public bool DisallowNullSelection {
-			get => m_disallowNullSelection;
-			set => m_disallowNullSelection = value;
-		}
-
-		/// <summary>現在選択されているSelectable</summary>
-		public Selectable CurrentSelectable => m_currentSelectable;
-
-		/// <summary>Show時、デフォルトで選択するSelectable</summary>
-		public Selectable InitialSelectable {
-			get => m_initialSelectable;
-			set => m_initialSelectable = value;
 		}
 
 		/// <summary>カスタムアニメーションを使用するかどうか</summary>
@@ -148,9 +96,6 @@ namespace ANest.UI {
 		/// <summary>非表示完了時のイベント</summary>
 		public UnityEvent OnHide => m_onHide;
 
-		/// <summary>選択対象が変更された時のイベント</summary>
-		public UnityEvent<Selectable> OnSelectChanged => m_onSelectChanged;
-
 		/// <summary>表示開始時の通知用Observable</summary>
 		public IObservable<Unit> ShowStartObservable => m_showStartSubject;
 
@@ -165,30 +110,12 @@ namespace ANest.UI {
 
 		/// <summary>自身のRectTransform</summary>
 		public RectTransform RectTransform => m_rectTransform;
-
-		/// <summary>CanvasGroupのinteractableへのアクセサ</summary>
-		public bool Interactable {
-			get => CanvasGroup.interactable;
-			set {
-				if(CanvasGroup == null) return;
-				if(CanvasGroup.interactable == value) return;
-				CanvasGroup.interactable = value;
-			}
-		}
 		#endregion
 
 		#region Unity Event
 		/// <summary>参照のキャッシュと初期化を行う</summary>
 		protected virtual void Awake() {
 			Initialize();
-		}
-
-		/// <summary>開始時の処理。初期表示状態の反映を完了させる</summary>
-		protected virtual void Start() {
-			// 初期状態で表示中の場合、選択状態の復元を試みる
-			if(m_isVisible) {
-				ResumeSelection();
-			}
 		}
 
 		/// <summary>有効化時の処理。意図しないSetActiveへの警告チェックを含む</summary>
@@ -217,7 +144,6 @@ namespace ANest.UI {
 		/// <summary>破棄時の処理</summary>
 		protected virtual void OnDestroy() {
 			aContainerManager.Remove(this);
-			m_selectDisposables.Dispose();
 			m_showStartSubject.OnCompleted();
 			m_showEndSubject.OnCompleted();
 			m_hideStartSubject.OnCompleted();
@@ -239,24 +165,6 @@ namespace ANest.UI {
 
 			HideInternal();
 		}
-
-		/// <summary>子要素のSelectableを検索してキャッシュする</summary>
-		public void RefreshChildSelectables() {
-			var currentSelectables = GetComponentsInChildren<Selectable>(true);
-			if(m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
-				m_childSelectables = currentSelectables;
-				ObserveSelectables(); // キャッシュ更新時に監視も更新
-				return;
-			}
-
-			for (int i = 0; i < m_childSelectables.Length; i++) {
-				if(m_childSelectables[i] != currentSelectables[i]) {
-					m_childSelectables = currentSelectables;
-				}
-			}
-
-			ObserveSelectables(); // キャッシュ更新時に監視も更新
-		}
 		#endregion
 
 		#region Protected Method
@@ -268,13 +176,6 @@ namespace ANest.UI {
 			if(m_canvasGroup == null) m_canvasGroup = GetComponent<CanvasGroup>();
 			if(m_guiInfo == null) m_guiInfo = GetComponent<aGuiInfo>();
 			if(m_rectTransform == null) m_rectTransform = GetComponent<RectTransform>();
-			if(m_childSelectables == null || m_childSelectables.Length == 0) {
-				// 子要素の更新とイベントの監視開始
-				RefreshChildSelectables();
-			} else {
-				// 選択イベントの監視開始
-				ObserveSelectables();
-			}
 
 			// 管理対象に登録
 			aContainerManager.Add(this);
@@ -303,18 +204,6 @@ namespace ANest.UI {
 
 			aContainerManager.Add(this);
 
-			// InitialGuard機能の実行
-			if(m_initialGuard && m_initialGuardDuration > 0) {
-				m_canvasGroup.blocksRaycasts = false;
-				Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
-					.TakeUntilDestroy(this)
-					.Subscribe(_ => {
-						if(this != null && m_canvasGroup != null) {
-							m_canvasGroup.blocksRaycasts = true;
-						}
-					});
-			}
-
 #if UNITY_EDITOR
 			if(m_debugMode) {
 				var stackTrace = new System.Diagnostics.StackTrace();
@@ -336,12 +225,6 @@ namespace ANest.UI {
 				m_nowShowing = false;
 			});
 
-			// 3. 選択状態の復帰
-			// 初期化中（Awake）の場合は Start で実行するためここではスキップ
-			if(m_initialized && !m_suppressAnimation) {
-				ResumeSelection();
-			}
-
 			m_suppressActiveWarning = false;
 			m_showStartSubject.OnNext(Unit.Default);
 		}
@@ -358,9 +241,6 @@ namespace ANest.UI {
 				Debug.Log($"{this.name} Hide: Call from {stackFrame?.GetFileName()}.{stackFrame?.GetMethod().Name}", this);
 			}
 #endif
-
-			// 1. 現在の選択状態を保存
-			CaptureCurrentSelection();
 
 			// 2. 状態の更新
 			UpdateStateForHide();
@@ -379,46 +259,6 @@ namespace ANest.UI {
 				});
 
 			m_suppressActiveWarning = false;
-		}
-
-		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
-		protected void ObserveSelectables() {
-			m_selectDisposables.Clear();
-			if(m_childSelectables == null) return;
-
-			foreach (var selectable in m_childSelectables) {
-				if(selectable == null) continue;
-
-				// 選択された時の処理
-				selectable.OnSelectAsObservable()
-					.Subscribe(_ => {
-						m_currentSelectable = selectable;
-						m_onSelectChanged?.Invoke(selectable);
-					})
-					.AddTo(m_selectDisposables);
-
-				// 選択解除された時の処理
-				selectable.OnDeselectAsObservable()
-					.Subscribe(_ => {
-						if(!m_disallowNullSelection) return;
-
-						// 1フレーム待ってから再選択を試みる（Deselectの直後にSelectを呼ぶ必要があるため）
-						Observable.NextFrame().Subscribe(__ => {
-							// 自身が非アクティブになっていたら何もしない
-							if(this == null || !gameObject.activeInHierarchy) return;
-
-							// 最新のDisallowNullSelection有効コンテナである場合のみ再選択を行う
-							if(!aContainerManager.IsLatestContainer(this)) return;
-
-							if(aGuiManager.EventSystem != null && aGuiManager.EventSystem.currentSelectedGameObject == null) {
-								if(m_currentSelectable != null) {
-									m_currentSelectable.Select();
-								}
-							}
-						}).AddTo(m_selectDisposables);
-					})
-					.AddTo(m_selectDisposables);
-			}
 		}
 		#endregion
 
@@ -444,58 +284,14 @@ namespace ANest.UI {
 				() => killCallback?.Invoke());
 		}
 
-		/// <summary>現在フォーカスされているSelectableがこのコンテナ内であれば記録する</summary>
-		private void CaptureCurrentSelection() {
-			var es = aGuiManager.EventSystem;
-			if(es == null) return;
-			var selected = es.currentSelectedGameObject;
-			if(selected == null) {
-				m_currentSelectable = null;
-				return;
-			}
-
-			// 自身の子要素である場合のみ記録
-			if(!selected.transform.IsChildOf(transform)) {
-				m_currentSelectable = null;
-				return;
-			}
-
-			m_lastSelected = selected.GetComponent<Selectable>();
-			m_currentSelectable = m_lastSelected;
-		}
-
-		/// <summary>最後に選択されていた、または初期設定のSelectableにフォーカスを戻す</summary>
-		private void ResumeSelection() {
-			var es = aGuiManager.EventSystem;
-			if(es == null) return;
-
-			Selectable target = null;
-			// リジューム設定が有効で、前回選択があった場合はそれを優先
-			if(m_defaultResumeSelectionOnShow && m_lastSelected != null && m_lastSelected.IsActive() && m_lastSelected.IsInteractable()) {
-				target = m_lastSelected;
-			}
-
-			// 候補がない場合は初期選択ターゲットを使用
-			if(target == null) {
-				target = m_initialSelectable;
-			}
-
-			if(target == null) return;
-			if(!target.IsActive() || !target.IsInteractable()) return;
-
-			es.SetSelectedGameObject(target.gameObject);
-		}
-
 		/// <summary>表示状態の内部フラグを更新する</summary>
-		private void UpdateStateForShow() {
+		protected virtual void UpdateStateForShow() {
 			m_isVisible = true;
-			Interactable = true;
 		}
 
 		/// <summary>非表示状態の内部フラグを更新する</summary>
-		private void UpdateStateForHide() {
+		protected virtual void UpdateStateForHide() {
 			m_isVisible = false;
-			Interactable = false;
 		}
 
 		/// <summary>直接GameObject.SetActiveが呼ばれた場合に警告を出力する</summary>
@@ -509,13 +305,12 @@ namespace ANest.UI {
 #if UNITY_EDITOR
 		[Tooltip("デバッグログの出力フラグ")]
 		[SerializeField]
-		private bool m_debugMode = false; // デバッグログの出力フラグ
+		protected bool m_debugMode = false; // デバッグログの出力フラグ
 
 		/// <summary>コンポーネント追加・リセット時の処理</summary>
-		private void Reset() {
+		protected virtual void Reset() {
 			if(Application.isPlaying) return;
 			AutoRenameInEditor();
-			RefreshChildSelectables();
 			CacheReferences();
 			ApplySharedAnimationsFromSet();
 		}
@@ -523,7 +318,6 @@ namespace ANest.UI {
 		/// <summary>Inspectorでの値変更時の処理</summary>
 		protected virtual void OnValidate() {
 			if(Application.isPlaying) return;
-			RefreshChildSelectables();
 			CacheReferences();
 			ApplySharedAnimationsFromSet();
 		}

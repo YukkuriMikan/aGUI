@@ -23,14 +23,30 @@ public static class aContainerManager {
 	#endregion
 
 	#region Public Methods
-	/// <summary>指定されたコンテナが、DisallowNullSelectionが有効なコンテナの中で最新（最後に登録されたもの）かどうかを判定する</summary>
+	/// <summary>指定されたコンテナが、表示中のコンテナの中で最新（最後に登録されたもの）かどうかを判定する</summary>
 	/// <param name="container">判定するコンテナ</param>
 	/// <returns>最新であればtrue</returns>
 	public static bool IsLatestContainer(aContainerBase container) {
-		if (container == null || !container.DisallowNullSelection || !container.IsVisible) return false;
+		if(container == null || !container.IsVisible) return false;
 
 		var latest = m_aContainerDictionary
-			.Where(pair => pair.Key != null && pair.Key.IsVisible && pair.Key.DisallowNullSelection)
+			.Where(pair => pair.Key != null && pair.Key.IsVisible)
+			.OrderByDescending(pair => pair.Value)
+			.Select(pair => pair.Key)
+			.FirstOrDefault();
+
+		return latest == container;
+	}
+
+	/// <summary>指定されたコンテナが、DisallowNullSelectionが有効なaSelectableContainerの中で最新（最後に登録されたもの）かどうかを判定する</summary>
+	/// <param name="container">判定するコンテナ</param>
+	/// <returns>最新であればtrue</returns>
+	public static bool IsLatestSelectableContainer(aSelectableContainer container) {
+		if(container == null || !container.IsVisible) return false;
+
+		var latest = m_aContainerDictionary
+			.Where(pair => pair.Key != null && pair.Key.IsVisible)
+			.Where(pair => pair.Key is aSelectableContainer selectable && selectable.DisallowNullSelection)
 			.OrderByDescending(pair => pair.Value)
 			.Select(pair => pair.Key)
 			.FirstOrDefault();

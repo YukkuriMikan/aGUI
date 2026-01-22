@@ -25,11 +25,28 @@ namespace ANest.UI.Tests {
 			public void TestHideInternal() => HideInternal();
 
 			/// <summary>
+			/// リフレクションを使用してアニメーションを設定する
+			/// </summary>
+			public void SetAnimations(IUiAnimation[] show, IUiAnimation[] hide) {
+				var type = typeof(aContainerBase);
+				type.GetField("m_showAnimations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(this, show);
+				type.GetField("m_hideAnimations", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(this, hide);
+			}
+		}
+
+		/// <summary>
+		/// テスト用に aSelectableContainer の内部メソッドを公開する継承クラス
+		/// </summary>
+		private class TestSelectableContainer : aSelectableContainer {
+			/// <summary> 初期化メソッドをテスト用に公開 </summary>
+			public void TestInitialize() => Initialize();
+
+			/// <summary>
 			/// リフレクションを使用して m_disallowNullSelection フィールドの値を設定する
 			/// </summary>
 			/// <param name="value">設定する値</param>
 			public void SetDisallowNullSelection(bool value) {
-				var field = typeof(aContainerBase).GetField("m_disallowNullSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+				var field = typeof(aSelectableContainer).GetField("m_disallowNullSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 				field.SetValue(this, value);
 			}
 
@@ -38,7 +55,7 @@ namespace ANest.UI.Tests {
 			/// </summary>
 			/// <param name="selectables">設定する選択可能要素の配列</param>
 			public void SetChildSelectables(Selectable[] selectables) {
-				var field = typeof(aContainerBase).GetField("m_childSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+				var field = typeof(aSelectableContainer).GetField("m_childSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 				field.SetValue(this, selectables);
 				ObserveSelectables();
 			}
@@ -143,7 +160,7 @@ namespace ANest.UI.Tests {
 				btnGo.transform.SetParent(go.transform);
 				var btn = btnGo.GetComponent<Button>();
 
-				var container = go.AddComponent<TestContainer>();
+				var container = go.AddComponent<TestSelectableContainer>();
 				container.InitialSelectable = btn;
 				container.IsVisible = true;
 
@@ -174,10 +191,12 @@ namespace ANest.UI.Tests {
 				btnGo.transform.SetParent(go.transform);
 				var btn = btnGo.GetComponent<Button>();
 
-				var container = go.AddComponent<TestContainer>();
-				var type = typeof(aContainerBase);
+				var container = go.AddComponent<TestSelectableContainer>();
 				container.IsVisible = true;
 				container.DisallowNullSelection = true;
+
+				// テスト環境では Awake/Start が自動で呼ばれない場合があるので明示的に呼ぶ
+				container.RefreshChildSelectables();
 
 				btn.Select();
 				yield return null;
@@ -270,39 +289,33 @@ namespace ANest.UI.Tests {
 		}
 		#endregion
 
-		#region UI Interaction Tests
-		/// <summary>
-		/// Interactable プロパティが CanvasGroup の interactable を正しく変更するか
-		/// </summary>
-		[Test]
-		public void Interactable_SetsCanvasGroupInteractable() {
-			var canvasGroup = m_testObject.GetComponent<CanvasGroup>();
-
-			m_container.Interactable = true;
-			Assert.IsTrue(canvasGroup.interactable);
-
-			m_container.Interactable = false;
-			Assert.IsFalse(canvasGroup.interactable);
-		}
-
+ 	#region UI Interaction Tests (aSelectableContainer)
 		/// <summary>
 		/// InitialGuard が有効な際、指定時間だけ blocksRaycasts が false になるか
 		/// </summary>
 		[UnityTest]
 		public IEnumerator InitialGuard_BlocksRaycastsTemporarily() {
-			// リフレクションを使用してシリアライズフィールドを設定
-			var type = typeof(aContainerBase);
-			type.GetField("m_initialGuard", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(m_container, true);
-			type.GetField("m_initialGuardDuration", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(m_container, 0.5f);
+			// aSelectableContainer用のテストオブジェクトを作成
+			var testObj = new GameObject("TestSelectableContainer", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
+			var container = testObj.AddComponent<TestSelectableContainer>();
 
-			m_container.Show();
+			try {
+				// リフレクションを使用してシリアライズフィールドを設定
+				var type = typeof(aSelectableContainer);
+				type.GetField("m_initialGuard", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(container, true);
+				type.GetField("m_initialGuardDuration", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(container, 0.5f);
 
-			var canvasGroup = m_testObject.GetComponent<CanvasGroup>();
-			Assert.IsFalse(canvasGroup.blocksRaycasts, "InitialGuard中はblocksRaycastsがfalseであるべき");
+				container.Show();
 
-			yield return new WaitForSeconds(0.6f);
+				var canvasGroup = testObj.GetComponent<CanvasGroup>();
+				Assert.IsFalse(canvasGroup.blocksRaycasts, "InitialGuard中はblocksRaycastsがfalseであるべき");
 
-			Assert.IsTrue(canvasGroup.blocksRaycasts, "InitialGuard終了後はblocksRaycastsがtrueに戻るべき");
+				yield return new WaitForSeconds(0.6f);
+
+				Assert.IsTrue(canvasGroup.blocksRaycasts, "InitialGuard終了後はblocksRaycastsがtrueに戻るべき");
+			} finally {
+				Object.DestroyImmediate(testObj);
+			}
 		}
 
 		/// <summary>
@@ -310,11 +323,15 @@ namespace ANest.UI.Tests {
 		/// </summary>
 		[UnityTest]
 		public IEnumerator DisallowNullSelection_PreventsNullSelection() {
+			// aSelectableContainer用のテストオブジェクトを作成
+			var testObj = new GameObject("TestSelectableContainer", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
+			var container = testObj.AddComponent<TestSelectableContainer>();
+
 			// Selectableを作成
 			var go1 = new GameObject("Button1", typeof(RectTransform), typeof(UnityEngine.UI.Button));
 			var go2 = new GameObject("Button2", typeof(RectTransform), typeof(UnityEngine.UI.Button));
-			go1.transform.SetParent(m_testObject.transform);
-			go2.transform.SetParent(m_testObject.transform);
+			go1.transform.SetParent(testObj.transform);
+			go2.transform.SetParent(testObj.transform);
 			var b1 = go1.GetComponent<UnityEngine.UI.Button>();
 			var b2 = go2.GetComponent<UnityEngine.UI.Button>();
 
@@ -323,23 +340,23 @@ namespace ANest.UI.Tests {
 
 			try {
 				// リフレクションで設定
-				var type = typeof(aContainerBase);
-				type.GetField("m_childSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(m_container, new UnityEngine.UI.Selectable[] {
+				var type = typeof(aSelectableContainer);
+				type.GetField("m_childSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(container, new UnityEngine.UI.Selectable[] {
 					b1,
 					b2
 				});
-				type.GetField("m_disallowNullSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(m_container, true);
+				type.GetField("m_disallowNullSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(container, true);
 
-				m_container.Show();
+				container.Show();
 
 				// 監視を開始させるために一度呼び出す（本来は内部で自動で呼ばれるべきだが、テストでのセットアップ上）
 				var observeMethod = type.GetMethod("ObserveSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-				observeMethod.Invoke(m_container, null);
+				observeMethod.Invoke(container, null);
 
 				// b1を選択
 				b1.Select();
 				yield return null;
-				Assert.AreEqual(b1, type.GetField("m_currentSelectable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(m_container));
+				Assert.AreEqual(b1, type.GetField("m_currentSelectable", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(container));
 
 				// 選択を解除（nullを選択）
 				UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
@@ -353,6 +370,7 @@ namespace ANest.UI.Tests {
 				Object.DestroyImmediate(eventSystemGo);
 				Object.DestroyImmediate(go1);
 				Object.DestroyImmediate(go2);
+				Object.DestroyImmediate(testObj);
 			}
 		}
 
@@ -361,38 +379,42 @@ namespace ANest.UI.Tests {
 		/// </summary>
 		[UnityTest]
 		public IEnumerator ObserveSelectables_IsInactiveWhenDisabled() {
+			// aSelectableContainer用のテストオブジェクトを作成
+			var testObj = new GameObject("TestSelectableContainer", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
+			var container = testObj.AddComponent<TestSelectableContainer>();
+
 			// Selectableを作成
 			var go1 = new GameObject("Button1", typeof(RectTransform), typeof(UnityEngine.UI.Button));
-			go1.transform.SetParent(m_testObject.transform);
+			go1.transform.SetParent(testObj.transform);
 			var b1 = go1.GetComponent<UnityEngine.UI.Button>();
 
 			// EventSystemが必要
 			var eventSystemGo = new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem), typeof(UnityEngine.EventSystems.StandaloneInputModule));
 
 			try {
-				var type = typeof(aContainerBase);
-				type.GetField("m_childSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(m_container, new UnityEngine.UI.Selectable[] {
+				var type = typeof(aSelectableContainer);
+				type.GetField("m_childSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(container, new UnityEngine.UI.Selectable[] {
 					b1
 				});
-				type.GetField("m_disallowNullSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(m_container, true);
+				type.GetField("m_disallowNullSelection", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(container, true);
 
 				// 表示して監視を開始させる
-				m_container.Show();
+				container.Show();
 				var observeMethod = type.GetMethod("ObserveSelectables", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-				observeMethod.Invoke(m_container, null);
+				observeMethod.Invoke(container, null);
 
 				// b1を選択
 				b1.Select();
 				yield return null;
 
 				// 非表示にする（Disableにする）
-				m_container.Hide();
+				container.Hide();
 				yield return null;
-				Assert.IsFalse(m_testObject.activeInHierarchy, "コンテナは非アクティブであるべき");
+				Assert.IsFalse(testObj.activeInHierarchy, "コンテナは非アクティブであるべき");
 
 				// 選択を解除（nullを選択）
 				// 注意: UI.SelectableはGameObjectが非アクティブでもイベントを発火する場合がある。
-				// aContainerBaseのObserveSelectablesが依然として購読中なら、NextFrameで再選択が走るはず。
+				// aSelectableContainerのObserveSelectablesが依然として購読中なら、NextFrameで再選択が走るはず。
 				UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
 				yield return null; // NextFrame 待ち
 				yield return null;
@@ -402,6 +424,7 @@ namespace ANest.UI.Tests {
 			} finally {
 				Object.DestroyImmediate(eventSystemGo);
 				Object.DestroyImmediate(go1);
+				Object.DestroyImmediate(testObj);
 			}
 		}
 
@@ -414,7 +437,7 @@ namespace ANest.UI.Tests {
 
 			// コンテナ1を作成
 			var obj1 = new GameObject("Container1", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo), typeof(EventSystem), typeof(StandaloneInputModule));
-			var c1 = obj1.AddComponent<TestContainer>();
+			var c1 = obj1.AddComponent<TestSelectableContainer>();
 			var b1 = new GameObject("Button1").AddComponent<Button>();
 			b1.transform.SetParent(obj1.transform);
 			c1.SetChildSelectables(new Selectable[] {
@@ -426,7 +449,7 @@ namespace ANest.UI.Tests {
 
 			// コンテナ2を作成 (後から登録される)
 			var obj2 = new GameObject("Container2", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
-			var c2 = obj2.AddComponent<TestContainer>();
+			var c2 = obj2.AddComponent<TestSelectableContainer>();
 			var b2 = new GameObject("Button2").AddComponent<Button>();
 			b2.transform.SetParent(obj2.transform);
 			c2.SetChildSelectables(new Selectable[] {

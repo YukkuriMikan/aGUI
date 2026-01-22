@@ -2497,7 +2497,7 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  childAlignment: 7
+  childAlignment: 6
   reverseArrangement: 0
   updateMode: 0
   childControlWidth: 0
@@ -5239,7 +5239,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0, b: 0, a: 1}
+  m_Color: {r: 1, g: 0, b: 0, a: 0.23921569}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -6224,7 +6224,6 @@ GameObject:
   - component: {fileID: 1907836644}
   - component: {fileID: 1907836647}
   - component: {fileID: 1907836646}
-  - component: {fileID: 1907836648}
   m_Layer: 5
   m_Name: Panel - aVerticalTest
   m_TagString: Untagged
@@ -6367,22 +6366,6 @@ MonoBehaviour:
     m_RotationOrder: 4
   animationEase: 6
   spacing: 100
---- !u!114 &1907836648
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1907836641}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 368ed7da9cbba2f4388963a74773571c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  fitWidth: 1
-  fitHeight: 1
-  pivotType: 0
-  layoutGroup: {fileID: 1907836647}
 --- !u!1 &1915607608
 GameObject:
   m_ObjectHideFlags: 0

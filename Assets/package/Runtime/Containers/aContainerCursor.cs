@@ -28,7 +28,7 @@ namespace ANest.UI {
 
 		#region Serialize Fields
 		[Tooltip("追従対象のコンテナ")]
-		[SerializeField] private aContainerBase m_container; // 追従対象のコンテナ
+		[SerializeField] private aSelectableContainer m_container; // 追従対象のコンテナ
 
 		[Tooltip("カーソルとして扱うRectTransform")]
 		[SerializeField] private RectTransform m_cursorRect; // カーソルとして扱うRectTransform
@@ -202,11 +202,11 @@ namespace ANest.UI {
 		/// <summary>インスペクターでの値変更時に参照を更新する</summary>
 		private void OnValidate() {
 			if(m_container == null) {
-				m_container = GetComponentInParent<aContainerBase>();
+				m_container = GetComponentInParent<aSelectableContainer>();
 			}
 
 			if(m_container == null) {
-				m_container = GetComponentInChildren<aContainerBase>();
+				m_container = GetComponentInChildren<aSelectableContainer>();
 			}
 
 			// RectもイメージもないならCursorって名前が付いたオブジェクトを探す

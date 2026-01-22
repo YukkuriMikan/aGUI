@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>選択変更に応じてScrollRectを自動スクロールするコンテナ</summary>
-	public class aScrollContainer : aContainerBase {
+	public class aScrollContainer : aSelectableContainer {
 		[Tooltip("スクロール対象のScrollRect")]
 		[SerializeField] private ScrollRect m_scrollRect;       // スクロール対象のScrollRect
 

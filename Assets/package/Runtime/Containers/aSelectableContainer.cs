@@ -12,7 +12,7 @@ namespace ANest.UI {
 		[Header("Selection")]
 		[Tooltip("子要素にあるSelectableのキャッシュ")]
 		[SerializeField]
-		private Selectable[] m_childSelectables; // 子要素にあるSelectableのキャッシュ
+		private List<Selectable> m_childSelectableList = new(16); // 子要素にあるSelectableのキャッシュ
 		[Tooltip("表示(Show)時に最初に選択されるSelectable")]
 		[SerializeField]
 		private Selectable m_initialSelectable; // 表示(Show)時に最初に選択されるSelectable
@@ -70,8 +70,10 @@ namespace ANest.UI {
 		#endregion
 
 		#region Property
+		protected virtual ICollection<Selectable> ChildSelectableCollection => m_childSelectableList;
+		
 		/// <summary> 子要素にあるSelectableのキャッシュ </summary>
-		public IEnumerable<Selectable> ChildSelectables => m_childSelectables;
+		public IEnumerable<Selectable> ChildSelectables => m_childSelectableList;
 
 		/// <summary>CurrentSelectableがNullになる事を許可しないかどうか</summary>
 		public bool DisallowNullSelection {
@@ -94,20 +96,9 @@ namespace ANest.UI {
 
 		#region Public Method
 		/// <summary>子要素のSelectableを検索してキャッシュする</summary>
-		public void RefreshChildSelectables() {
-			var currentSelectables = GetComponentsInChildren<Selectable>(true);
-			if(m_childSelectables == null || m_childSelectables.Length != currentSelectables.Length) {
-				m_childSelectables = currentSelectables;
-				ObserveSelectables(); // キャッシュ更新時に監視も更新
-				return;
-			}
-
-			for (int i = 0; i < m_childSelectables.Length; i++) {
-				if(m_childSelectables[i] != currentSelectables[i]) {
-					m_childSelectables = currentSelectables;
-				}
-			}
-
+		public virtual void RefreshChildSelectables() {
+			m_childSelectableList ??= new List<Selectable>();
+			GetComponentsInChildren(false, m_childSelectableList);
 			ObserveSelectables(); // キャッシュ更新時に監視も更新
 		}
 		#endregion
@@ -118,7 +109,7 @@ namespace ANest.UI {
 
 			if(m_initialized) return;
 
-			if(m_childSelectables == null || m_childSelectables.Length == 0) {
+			if(ChildSelectableCollection == null || ChildSelectableCollection.Count == 0) {
 				// 子要素の更新とイベントの監視開始
 				RefreshChildSelectables();
 			} else {
@@ -158,9 +149,9 @@ namespace ANest.UI {
 		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
 		protected void ObserveSelectables() {
 			m_selectDisposables.Clear();
-			if(m_childSelectables == null) return;
+			if(ChildSelectableCollection == null || ChildSelectableCollection.Count == 0) return;
 
-			foreach (var selectable in m_childSelectables) {
+			foreach (var selectable in ChildSelectableCollection) {
 				if(selectable == null) continue;
 
 				// 選択された時の処理

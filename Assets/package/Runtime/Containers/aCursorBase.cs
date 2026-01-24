@@ -27,10 +27,10 @@ namespace ANest.UI {
 
 		#region Serialize Fields
 		[Tooltip("カーソルとして扱うRectTransform")]
-		[SerializeField] private RectTransform m_cursorRect; // カーソルとして扱うRectTransform
+		[SerializeField] protected RectTransform m_cursorRect; // カーソルとして扱うRectTransform
 
 		[Tooltip("カーソルとして表示するイメージ")]
-		[SerializeField] private Image m_cursorImage; // カーソルイメージ
+		[SerializeField] protected Image m_cursorImage; // カーソルイメージ
 
 		[Tooltip("更新タイミングの設定")]
 		[SerializeField] private UpdateMode m_updateMode = UpdateMode.EveryFrame; // 更新モード
@@ -79,7 +79,7 @@ namespace ANest.UI {
 		#region Internal Logic
 		/// <summary>選択対象が変更された際にカーソル追従の準備を行う</summary>
 		/// <param name="targetRect">新しく選択されたRectTransform</param>
-		protected void OnRectChanged(RectTransform targetRect) {
+		protected virtual void OnTargetRectChanged(RectTransform targetRect) {
 			bool wasNull = m_currentTargetRect == null;
 			m_currentTargetRect = targetRect;
 
@@ -130,7 +130,7 @@ namespace ANest.UI {
 
 		/// <summary>カーソルの位置とサイズを選択対象に合わせる</summary>
 		/// <param name="targetRect">ターゲットのRectTransform</param>
-		private void UpdateCursor(RectTransform targetRect) {
+		protected void UpdateCursor(RectTransform targetRect) {
 			if(targetRect == null || m_cursorRect == null) return;
 
 			// カーソルの位置は CurrentSelectable の位置に移動する

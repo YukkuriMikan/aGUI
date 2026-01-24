@@ -19,7 +19,7 @@ namespace ANest.UI {
 		private void Start() {
 			if(m_container != null) {
 				m_container.ObserveEveryValueChanged(c => c.CurrentSelectable)
-					.Subscribe(selectable => OnRectChanged(selectable.transform as RectTransform))
+					.Subscribe(selectable => OnTargetRectChanged(selectable.transform as RectTransform))
 					.AddTo(m_disposables);
 
 				// コンテナがShowされた時に瞬間移動フラグを立てる

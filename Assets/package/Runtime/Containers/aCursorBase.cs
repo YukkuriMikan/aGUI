@@ -39,7 +39,7 @@ namespace ANest.UI {
 		[Tooltip("移動の演出モード")]
 		[SerializeField] private MoveMode m_moveMode = MoveMode.Animation; // 移動モード
 		[Tooltip("移動にかかる時間（秒）")]
-		[SerializeField] private float m_moveDuration = 0.2f; // 移動時間
+		[SerializeField] protected float m_moveDuration = 0.2f; // 移動時間
 		[Tooltip("移動のイージング設定")]
 		[SerializeField] private Ease m_moveEase = Ease.OutQuad; // 移動イージング
 

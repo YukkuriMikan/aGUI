@@ -1,11 +1,10 @@
 using DG.Tweening;
-using UniRx;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>aContainerBase の CurrentSelectable に追従するカーソルを制御するコンポーネント</summary>
-	public class aContainerCursor : MonoBehaviour {
+	public class aCursorBase : MonoBehaviour {
 		#region Enums
 		/// <summary>移動モード</summary>
 		public enum MoveMode {
@@ -27,9 +26,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Serialize Fields
-		[Tooltip("追従対象のコンテナ")]
-		[SerializeField] private aSelectableContainer m_container; // 追従対象のコンテナ
-
 		[Tooltip("カーソルとして扱うRectTransform")]
 		[SerializeField] private RectTransform m_cursorRect; // カーソルとして扱うRectTransform
 
@@ -58,29 +54,14 @@ namespace ANest.UI {
 		[SerializeField] private Ease m_sizeChangeEase = Ease.OutQuad; // サイズ変更イージング
 		#endregion
 
- 	#region Private Fields
-		private RectTransform m_currentTargetRect;         // 現在のターゲットRectTransform
-		private CompositeDisposable m_disposables = new(); // 購読管理用
-		private Tweener m_moveTween;                       // 移動アニメーション用Tween
-		private Tweener m_sizeTween;                       // サイズ変更アニメーション用Tween
-		private bool m_wasHidden = true;                   // 前フレームで非表示だったかどうか（瞬間移動判定用）
+	    #region Private Fields
+		private RectTransform m_currentTargetRect; // 現在のターゲットRectTransform
+		private Tweener m_moveTween;               // 移動アニメーション用Tween
+		private Tweener m_sizeTween;               // サイズ変更アニメーション用Tween
+		protected bool m_wasHidden = true;         // 前フレームで非表示だったかどうか（瞬間移動判定用）
 		#endregion
 
- 	#region Lifecycle Methods
-		/// <summary>開始時にコンテナの選択変更を購読する</summary>
-		private void Start() {
-			if(m_container != null) {
-				m_container.ObserveEveryValueChanged(c => c.CurrentSelectable)
-					.Subscribe(OnSelectableChanged)
-					.AddTo(m_disposables);
-
-				// コンテナがShowされた時に瞬間移動フラグを立てる
-				m_container.ShowStartObservable
-					.Subscribe(_ => m_wasHidden = true)
-					.AddTo(m_disposables);
-			}
-		}
-
+	    #region Lifecycle Methods
 		/// <summary>ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する</summary>
 		private void LateUpdate() {
 			if(m_updateMode == UpdateMode.EveryFrame) {
@@ -89,19 +70,18 @@ namespace ANest.UI {
 		}
 
 		/// <summary>破棄時に購読解除とTweenの破棄を行う</summary>
-		private void OnDestroy() {
-			m_disposables.Dispose();
+		protected virtual void OnDestroy() {
 			m_moveTween?.Kill();
 			m_sizeTween?.Kill();
 		}
 		#endregion
 
- 	#region Internal Logic
+		#region Internal Logic
 		/// <summary>選択対象が変更された際にカーソル追従の準備を行う</summary>
-		/// <param name="selectable">新しく選択されたSelectable</param>
-		private void OnSelectableChanged(Selectable selectable) {
+		/// <param name="targetRect">新しく選択されたRectTransform</param>
+		protected void OnRectChanged(RectTransform targetRect) {
 			bool wasNull = m_currentTargetRect == null;
-			m_currentTargetRect = selectable != null ? selectable.GetComponent<RectTransform>() : null;
+			m_currentTargetRect = targetRect;
 
 			if(m_cursorRect == null && m_cursorImage != null) {
 				m_cursorRect = m_cursorImage.rectTransform;
@@ -144,7 +124,7 @@ namespace ANest.UI {
 		/// <param name="visible">表示するかどうか</param>
 		private void SetCursorVisible(bool visible) {
 			if(m_cursorImage != null) {
-				m_cursorImage.enabled = visible;
+				m_cursorImage.gameObject.SetActive(visible);
 			}
 		}
 
@@ -201,13 +181,6 @@ namespace ANest.UI {
 #if UNITY_EDITOR
 		/// <summary>インスペクターでの値変更時に参照を更新する</summary>
 		private void OnValidate() {
-			if(m_container == null) {
-				m_container = GetComponentInParent<aSelectableContainer>();
-			}
-
-			if(m_container == null) {
-				m_container = GetComponentInChildren<aSelectableContainer>();
-			}
 
 			// RectもイメージもないならCursorって名前が付いたオブジェクトを探す
 			if(m_cursorRect == null && m_cursorImage == null) {

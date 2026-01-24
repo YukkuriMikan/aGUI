@@ -10,13 +10,13 @@ namespace ANest.UI.Tests {
 	/// <summary>
 	/// aContainerCursor の動作を検証するテストクラス
 	/// </summary>
-	public class aContainerCursorTests {
+	public class ASelectableCursorTests {
 		private GameObject m_rootObject;
 		private GameObject m_containerObject;
 		private aContainerBase m_container;
 		private GameObject m_cursorObject;
 		private Image m_cursorImage;
-		private aContainerCursor m_cursor;
+		private aSelectableCursor m_cursor;
 		private GameObject m_selectableObject1;
 		private RectTransform m_rect1;
 
@@ -41,7 +41,7 @@ namespace ANest.UI.Tests {
 			m_cursorObject = new GameObject("Cursor", typeof(RectTransform), typeof(Image));
 			m_cursorObject.transform.SetParent(m_rootObject.transform);
 			m_cursorImage = m_cursorObject.GetComponent<Image>();
-			m_cursor = m_cursorObject.AddComponent<aContainerCursor>();
+			m_cursor = m_cursorObject.AddComponent<aSelectableCursor>();
 
 			// リフレクションで初期パラメータを設定
 			SetPrivateField(m_cursor, "m_container", m_container);
@@ -73,14 +73,14 @@ namespace ANest.UI.Tests {
 		[UnityTest]
 		public IEnumerator UpdateMode_EveryFrame_FollowsMovingTarget() {
 			// Arrange
-			SetPrivateField(m_cursor, "m_updateMode", aContainerCursor.UpdateMode.EveryFrame);
-			SetPrivateField(m_cursor, "m_moveMode", aContainerCursor.MoveMode.Instant);
+			SetPrivateField(m_cursor, "m_updateMode", aSelectableCursor.UpdateMode.EveryFrame);
+			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Instant);
 			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
 			
 			yield return null; // Start等完了待ち
 
 			// Act
-			var method = typeof(aContainerCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
+			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
 			method.Invoke(m_cursor, new object[] { selectable1 });
 			yield return null; // LateUpdate待ち
 
@@ -100,14 +100,14 @@ namespace ANest.UI.Tests {
 		[UnityTest]
 		public IEnumerator UpdateMode_OnSelectChanged_DoesNotFollowMovingTarget() {
 			// Arrange
-			SetPrivateField(m_cursor, "m_updateMode", aContainerCursor.UpdateMode.OnSelectChanged);
-			SetPrivateField(m_cursor, "m_moveMode", aContainerCursor.MoveMode.Instant);
+			SetPrivateField(m_cursor, "m_updateMode", aSelectableCursor.UpdateMode.OnSelectChanged);
+			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Instant);
 			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
 			
 			yield return null;
 
 			// Act
-			var method = typeof(aContainerCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
+			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
 			method.Invoke(m_cursor, new object[] { selectable1 });
 			yield return null;
 
@@ -129,15 +129,15 @@ namespace ANest.UI.Tests {
 		[UnityTest]
 		public IEnumerator Cursor_MatchesSize_Instant() {
 			// Arrange
-			SetPrivateField(m_cursor, "m_moveMode", aContainerCursor.MoveMode.Instant);
-			SetPrivateField(m_cursor, "m_sizeMode", aContainerCursor.SizeMode.MatchSelectable);
+			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Instant);
+			SetPrivateField(m_cursor, "m_sizeMode", aSelectableCursor.SizeMode.MatchSelectable);
 			Vector2 padding = new Vector2(10, 10);
 			SetPrivateField(m_cursor, "m_padding", padding);
 			
 			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
 			
 			// Act
-			var method = typeof(aContainerCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
+			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
 			method.Invoke(m_cursor, new object[] { selectable1 });
 			yield return null;
 
@@ -153,8 +153,8 @@ namespace ANest.UI.Tests {
 		[UnityTest]
 		public IEnumerator Cursor_MoveMode_Animation_TakesTime() {
 			// Arrange
-			SetPrivateField(m_cursor, "m_updateMode", aContainerCursor.UpdateMode.OnSelectChanged);
-			SetPrivateField(m_cursor, "m_moveMode", aContainerCursor.MoveMode.Animation);
+			SetPrivateField(m_cursor, "m_updateMode", aSelectableCursor.UpdateMode.OnSelectChanged);
+			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Animation);
 			float duration = 1.0f;
 			SetPrivateField(m_cursor, "m_moveDuration", duration);
 			
@@ -167,7 +167,7 @@ namespace ANest.UI.Tests {
 			yield return null;
 
 			// Act
-			var method = typeof(aContainerCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
+			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
 			method.Invoke(m_cursor, new object[] { selectable1 });
 			
 			// 0.1秒待機（durationより短い時間）

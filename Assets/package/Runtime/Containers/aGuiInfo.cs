@@ -46,7 +46,6 @@ namespace ANest.UI {
 					m_originalRectTransformValues = currentValues;
 				}
 			}
-
 		}
 		#endif
 	}

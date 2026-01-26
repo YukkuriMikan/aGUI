@@ -122,7 +122,7 @@ namespace ANest.UI {
 
 		/// <summary>カーソルの表示/非表示を切り替える</summary>
 		/// <param name="visible">表示するかどうか</param>
-		private void SetCursorVisible(bool visible) {
+		protected void SetCursorVisible(bool visible) {
 			if(m_cursorImage != null) {
 				m_cursorImage.gameObject.SetActive(visible);
 			}
@@ -130,7 +130,7 @@ namespace ANest.UI {
 
 		/// <summary>カーソルの位置とサイズを選択対象に合わせる</summary>
 		/// <param name="targetRect">ターゲットのRectTransform</param>
-		protected void UpdateCursor(RectTransform targetRect) {
+		protected virtual void UpdateCursor(RectTransform targetRect) {
 			if(targetRect == null || m_cursorRect == null) return;
 
 			// カーソルの位置は CurrentSelectable の位置に移動する

@@ -18,7 +18,7 @@ namespace ANest.UI {
 		/// <summary>開始時にコンテナの選択変更を購読する</summary>
 		private void Start() {
 			if(m_container != null) {
-				m_container.ObserveEveryValueChanged(c => c.CurrentSelectable)
+				m_container.OnSelectChanged.AsObservable()
 					.Subscribe(selectable => OnTargetRectChanged(selectable.transform as RectTransform))
 					.AddTo(m_disposables);
 

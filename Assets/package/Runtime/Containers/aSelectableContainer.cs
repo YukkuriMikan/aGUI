@@ -53,7 +53,7 @@ namespace ANest.UI {
 		private readonly CompositeDisposable m_selectDisposables = new(); // 選択監視用
 		#endregion
 
-		#region Unity Event
+ 	#region Unity Event
 		/// <summary>開始時の処理。初期表示状態の反映を完了させる</summary>
 		protected virtual void Start() {
 			// 初期状態で表示中の場合、選択状態の復元を試みる
@@ -62,6 +62,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>破棄時の処理。選択監視用のDisposableを破棄する</summary>
 		protected override void OnDestroy() {
 			base.OnDestroy();
 
@@ -70,6 +71,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Property
+		/// <summary>子要素のSelectableコレクション（内部用）</summary>
 		protected virtual ICollection<Selectable> ChildSelectableCollection => m_childSelectableList;
 		
 		/// <summary> 子要素にあるSelectableのキャッシュ </summary>
@@ -103,10 +105,9 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#region Protected Method
+ 	#region Protected Method
+		/// <summary>コンテナの初期状態を設定する。子要素のSelectableをキャッシュし、監視を開始する</summary>
 		protected override void Initialize() {
-			base.Initialize();
-
 			if(m_initialized) return;
 
 			if(ChildSelectableCollection == null || ChildSelectableCollection.Count == 0) {
@@ -116,8 +117,11 @@ namespace ANest.UI {
 				// 選択イベントの監視開始
 				ObserveSelectables();
 			}
+
+			base.Initialize();
 		}
 
+		/// <summary>表示処理の実装。InitialGuard機能と初期選択の設定を行う</summary>
 		protected override void ShowInternal() {
 			base.ShowInternal();
 
@@ -139,6 +143,7 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>非表示処理の実装。現在の選択状態を保存する</summary>
 		protected override void HideInternal() {
 			base.HideInternal();
 

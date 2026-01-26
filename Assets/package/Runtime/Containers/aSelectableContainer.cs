@@ -238,12 +238,6 @@ namespace ANest.UI {
 			base.UpdateStateForShow();
 			Interactable = true;
 		}
-
-		/// <summary>非表示状態の内部フラグを更新する</summary>
-		protected override void UpdateStateForHide() {
-			base.UpdateStateForHide();
-			Interactable = false;
-		}
 		#endregion
 
 #if UNITY_EDITOR

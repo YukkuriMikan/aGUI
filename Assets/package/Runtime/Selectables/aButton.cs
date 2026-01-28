@@ -18,13 +18,7 @@ namespace ANest.UI {
 		[Tooltip("共通パラメータの参照")]
 		[SerializeField] private aSelectablesSharedParameters sharedParameters; // 共通パラメータの参照
 
-		[Header("Initial Guard")]
-		[Tooltip("有効化直後の入力を抑制するかどうか")]
-		[SerializeField] private bool useInitialGuard = false; // 有効化直後の入力を抑制するか、基本的にContainer側の機能を使うのでデフォルトはfalse
-		[Tooltip("有効化直後に抑制する秒数")]
-		[SerializeField] private float initialGuardDuration = 0.05f; // 有効化直後に抑制する秒数
-
-		[Header("Multiple Input Guard")]
+		[Header("Multiple Input Guard") ]
 		[Tooltip("入力ガード（連打防止）を使用するかどうか")]
 		[SerializeField] private bool useMultipleInputGuard = true; // 入力ガードを使うか
 		[Tooltip("入力ガードの待機秒数")]
@@ -81,7 +75,6 @@ namespace ANest.UI {
 
 		#region Private Fields
 		private float _lastAcceptedClickTime = -999f;             // 最後に受理した入力時刻
-		private float _initialGuardEndTime = -999f;               // 有効化直後のガード解除時刻
 		private bool _pressAccepted;                              // 現在の押下を処理対象にするか
 		private bool _isPointerDown;                              // ポインタ押下中か
 		private bool _longPressTriggered;                         // 長押しが成立したか
@@ -124,7 +117,6 @@ namespace ANest.UI {
 		protected override void OnEnable() {
 			ApplySharedParametersIfNeeded();
 			ResetPressState();
-			StartInitialGuard();
 
 			base.OnEnable();
 		}
@@ -315,12 +307,6 @@ namespace ANest.UI {
 
 		/// <summary> 入力ガードが有効かを判定し、必要ならデバッグログを出す </summary>
 		private bool IsGuardActive(float now) {
-			if(useInitialGuard && now < _initialGuardEndTime) {
-				#if UNITY_EDITOR
-				Debug.Log($"[{nameof(aButton)}] Initial Guard active. Input blocked until {_initialGuardEndTime:F3} (remaining {_initialGuardEndTime - now:F3}s).", this);
-				#endif
-				return true;
-			}
 			if(!useMultipleInputGuard) return false;
 
 			bool active = (now - _lastAcceptedClickTime) < multipleInputGuardInterval;
@@ -335,15 +321,6 @@ namespace ANest.UI {
 		/// <summary> 入力ガードを開始し、次の入力までのブロック時間を記録 </summary>
 		private void StartGuard(float now) {
 			_lastAcceptedClickTime = now;
-		}
-
-		/// <summary> 有効化直後の入力を一定時間抑制 </summary>
-		private void StartInitialGuard() {
-			if(!useInitialGuard || initialGuardDuration <= 0f) {
-				_initialGuardEndTime = -999f;
-				return;
-			}
-			_initialGuardEndTime = Time.unscaledTime + initialGuardDuration;
 		}
 
 		/// <summary> 押下状態などの入力フラグを初期化 </summary>
@@ -371,9 +348,6 @@ namespace ANest.UI {
 			colors = sharedParameters.transitionColors;
 			spriteState = sharedParameters.spriteState;
 			animationTriggers = sharedParameters.selectableAnimationTriggers;
-
-			useInitialGuard = sharedParameters.useInitialGuard;
-			initialGuardDuration = sharedParameters.initialGuardDuration;
 
 			enableLongPress = sharedParameters.enableLongPress;
 			longPressDuration = sharedParameters.longPressDuration;

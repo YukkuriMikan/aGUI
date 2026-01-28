@@ -3,10 +3,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary> 移動アニメーション </summary>
+	/// <summary> 指定ターゲットを移動させるアニメーション </summary>
 	public class MoveTarget : IUiAnimation {
 		#region SerializeField
-		[SerializeField] private aGuiInfo m_target;
+		[SerializeField] private aGuiInfo m_target;                                             // 移動対象のaGuiInfo
 		[SerializeField] private Vector3 m_startValue = Vector3.left;                           // 移動開始時の相対座標
 		[SerializeField] private Vector3 m_endValue = Vector3.zero;                             // 移動終了時の相対座標
 		[SerializeField] private float m_delay;                                                 // 再生までの遅延秒数
@@ -42,7 +42,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		/// <summary> CanvasGroup のアルファをフェードさせるアニメーションを実行 </summary>
+		/// <summary> 指定ターゲットを移動させるアニメーションを実行 </summary>
 		/// <param name="_">アニメーション対象の Graphic (未使用)</param>
 		/// <param name="__">呼び出し元の RectTransform（未使用）</param>
 		/// <param name="___">復元用のRectTransform初期値（未使用）</param>

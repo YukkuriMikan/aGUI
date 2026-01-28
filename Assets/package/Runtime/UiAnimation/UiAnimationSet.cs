@@ -8,14 +8,14 @@ namespace ANest.UI {
 	public class UiAnimationSet : ScriptableObject {
 		[Header("Animations")]
 		[SerializeReference, SerializeReferenceDropdown]
-		public IUiAnimation[] showAnimations;
+		public IUiAnimation[] showAnimations; // 表示時のアニメーション
 		[SerializeReference, SerializeReferenceDropdown]
-		public IUiAnimation[] hideAnimations;
+		public IUiAnimation[] hideAnimations; // 非表示時のアニメーション
 		[SerializeReference, SerializeReferenceDropdown]
-		public IUiAnimation[] clickAnimations;
+		public IUiAnimation[] clickAnimations; // クリック時のアニメーション
 		[SerializeReference, SerializeReferenceDropdown]
-		public IUiAnimation[] onAnimations;
+		public IUiAnimation[] onAnimations; // ON時のアニメーション
 		[SerializeReference, SerializeReferenceDropdown]
-		public IUiAnimation[] offAnimations;
+		public IUiAnimation[] offAnimations; // OFF時のアニメーション
 	}
 }

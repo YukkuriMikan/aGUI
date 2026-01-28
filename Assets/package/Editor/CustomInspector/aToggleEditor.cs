@@ -27,8 +27,6 @@ namespace ANest.UI.Editor {
 		private SerializedProperty isOnProp;                           // 初期状態フラグへの参照
 		private SerializedProperty onValueChangedProp;                 // 値変更イベントへの参照
 
-		private SerializedProperty useInitialGuardProp;                // 初期ガード使用フラグへの参照
-		private SerializedProperty initialGuardDurationProp;           // 初期ガード時間への参照
 		private SerializedProperty useMultipleInputGuardProp;          // 連打ガード使用フラグへの参照
 		private SerializedProperty multipleInputGuardIntervalProp;     // 連打ガード間隔への参照
 		private SerializedProperty shortCutProp;                      // ショートカット入力への参照
@@ -72,8 +70,6 @@ namespace ANest.UI.Editor {
 			isOnProp = serializedObject.FindProperty("m_IsOn");
 			onValueChangedProp = serializedObject.FindProperty("onValueChanged");
 
-			useInitialGuardProp = serializedObject.FindProperty("useInitialGuard");
-			initialGuardDurationProp = serializedObject.FindProperty("initialGuardDuration");
 			useMultipleInputGuardProp = serializedObject.FindProperty("useMultipleInputGuard");
 			multipleInputGuardIntervalProp = serializedObject.FindProperty("multipleInputGuardInterval");
 			shortCutProp = serializedObject.FindProperty("shortCut");
@@ -145,21 +141,6 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.PropertyField(toggleGraphicProp, new GUIContent("Target Graphic"));
 			EditorGUILayout.PropertyField(groupProp);
 			EditorGUILayout.PropertyField(isOnProp, new GUIContent("Is On"));
-
-			EditorGUILayout.Space();
-			DrawNavigationSection();
-
-			EditorGUILayout.LabelField("Initial Guard", EditorStyles.boldLabel);
-			{
-				SerializedProperty useInitialGuardToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("useInitialGuard") : useInitialGuardProp;
-				SerializedProperty guardDurationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("initialGuardDuration") : initialGuardDurationProp;
-				using (new EditorGUI.DisabledScope(isSharedEnabled)) {
-					EditorGUILayout.PropertyField(useInitialGuardToShow, new GUIContent("Use Initial Guard"));
-					if(useInitialGuardToShow != null && useInitialGuardToShow.boolValue) {
-						EditorGUILayout.PropertyField(guardDurationToShow, new GUIContent("Guard Duration"));
-					}
-				}
-			}
 
 			EditorGUILayout.Space();
 			{
@@ -265,8 +246,6 @@ namespace ANest.UI.Editor {
 						so.FindProperty("m_SpriteState").boxedValue = sharedParams.spriteState;
 						so.FindProperty("m_AnimationTriggers").boxedValue = sharedParams.selectableAnimationTriggers;
 
-						so.FindProperty("useInitialGuard").boolValue = sharedParams.useInitialGuard;
-						so.FindProperty("initialGuardDuration").floatValue = sharedParams.initialGuardDuration;
 						so.FindProperty("useMultipleInputGuard").boolValue = sharedParams.useMultipleInputGuard;
 						so.FindProperty("multipleInputGuardInterval").floatValue = sharedParams.multipleInputGuardInterval;
 

@@ -41,7 +41,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		/// <summary> CanvasGroup のアルファをフェードさせるアニメーションを実行 </summary>
+		/// <summary> RectTransform を移動させるアニメーションを実行 </summary>
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
 		/// <param name="original">復元用のRectTransform初期値</param>

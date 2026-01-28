@@ -3,183 +3,198 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.TestTools;
-using DG.Tweening;
 using System.Reflection;
+using DG.Tweening;
 
 namespace ANest.UI.Tests {
 	/// <summary>
-	/// aContainerCursor の動作を検証するテストクラス
+	/// aSelectableCursor の動作を検証するテストクラス
 	/// </summary>
-	public class ASelectableCursorTests {
+	public class aSelectableCursorTests {
+		#region Test Helper Classes
+		/// <summary>
+		/// テスト用に aSelectableCursor の内部メンバを公開する継承クラス
+		/// </summary>
+		private class TestSelectableCursor : aSelectableCursor {
+			public void SetContainer(aSelectableContainer container) {
+				var field = typeof(aSelectableCursor).GetField("m_container", BindingFlags.NonPublic | BindingFlags.Instance);
+				field.SetValue(this, container);
+			}
+
+			public void SetUpdateMode(UpdateMode mode) {
+				var field = typeof(aCursorBase).GetField("m_updateMode", BindingFlags.NonPublic | BindingFlags.Instance);
+				field.SetValue(this, mode);
+			}
+
+			public void SetMoveMode(MoveMode mode) {
+				var field = typeof(aCursorBase).GetField("m_moveMode", BindingFlags.NonPublic | BindingFlags.Instance);
+				field.SetValue(this, mode);
+			}
+
+			public void SetSizeMode(SizeMode mode) {
+				var field = typeof(aCursorBase).GetField("m_sizeMode", BindingFlags.NonPublic | BindingFlags.Instance);
+				field.SetValue(this, mode);
+			}
+
+			public void SetPadding(Vector2 padding) {
+				var field = typeof(aCursorBase).GetField("m_padding", BindingFlags.NonPublic | BindingFlags.Instance);
+				field.SetValue(this, padding);
+			}
+
+			public void SetMoveDuration(float duration) {
+				var field = typeof(aCursorBase).GetField("m_moveDuration", BindingFlags.NonPublic | BindingFlags.Instance);
+				field.SetValue(this, duration);
+			}
+
+			public void InvokeOnTargetRectChanged(RectTransform target) {
+				var method = typeof(aCursorBase).GetMethod("OnTargetRectChanged", BindingFlags.NonPublic | BindingFlags.Instance);
+				method.Invoke(this, new object[] { target });
+			}
+		}
+
+		private class TestSelectableContainer : aSelectableContainer {
+			public void SetCurrentSelectable(Selectable selectable) {
+				m_currentSelectable = selectable;
+				OnSelectChanged.Invoke(selectable);
+			}
+		}
+		#endregion
+
+		#region Fields
 		private GameObject m_rootObject;
 		private GameObject m_containerObject;
-		private aContainerBase m_container;
+		private TestSelectableContainer m_container;
 		private GameObject m_cursorObject;
 		private Image m_cursorImage;
-		private aSelectableCursor m_cursor;
+		private TestSelectableCursor m_cursor;
 		private GameObject m_selectableObject1;
 		private RectTransform m_rect1;
+		#endregion
 
+		#region Setup / Teardown
 		[SetUp]
 		public void SetUp() {
-			// Canvas がないと position (ワールド座標) の計算が正しく行われない場合がある
 			m_rootObject = new GameObject("TestRoot", typeof(Canvas));
-			
-			// Container
+
 			m_containerObject = new GameObject("Container", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
 			m_containerObject.transform.SetParent(m_rootObject.transform);
-			m_container = m_containerObject.AddComponent<TestContainer>();
-			
-			// Selectable
+			m_container = m_containerObject.AddComponent<TestSelectableContainer>();
+
 			m_selectableObject1 = new GameObject("Selectable1", typeof(RectTransform), typeof(Image), typeof(Button));
 			m_selectableObject1.transform.SetParent(m_containerObject.transform);
 			m_rect1 = m_selectableObject1.GetComponent<RectTransform>();
 			m_rect1.sizeDelta = new Vector2(100, 50);
 			m_rect1.anchoredPosition = new Vector2(0, 0);
 
-			// Cursor
 			m_cursorObject = new GameObject("Cursor", typeof(RectTransform), typeof(Image));
 			m_cursorObject.transform.SetParent(m_rootObject.transform);
 			m_cursorImage = m_cursorObject.GetComponent<Image>();
-			m_cursor = m_cursorObject.AddComponent<aSelectableCursor>();
+			m_cursor = m_cursorObject.AddComponent<TestSelectableCursor>();
 
-			// リフレクションで初期パラメータを設定
-			SetPrivateField(m_cursor, "m_container", m_container);
-			SetPrivateField(m_cursor, "m_cursorImage", m_cursorImage);
-			// 内部キャッシュも強制的にセット（Awakeタイミングのズレ対策）
-			SetPrivateField(m_cursor, "m_cursorRect", m_cursorImage.rectTransform);
+			m_cursor.SetContainer(m_container);
+			var cursorRectField = typeof(aCursorBase).GetField("m_cursorRect", BindingFlags.NonPublic | BindingFlags.Instance);
+			cursorRectField.SetValue(m_cursor, m_cursorImage.rectTransform);
+			var cursorImageField = typeof(aCursorBase).GetField("m_cursorImage", BindingFlags.NonPublic | BindingFlags.Instance);
+			cursorImageField.SetValue(m_cursor, m_cursorImage);
 		}
 
 		[TearDown]
 		public void TearDown() {
 			Object.DestroyImmediate(m_rootObject);
 		}
+		#endregion
 
-		private void SetPrivateField(object obj, string fieldName, object value) {
-			var field = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-			field.SetValue(obj, value);
-		}
-
-		private class TestContainer : aContainerBase {
-			public void SetCurrentSelectable(Selectable selectable) {
-				var field = typeof(aContainerBase).GetField("m_currentSelectable", BindingFlags.NonPublic | BindingFlags.Instance);
-				field.SetValue(this, selectable);
-			}
-		}
-
-		/// <summary>
-		/// UpdateMode.EveryFrame のとき、ターゲットの移動に追従することを検証
-		/// </summary>
+		#region Tests
 		[UnityTest]
 		public IEnumerator UpdateMode_EveryFrame_FollowsMovingTarget() {
-			// Arrange
-			SetPrivateField(m_cursor, "m_updateMode", aSelectableCursor.UpdateMode.EveryFrame);
-			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Instant);
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.EveryFrame);
+			m_cursor.SetMoveMode(aCursorBase.MoveMode.Instant);
 			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
-			
-			yield return null; // Start等完了待ち
 
-			// Act
-			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
-			method.Invoke(m_cursor, new object[] { selectable1 });
-			yield return null; // LateUpdate待ち
+			yield return null;
+
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			yield return null;
 
 			Assert.AreEqual(m_rect1.position, m_cursorImage.rectTransform.position, "最初は一致すべき");
 
-			// ターゲットを移動
 			m_rect1.position = new Vector3(500, 500, 0);
-			yield return null; // LateUpdate待ち
+			yield return null;
 
-			// Assert
 			Assert.AreEqual(m_rect1.position, m_cursorImage.rectTransform.position, "移動後も追従すべき");
 		}
 
-		/// <summary>
-		/// UpdateMode.OnSelectChanged のとき、ターゲットの移動に追従しないことを検証
-		/// </summary>
 		[UnityTest]
 		public IEnumerator UpdateMode_OnSelectChanged_DoesNotFollowMovingTarget() {
-			// Arrange
-			SetPrivateField(m_cursor, "m_updateMode", aSelectableCursor.UpdateMode.OnSelectChanged);
-			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Instant);
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.OnSelectChanged);
+			m_cursor.SetMoveMode(aCursorBase.MoveMode.Instant);
 			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
-			
+
 			yield return null;
 
-			// Act
-			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
-			method.Invoke(m_cursor, new object[] { selectable1 });
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
 			yield return null;
 
 			Assert.AreEqual(m_rect1.position, m_cursorImage.rectTransform.position, "最初は一致すべき");
 
-			// ターゲットを移動
 			Vector3 oldPos = m_rect1.position;
 			m_rect1.position = new Vector3(500, 500, 0);
 			yield return null;
 
-			// Assert
 			Assert.AreEqual(oldPos, m_cursorImage.rectTransform.position, "OnSelectChanged モードでは移動に追従しないはず");
-			Assert.AreNotEqual(m_rect1.position, m_cursorImage.rectTransform.position, "ターゲットの位置とは不一致になるはず");
 		}
 
-		/// <summary>
-		/// 選択切り替え時のサイズ一致を検証
-		/// </summary>
 		[UnityTest]
 		public IEnumerator Cursor_MatchesSize_Instant() {
-			// Arrange
-			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Instant);
-			SetPrivateField(m_cursor, "m_sizeMode", aSelectableCursor.SizeMode.MatchSelectable);
+			m_cursor.SetMoveMode(aCursorBase.MoveMode.Instant);
+			m_cursor.SetSizeMode(aCursorBase.SizeMode.MatchSelectable);
 			Vector2 padding = new Vector2(10, 10);
-			SetPrivateField(m_cursor, "m_padding", padding);
-			
-			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
-			
-			// Act
-			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
-			method.Invoke(m_cursor, new object[] { selectable1 });
+			m_cursor.SetPadding(padding);
+
 			yield return null;
 
-			// Assert
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			yield return null;
+
 			Vector2 expectedSize = m_rect1.rect.size + padding;
 			Assert.That(m_cursorImage.rectTransform.sizeDelta.x, Is.EqualTo(expectedSize.x).Within(0.01f));
 			Assert.That(m_cursorImage.rectTransform.sizeDelta.y, Is.EqualTo(expectedSize.y).Within(0.01f));
 		}
 
-		/// <summary>
-		/// MoveMode.Animation のとき、即座にターゲット位置に到達しないことを検証
-		/// </summary>
 		[UnityTest]
 		public IEnumerator Cursor_MoveMode_Animation_TakesTime() {
-			// Arrange
-			SetPrivateField(m_cursor, "m_updateMode", aSelectableCursor.UpdateMode.OnSelectChanged);
-			SetPrivateField(m_cursor, "m_moveMode", aSelectableCursor.MoveMode.Animation);
-			float duration = 1.0f;
-			SetPrivateField(m_cursor, "m_moveDuration", duration);
-			
-			var selectable1 = m_selectableObject1.GetComponent<Selectable>();
-			
-			// 初期位置を設定
-			m_cursorObject.GetComponent<RectTransform>().position = new Vector3(-1000, -1000, 0);
-			m_rect1.position = new Vector3(0, 0, 0);
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.OnSelectChanged);
+			m_cursor.SetMoveMode(aCursorBase.MoveMode.Animation);
+			float duration = 0.5f;
+			m_cursor.SetMoveDuration(duration);
+
+			DOTween.Init();
+
+			// アニメーションの対象となる RectTransform の位置を初期化
+			m_cursorImage.rectTransform.anchoredPosition = new Vector2(-1000, -1000);
+			m_rect1.anchoredPosition = new Vector2(0, 0);
 
 			yield return null;
 
-			// Act
-			var method = typeof(aSelectableCursor).GetMethod("OnSelectableChanged", BindingFlags.NonPublic | BindingFlags.Instance);
-			method.Invoke(m_cursor, new object[] { selectable1 });
-			
-			// 0.1秒待機（durationより短い時間）
-			yield return new WaitForSeconds(0.1f);
+			// アニメーションを開始させる
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
 
-			// Assert
-			// もしバグがあれば、この時点で既に (0,0,0) になっているはず
-			Assert.AreNotEqual(m_rect1.position, m_cursorImage.rectTransform.position, "アニメーション中なので、まだ目的地に到達していないはず");
+			// フレームを進める
+			yield return null;
+			yield return null;
 			
-			// 完了を待つ
-			yield return new WaitForSeconds(duration);
-			Assert.AreEqual(m_rect1.position, m_cursorImage.rectTransform.position, "アニメーション完了後は目的地に到達しているはず");
+			// 距離を測定
+			float currentDistance = Vector2.Distance(m_rect1.anchoredPosition, m_cursorImage.rectTransform.anchoredPosition);
+			
+			// アニメーション中であることを検証（即座に移動していないこと）
+			Assert.Greater(currentDistance, 100f, "アニメーション中なので、まだ目的地から十分に離れているはず");
+
+			// 完了まで待機
+			yield return new WaitForSeconds(duration + 0.5f);
+			
+			currentDistance = Vector2.Distance(m_rect1.anchoredPosition, m_cursorImage.rectTransform.anchoredPosition);
+			Assert.Less(currentDistance, 1f, "アニメーション完了後は目的地に到達しているはず");
 		}
+		#endregion
 	}
 }

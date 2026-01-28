@@ -20,8 +20,6 @@ namespace ANest.UI.Editor {
 		private SerializedProperty onRightClickProp;               // 右クリックイベントへの参照
 		private SerializedProperty useSharedParametersProp;        // 共有パラメータ使用フラグへの参照
 		private SerializedProperty sharedParametersProp;           // 共有パラメータオブジェクトへの参照
-		private SerializedProperty useInitialGuardProp;            // 初期ガード使用フラグへの参照
-		private SerializedProperty initialGuardDurationProp;       // 初期ガード時間への参照
 		private SerializedProperty enableLongPressProp;            // 長押し有効フラグへの参照
 		private SerializedProperty longPressDurationProp;          // 長押し時間への参照
 		private SerializedProperty onLongPressProp;                // 長押し成立イベントへの参照
@@ -61,8 +59,6 @@ namespace ANest.UI.Editor {
 			onRightClickProp = serializedObject.FindProperty("onRightClick");
 			useSharedParametersProp = serializedObject.FindProperty("useSharedParameters");
 			sharedParametersProp = serializedObject.FindProperty("sharedParameters");
-			useInitialGuardProp = serializedObject.FindProperty("useInitialGuard");
-			initialGuardDurationProp = serializedObject.FindProperty("initialGuardDuration");
 			enableLongPressProp = serializedObject.FindProperty("enableLongPress");
 			longPressDurationProp = serializedObject.FindProperty("longPressDuration");
 			onLongPressProp = serializedObject.FindProperty("onLongPress");
@@ -124,19 +120,6 @@ namespace ANest.UI.Editor {
 
 			EditorGUILayout.Space();
 			DrawNavigationSection();
-
-			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Initial Guard", EditorStyles.boldLabel);
-			{
-				SerializedProperty useInitialGuardToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("useInitialGuard") : useInitialGuardProp;
-				SerializedProperty guardDurationToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("initialGuardDuration") : initialGuardDurationProp;
-				using (new EditorGUI.DisabledScope(isSharedEnabled)) {
-					EditorGUILayout.PropertyField(useInitialGuardToShow, new GUIContent("Use Initial Guard"));
-					if(useInitialGuardToShow != null && useInitialGuardToShow.boolValue) {
-						EditorGUILayout.PropertyField(guardDurationToShow, new GUIContent("Guard Duration"));
-					}
-				}
-			}
 
 			EditorGUILayout.Space();
 			{

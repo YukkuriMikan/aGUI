@@ -180,8 +180,7 @@ namespace ANest.UI {
 		#region Editor Support
 #if UNITY_EDITOR
 		/// <summary>インスペクターでの値変更時に参照を更新する</summary>
-		private void OnValidate() {
-
+		protected virtual void OnValidate() {
 			// RectもイメージもないならCursorって名前が付いたオブジェクトを探す
 			if(m_cursorRect == null && m_cursorImage == null) {
 				m_cursorRect = transform.Find("Cursor")?.GetComponent<RectTransform>();

@@ -1,13 +1,14 @@
 using UniRx;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary>aContainerBase の CurrentSelectable に追従するカーソルを制御するコンポーネント</summary>
-	public class aSelectableCursor : aCursorBase {
-
+	/// <summary>aSelectableContainerBase の CurrentSelectable に追従するカーソルの基底クラス</summary>
+	public abstract class aCustomCursorBase<T> : aCursorBase where T : Selectable {
 		#region Serialize Fields
 		[Tooltip("追従対象のコンテナ")]
-		[SerializeField] private aSelectableContainer m_container; // 追従対象のコンテナ
+		[SerializeField]
+		private aSelectableContainerBase<T> m_container;
 		#endregion
 
 		#region Private Fields
@@ -43,18 +44,18 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#region Editor Support
+ 	#region Editor Support
 #if UNITY_EDITOR
 		/// <summary>インスペクターでの値変更時に参照を更新する</summary>
 		protected override void OnValidate() {
 			base.OnValidate();
 
 			if(m_container == null) {
-				m_container = GetComponentInParent<aSelectableContainer>();
+				m_container = GetComponentInParent<aSelectableContainerBase<T>>();
 			}
 
 			if(m_container == null) {
-				m_container = GetComponentInChildren<aSelectableContainer>();
+				m_container = GetComponentInChildren<aSelectableContainerBase<T>>();
 			}
 		}
 #endif

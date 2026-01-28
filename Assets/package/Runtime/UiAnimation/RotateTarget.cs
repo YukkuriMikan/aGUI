@@ -3,10 +3,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary> 回転アニメーション </summary>
+	/// <summary> 指定ターゲットを回転させるアニメーション </summary>
 	public class RotateTarget : IUiAnimation {
 		#region SerializeField
-		[SerializeField] private aGuiInfo m_target;
+		[SerializeField] private aGuiInfo m_target;                                             // 回転対象のaGuiInfo
 		[SerializeField] private Vector3 m_startValue = Vector3.zero;                           // 回転開始時の相対オイラー角
 		[SerializeField] private Vector3 m_endValue = Vector3.zero;                             // 回転終了時の相対オイラー角
 		[SerializeField] private float m_delay;                                                 // 再生までの遅延秒数
@@ -42,10 +42,10 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		/// <summary> RectTransform の回転を補間するアニメーションを実行 </summary>
+		/// <summary> 指定ターゲットを回転させるアニメーションを実行 </summary>
 		/// <param name="_">アニメーション対象の Graphic（未使用）</param>
-		/// <param name="__">アニメーション対象の RectTransform</param>
-		/// <param name="___">復元用のRectTransform初期値</param>
+		/// <param name="__">アニメーション対象の RectTransform（未使用）</param>
+		/// <param name="___">復元用のRectTransform初期値（未使用）</param>
 		public Tween DoAnimate(Graphic _, RectTransform __, RectTransformValues ___) {
 			// 初期回転を設定（元の回転に相対オフセットを適用）
 			var startRotation = m_target.OriginalRectTransformValues.LocalRotation * Quaternion.Euler(m_startValue);

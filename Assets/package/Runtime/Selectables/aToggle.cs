@@ -15,12 +15,6 @@ namespace ANest.UI {
 		[Tooltip("共通パラメータの参照")]
 		[SerializeField] private aSelectablesSharedParameters sharedParameters; // 共通パラメータの参照
 
-		[Header("Initial Guard")]
-		[Tooltip("有効化直後の入力を抑制するかどうか")]
-		[SerializeField] private bool useInitialGuard = true; // 有効化直後の入力を抑制するか
-		[Tooltip("有効化直後に抑制する秒数")]
-		[SerializeField] private float initialGuardDuration = 0.5f; // 有効化直後に抑制する秒数
-
 		[Header("Multiple Input Guard")]
 		[Tooltip("入力ガード（連打防止）を使用するかどうか")]
 		[SerializeField] private bool useMultipleInputGuard = true; // 入力ガードを使うか
@@ -68,7 +62,6 @@ namespace ANest.UI {
 
 		#region Fields
 		private float _lastAcceptedClickTime = -999f;            // 最後に受理した入力時刻
-		private float _initialGuardEndTime = -999f;              // 有効化直後のガード解除時刻
 		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
 		private bool _shortCutPressed;                           // ショートカット押下状態
 		private bool _shortCutPressAccepted;                     // ショートカット入力がガードを通過したか
@@ -81,7 +74,6 @@ namespace ANest.UI {
 			base.OnEnable();
 
 			ResetShortCutState();
-			StartInitialGuard();
 			RegisterToggleListener(true);
 		}
 
@@ -249,12 +241,6 @@ namespace ANest.UI {
 		#region Guards
 		/// <summary>初期ガード・連打ガードの状態を判定する</summary>
 		private bool IsGuardActive(float now) {
-			if(useInitialGuard && now < _initialGuardEndTime) {
-				#if UNITY_EDITOR
-				Debug.Log($"[{nameof(aToggle)}] Initial Guard active. Input blocked until {_initialGuardEndTime:F3} (remaining {_initialGuardEndTime - now:F3}s).", this);
-				#endif
-				return true;
-			}
 			if(!useMultipleInputGuard) return false;
 
 			bool active = (now - _lastAcceptedClickTime) < multipleInputGuardInterval;
@@ -270,15 +256,6 @@ namespace ANest.UI {
 		private void StartGuard(float now) {
 			_lastAcceptedClickTime = now;
 		}
-
-		/// <summary>有効化直後の入力を一定時間抑制するための初期ガードを設定</summary>
-		private void StartInitialGuard() {
-			if(!useInitialGuard || initialGuardDuration <= 0f) {
-				_initialGuardEndTime = -999f;
-				return;
-			}
-			_initialGuardEndTime = Time.unscaledTime + initialGuardDuration;
-		}
 		#endregion
 
 		#region Shared Apply
@@ -291,9 +268,6 @@ namespace ANest.UI {
 			colors = sharedParameters.transitionColors;
 			spriteState = sharedParameters.spriteState;
 			animationTriggers = sharedParameters.selectableAnimationTriggers;
-
-			useInitialGuard = sharedParameters.useInitialGuard;
-			initialGuardDuration = sharedParameters.initialGuardDuration;
 
 			useMultipleInputGuard = sharedParameters.useMultipleInputGuard;
 			multipleInputGuardInterval = sharedParameters.multipleInputGuardInterval;

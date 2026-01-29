@@ -47,6 +47,7 @@ namespace ANest.UI.Editor {
 
 		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
 		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態の保存キー
+		private string[] excludeProps;
 		#endregion
 
 		#region Unity Methods
@@ -87,6 +88,39 @@ namespace ANest.UI.Editor {
 			clickAnimationsProp = serializedObject.FindProperty("m_clickAnimations");
 			onAnimationsProp = serializedObject.FindProperty("m_onAnimations");
 			offAnimationsProp = serializedObject.FindProperty("m_offAnimations");
+
+			excludeProps = new[] {
+				"m_Script",
+				"m_Interactable",
+				"m_TargetGraphic",
+				"m_Transition",
+				"m_Colors",
+				"m_SpriteState",
+				"m_AnimationTriggers",
+				"m_Navigation",
+				"useSharedParameters",
+				"sharedParameters",
+				"toggleTransition",
+				"graphic",
+				"m_Group",
+				"m_IsOn",
+				"onValueChanged",
+				"useMultipleInputGuard",
+				"multipleInputGuardInterval",
+				"shortCut",
+				"targetText",
+				"textTransition",
+				"textColors",
+				"textSwapState",
+				"textAnimationTriggers",
+				"textAnimator",
+				"m_useCustomAnimation",
+				"m_useSharedAnimation",
+				"m_sharedAnimation",
+				"m_clickAnimations",
+				"m_onAnimations",
+				"m_offAnimations"
+			};
 
 			showNavigation = EditorPrefs.GetBool(ShowNavigationKey);
 
@@ -213,6 +247,11 @@ namespace ANest.UI.Editor {
 				serializedObject.ApplyModifiedProperties();
 				ValidateAndRefresh();
 			}
+
+			EditorGUILayout.Space();
+			DrawPropertiesExcluding(serializedObject, excludeProps);
+
+			serializedObject.ApplyModifiedProperties();
 		}
 		#endregion
 

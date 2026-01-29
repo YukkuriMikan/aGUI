@@ -42,6 +42,7 @@ namespace ANest.UI.Editor {
 
 		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
 		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態保存用キー
+		private string[] excludeProps;
 		#endregion
 
 		#region Unity Methods
@@ -78,6 +79,39 @@ namespace ANest.UI.Editor {
 			clickAnimationProp = serializedObject.FindProperty("m_clickAnimations");
 			longPressImageProp = serializedObject.FindProperty("longPressImage");
 			onClickProp = serializedObject.FindProperty("m_OnClick");
+
+			excludeProps = new[] {
+				"m_Script",
+				"m_Interactable",
+				"m_TargetGraphic",
+				"m_Transition",
+				"m_Colors",
+				"m_SpriteState",
+				"m_AnimationTriggers",
+				"m_Navigation",
+				"onRightClick",
+				"useSharedParameters",
+				"sharedParameters",
+				"enableLongPress",
+				"longPressDuration",
+				"onLongPress",
+				"onLongPressCancel",
+				"useMultipleInputGuard",
+				"multipleInputGuardInterval",
+				"shortCut",
+				"targetText",
+				"textTransition",
+				"textColors",
+				"textSwapState",
+				"textAnimationTriggers",
+				"textAnimator",
+				"m_useCustomAnimation",
+				"m_useSharedAnimation",
+				"m_sharedAnimation",
+				"m_clickAnimations",
+				"longPressImage",
+				"m_OnClick"
+			};
 
 			showNavigation = EditorPrefs.GetBool(ShowNavigationKey);
 		}
@@ -193,6 +227,9 @@ namespace ANest.UI.Editor {
 				EditorGUILayout.PropertyField(onLongPressProp);
 				EditorGUILayout.PropertyField(onLongPressCancelProp, new GUIContent("On Long Press Cancel"));
 			}
+
+			EditorGUILayout.Space();
+			DrawPropertiesExcluding(serializedObject, excludeProps);
 
 			serializedObject.ApplyModifiedProperties();
 		}

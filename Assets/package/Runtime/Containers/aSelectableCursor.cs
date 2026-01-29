@@ -2,9 +2,8 @@ using UniRx;
 using UnityEngine;
 
 namespace ANest.UI {
-	/// <summary>aContainerBase の CurrentSelectable に追従するカーソルを制御するコンポーネント</summary>
+	/// <summary>aSelectableContainer の CurrentSelectable に追従するカーソルを制御するコンポーネント</summary>
 	public class aSelectableCursor : aCursorBase {
-
 		#region Serialize Fields
 		[Tooltip("追従対象のコンテナ")]
 		[SerializeField] private aSelectableContainer m_container; // 追従対象のコンテナ

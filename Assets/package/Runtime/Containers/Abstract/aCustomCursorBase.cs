@@ -3,12 +3,14 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary>aSelectableContainerBase の CurrentSelectable に追従するカーソルの基底クラス</summary>
+	/// <summary>aCustomCursorBase の CurrentSelectable に追従するカーソルの基底クラス</summary>
 	public abstract class aCustomCursorBase<T> : aCursorBase where T : Selectable {
 		#region Serialize Fields
 		[Tooltip("追従対象のコンテナ")]
 		[SerializeField]
-		private aSelectableContainerBase<T> m_container;
+		private aContainerBase m_container; // ジェネリックなフィールドはインスペクタに出せないため、基底クラスで参照を取得
+
+		private aSelectableContainerBase<T> m_selectableContainer;
 		#endregion
 
 		#region Private Fields
@@ -18,19 +20,29 @@ namespace ANest.UI {
 		#region Lifecycle Methods
 		/// <summary>開始時にコンテナの選択変更を購読する</summary>
 		private void Start() {
-			if(m_container != null) {
-				var currentSelectable = m_container.CurrentSelectable;
+			m_selectableContainer = m_container as aSelectableContainerBase<T>;
+
+			if(m_selectableContainer == null) {
+#if UNITY_EDITOR
+				Debug.LogError($"リンク先のコンテナ{m_container.name}がSelectableContainerではありません", this.gameObject);
+#endif
+				
+				return;
+			}
+
+			if(m_selectableContainer != null) {
+				var currentSelectable = m_selectableContainer.CurrentSelectable;
 
 				if(currentSelectable != null) {
 					OnTargetRectChanged(currentSelectable.transform as RectTransform);
 				}
 
-				m_container.OnSelectChanged.AsObservable()
+				m_selectableContainer.OnSelectChanged.AsObservable()
 					.Subscribe(selectable => OnTargetRectChanged(selectable.transform as RectTransform))
 					.AddTo(m_disposables);
 
 				// コンテナがShowされた時に瞬間移動フラグを立てる
-				m_container.ShowStartObservable
+				m_selectableContainer.ShowStartObservable
 					.Subscribe(_ => m_wasHidden = true)
 					.AddTo(m_disposables);
 			}
@@ -44,18 +56,18 @@ namespace ANest.UI {
 		}
 		#endregion
 
- 	#region Editor Support
+		#region Editor Support
 #if UNITY_EDITOR
 		/// <summary>インスペクターでの値変更時に参照を更新する</summary>
 		protected override void OnValidate() {
 			base.OnValidate();
 
 			if(m_container == null) {
-				m_container = GetComponentInParent<aSelectableContainerBase<T>>();
+				m_container = GetComponentInParent<aContainerBase>();
 			}
 
 			if(m_container == null) {
-				m_container = GetComponentInChildren<aSelectableContainerBase<T>>();
+				m_container = GetComponentInChildren<aContainerBase>();
 			}
 		}
 #endif

@@ -195,7 +195,7 @@ namespace ANest.UI {
 			if(RectTransform == null) return;
 			for (int i = 0; i < transform.childCount; i++) {
 				var child = transform.GetChild(i) as RectTransform;
-				if(child == null || !child.gameObject.activeInHierarchy) continue;
+				if(child == null || !child.gameObject.activeSelf) continue;
 				if(excludedChildren != null && excludedChildren.Contains(child)) continue;
 				var ignorer = child.GetComponent<ILayoutIgnorer>();
 				if(ignorer != null && ignorer.ignoreLayout) continue;

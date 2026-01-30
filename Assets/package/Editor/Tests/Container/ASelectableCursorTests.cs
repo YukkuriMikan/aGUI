@@ -54,7 +54,7 @@ namespace ANest.UI.Tests {
 
 		private class TestSelectableContainer : aSelectableContainer {
 			public void SetCurrentSelectable(Selectable selectable) {
-				m_currentSelectable = selectable;
+				CurrentSelectable = selectable;
 				OnSelectChanged.Invoke(selectable);
 			}
 		}
@@ -180,6 +180,7 @@ namespace ANest.UI.Tests {
 			m_cursor.InvokeOnTargetRectChanged(m_rect1);
 
 			// フレームを進める
+			yield return null;
 			yield return null;
 			yield return null;
 			

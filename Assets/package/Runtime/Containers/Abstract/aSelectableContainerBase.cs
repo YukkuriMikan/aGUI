@@ -77,6 +77,8 @@ namespace ANest.UI {
 		public virtual T CurrentSelectable {
 			get => m_currentSelectable;
 			set {
+				if(m_currentSelectable == value) return;
+
 				if(value == null) {
 					m_currentSelectableIndex = -1;
 					m_currentSelectable = null;
@@ -241,7 +243,7 @@ namespace ANest.UI {
 			// リジューム設定が有効で、前回選択があった場合はそれを優先
 			if(m_defaultResumeSelectionOnShow && m_lastSelected != null && m_lastSelected.IsActive() && m_lastSelected.IsInteractable()) {
 				CurrentSelectable = m_lastSelected;
-			} else if(m_initialSelectable != null){
+			} else if(m_initialSelectable != null) {
 				CurrentSelectable = m_initialSelectable;
 			}
 		}

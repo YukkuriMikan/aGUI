@@ -22,11 +22,12 @@ namespace ANest.UI {
 		public override int CurrentSelectableIndex {
 			get => m_currentSelectableIndex;
 			set {
+				var es = aGuiManager.EventSystem;
+
 				// 範囲外チェック
 				if(m_childSelectableList == null || m_childSelectableList.Count == 0 || value < 0 || value >= m_childSelectableList.Count) {
 					if(m_disallowNullSelection) return;
 
-					var es = aGuiManager.EventSystem;
 					if(es != null) {
 						es.SetSelectedGameObject(null);
 					}
@@ -36,7 +37,12 @@ namespace ANest.UI {
 				}
 
 				// 範囲内の場合は選択を実行（base.CurrentSelectableIndex の set 内で m_currentSelectableIndex が更新される）
-				m_childSelectableList[value].Select();
+				var currentSelectedObject = m_childSelectableList[value].gameObject;
+
+				if(es != null && es.currentSelectedGameObject != currentSelectedObject) {
+					m_childSelectableList[value].Select();
+				}
+
 				base.CurrentSelectableIndex = value;
 			}
 		}
@@ -45,26 +51,26 @@ namespace ANest.UI {
 		public override Selectable CurrentSelectable {
 			get => m_currentSelectable;
 			set {
-				if(value == null) {
+				void TrySetNull() {
 					if(m_disallowNullSelection) return;
+
 					base.CurrentSelectable = null;
 
 					var es = aGuiManager.EventSystem;
-					if(es != null) {
+					if(es != null)
 						es.SetSelectedGameObject(null);
-					}
+				}
+
+				if(m_currentSelectable == value) return;
+
+				if(value == null) {
+					TrySetNull();
 
 					return;
 				}
 
 				if(m_childSelectableList == null || m_childSelectableList.Count == 0) {
-					if(m_disallowNullSelection) return;
-					base.CurrentSelectable = null;
-
-					var es = aGuiManager.EventSystem;
-					if(es != null) {
-						es.SetSelectedGameObject(null);
-					}
+					TrySetNull();
 
 					return;
 				}
@@ -72,18 +78,18 @@ namespace ANest.UI {
 				var index = m_childSelectableList.IndexOf(value);
 
 				if(index == -1) {
-					if(m_disallowNullSelection) return;
-					base.CurrentSelectable = null;
-
-					var es = aGuiManager.EventSystem;
-					if(es != null) {
-						es.SetSelectedGameObject(null);
-					}
+					TrySetNull();
 
 					return;
 				}
 
 				base.CurrentSelectable = value;
+
+				var es = aGuiManager.EventSystem;
+
+				if(es != null && es.currentSelectedGameObject != value.gameObject) {
+					value.Select();
+				}
 			}
 		}
 		#endregion
@@ -112,8 +118,13 @@ namespace ANest.UI {
 							var es = aGuiManager.EventSystem;
 
 							if(es != null && es.currentSelectedGameObject == null) {
-								if(m_currentSelectable != null && m_currentSelectable.IsActive() && m_currentSelectable.IsInteractable()) {
-									m_currentSelectable.Select();
+								if(m_currentSelectable != null &&
+									m_currentSelectable.IsActive() &&
+									m_currentSelectable.IsInteractable()) {
+
+									if(es.currentSelectedGameObject != m_currentSelectable.gameObject) {
+										m_currentSelectable.Select();
+									}
 								}
 							}
 						}).AddTo(m_selectDisposables);
@@ -127,10 +138,6 @@ namespace ANest.UI {
 
 			if(CurrentSelectable == null && m_disallowNullSelection && ChildSelectableList.Count > 0) {
 				CurrentSelectable = ChildSelectableList[0];
-			}
-
-			if(CurrentSelectable != null) {
-				CurrentSelectable.Select();
 			}
 		}
 

@@ -20,45 +20,45 @@ namespace ANest.UI {
 
 		#region SerializeField
 		[Tooltip("対象となる子RectTransform一覧")]
-		[SerializeField] protected List<RectTransform> rectChildren = new();                              // 対象となる子RectTransform一覧
+		[SerializeField] protected List<RectTransform> rectChildren = new(); // 対象となる子RectTransform一覧
 		[Tooltip("配置時に考慮するパディング")]
-		[SerializeField] protected RectOffset padding = new RectOffset();                                 // パディング
+		[SerializeField] protected RectOffset padding = new RectOffset(); // パディング
 		[Tooltip("子要素の配置基準")]
-		[SerializeField] protected TextAnchor childAlignment = TextAnchor.MiddleCenter;                   // 子の配置基準
+		[SerializeField] protected TextAnchor childAlignment = TextAnchor.MiddleCenter; // 子の配置基準
 		[Tooltip("並び順を反転するか")]
-		[SerializeField] protected bool reverseArrangement;                                               // 並び順を反転するか
+		[SerializeField] protected bool reverseArrangement; // 並び順を反転するか
 		[Tooltip("レイアウトを更新するタイミング")]
-		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual;                             // レイアウト更新モード
+		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual; // レイアウト更新モード
 		[Tooltip("子の幅を制御するか")]
-		[SerializeField] protected bool childControlWidth = false;                                        // 子幅を制御するか
+		[SerializeField] protected bool childControlWidth = false; // 子幅を制御するか
 		[Tooltip("子の高さを制御するか")]
-		[SerializeField] protected bool childControlHeight = false;                                       // 子高さを制御するか
+		[SerializeField] protected bool childControlHeight = false; // 子高さを制御するか
 		[Tooltip("子の幅にスケールを反映するか")]
-		[SerializeField] protected bool childScaleWidth;                                                  // 子幅にスケールを反映するか
+		[SerializeField] protected bool childScaleWidth; // 子幅にスケールを反映するか
 		[Tooltip("子の高さにスケールを反映するか")]
-		[SerializeField] protected bool childScaleHeight;                                                 // 子高さにスケールを反映するか
+		[SerializeField] protected bool childScaleHeight; // 子高さにスケールを反映するか
 		[Tooltip("子の幅を強制的に拡張するか")]
-		[SerializeField] protected bool childForceExpandWidth = true;                                     // 子幅を強制拡張するか
+		[SerializeField] protected bool childForceExpandWidth = true; // 子幅を強制拡張するか
 		[Tooltip("子の高さを強制的に拡張するか")]
-		[SerializeField] protected bool childForceExpandHeight = true;                                    // 子高さを強制拡張するか
+		[SerializeField] protected bool childForceExpandHeight = true; // 子高さを強制拡張するか
 		[Tooltip("レイアウト計算から除外する子Transformリスト")]
-		[SerializeField] protected List<RectTransform> excludedChildren = new();                          // 除外する子Transform
+		[SerializeField] protected List<RectTransform> excludedChildren = new(); // 除外する子Transform
 		[Tooltip("Navigationを設定するか")]
-		[SerializeField] protected bool setNavigation = true;                                             // ナビゲーションを設定するか
+		[SerializeField] protected bool setNavigation = true; // ナビゲーションを設定するか
 		[Tooltip("Navigationをループさせるか")]
-		[SerializeField] protected bool navigationLoop = true;                                            // ナビゲーションをループさせるか
+		[SerializeField] protected bool navigationLoop = true; // ナビゲーションをループさせるか
 		[Tooltip("レイアウト移動をアニメーションさせるか")]
-		[SerializeField] protected bool useAnimation;                                                     // レイアウト移動をアニメーションするか
+		[SerializeField] protected bool useAnimation; // レイアウト移動をアニメーションするか
 		[Tooltip("アニメーションの再生時間（秒）")]
-		[SerializeField] protected float animationDuration = 0.25f;                                       // アニメーション時間
+		[SerializeField] protected float animationDuration = 0.25f; // アニメーション時間
 		[Tooltip("アニメーションを適用する距離の閾値")]
-		[SerializeField] protected float animationDistanceThreshold = 1000f;                              // アニメ適用距離閾値
+		[SerializeField] protected float animationDistanceThreshold = 1000f; // アニメ適用距離閾値
 		[Tooltip("アニメーションでカーブを使用するか")]
-		[SerializeField] protected bool useAnimationCurve;                                                // カーブを使うか
+		[SerializeField] protected bool useAnimationCurve; // カーブを使うか
 		[Tooltip("アニメーションに使用するカーブ")]
 		[SerializeField] protected AnimationCurve animationCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f); // アニメーションカーブ
 		[Tooltip("アニメーションのイージング設定")]
-		[SerializeField] protected Ease animationEase = Ease.OutQuad;                                     // アニメーションイージング
+		[SerializeField] protected Ease animationEase = Ease.OutQuad; // アニメーションイージング
 		#endregion
 
 		#region Fields
@@ -115,7 +115,7 @@ namespace ANest.UI {
 
 		/// <summary> RectTransform寸法変更時の処理 </summary>
 		protected virtual void OnRectTransformDimensionsChange() {
-			if(!isActiveAndEnabled) return;
+			if(!gameObject.activeSelf) return;
 			if(updateMode != UpdateMode.InitializeOnly) return;
 			m_dirty = true;
 		}
@@ -133,7 +133,7 @@ namespace ANest.UI {
 		/// <summary> アニメーションを強制無効化してレイアウトを適用 </summary>
 		[ContextMenu("Rebuild Layout")]
 		public void AlignEditor() {
-			if(!isActiveAndEnabled) return; // 無効時は処理しない
+			if(!gameObject.activeSelf) return; // 無効時は処理しない
 
 			bool previousSuppress = useAnimation; // 元の抑制状態を保存
 			useAnimation = false;
@@ -144,7 +144,8 @@ namespace ANest.UI {
 
 		/// <summary> 子要素を収集して整列 </summary>
 		public void AlignWithCollection() {
-			if(!isActiveAndEnabled) return; // 無効時は処理しない
+			if(!gameObject.activeSelf) return; // 無効時は処理しない
+
 			m_lastTargetPositions.Clear();
 			CollectRectChildren();
 			CalculateLayout();
@@ -153,7 +154,8 @@ namespace ANest.UI {
 
 		/// <summary> 子要素を整列 </summary>
 		public void Align() {
-			if(!isActiveAndEnabled) return; // 無効時は処理しない
+			if(!gameObject.activeSelf) return; // 無効時は処理しない
+
 			m_lastTargetPositions.Clear();
 			if(rectChildren.Count == 0) {
 				CollectRectChildren();

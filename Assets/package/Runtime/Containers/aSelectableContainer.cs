@@ -23,11 +23,15 @@ namespace ANest.UI {
 			get => m_currentSelectableIndex;
 			set {
 				// 範囲外チェック
-				if(m_childSelectableList == null || value < 0 || value >= m_childSelectableList.Count) {
+				if(m_childSelectableList == null || m_childSelectableList.Count == 0 || value < 0 || value >= m_childSelectableList.Count) {
 					if(m_disallowNullSelection) return;
 
-					aGuiManager.EventSystem.SetSelectedGameObject(null);
+					var es = aGuiManager.EventSystem;
+					if(es != null) {
+						es.SetSelectedGameObject(null);
+					}
 					base.CurrentSelectableIndex = value;
+
 					return;
 				}
 
@@ -43,21 +47,43 @@ namespace ANest.UI {
 			set {
 				if(value == null) {
 					if(m_disallowNullSelection) return;
+					base.CurrentSelectable = null;
 
-					CurrentSelectableIndex = -1;
+					var es = aGuiManager.EventSystem;
+					if(es != null) {
+						es.SetSelectedGameObject(null);
+					}
+
 					return;
 				}
 
-				if(m_childSelectableList == null) return;
+				if(m_childSelectableList == null || m_childSelectableList.Count == 0) {
+					if(m_disallowNullSelection) return;
+					base.CurrentSelectable = null;
+
+					var es = aGuiManager.EventSystem;
+					if(es != null) {
+						es.SetSelectedGameObject(null);
+					}
+
+					return;
+				}
+
 				var index = m_childSelectableList.IndexOf(value);
-				
+
 				if(index == -1) {
 					if(m_disallowNullSelection) return;
-					CurrentSelectableIndex = -1;
+					base.CurrentSelectable = null;
+
+					var es = aGuiManager.EventSystem;
+					if(es != null) {
+						es.SetSelectedGameObject(null);
+					}
+
 					return;
 				}
 
-				CurrentSelectableIndex = index;
+				base.CurrentSelectable = value;
 			}
 		}
 		#endregion
@@ -86,7 +112,7 @@ namespace ANest.UI {
 							var es = aGuiManager.EventSystem;
 
 							if(es != null && es.currentSelectedGameObject == null) {
-								if(m_currentSelectable != null) {
+								if(m_currentSelectable != null && m_currentSelectable.IsActive() && m_currentSelectable.IsInteractable()) {
 									m_currentSelectable.Select();
 								}
 							}
@@ -101,6 +127,10 @@ namespace ANest.UI {
 
 			if(CurrentSelectable == null && m_disallowNullSelection && ChildSelectableList.Count > 0) {
 				CurrentSelectable = ChildSelectableList[0];
+			}
+
+			if(CurrentSelectable != null) {
+				CurrentSelectable.Select();
 			}
 		}
 

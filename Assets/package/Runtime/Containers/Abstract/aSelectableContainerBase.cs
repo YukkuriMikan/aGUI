@@ -80,9 +80,11 @@ namespace ANest.UI {
 				if(value == null) {
 					m_currentSelectableIndex = -1;
 					m_currentSelectable = null;
+					m_onSelectChanged?.Invoke(null);
 				} else {
 					UpdateCurrentSelectableIndex(value);
 					m_currentSelectable = value;
+					m_onSelectChanged?.Invoke(value);
 				}
 			}
 		}
@@ -219,11 +221,7 @@ namespace ANest.UI {
 
 				// 選択された時の処理
 				selectable.OnSelectAsObservable()
-					.Subscribe(_ => {
-						m_currentSelectable = selectable;
-						UpdateCurrentSelectableIndex(selectable);
-						m_onSelectChanged?.Invoke(selectable);
-					})
+					.Subscribe(_ => CurrentSelectable = selectable)
 					.AddTo(m_selectDisposables);
 			}
 		}

@@ -16,7 +16,7 @@ namespace ANest.UI.Tests {
 		private class TestSelectableContainer : aSelectableContainer {
 			public void TestInitialize() => Initialize();
 			public void TestObserveSelectables() => ObserveSelectables();
-			
+
 			/// <summary> リフレクションを使用してアニメーションを設定する </summary>
 			public void SetAnimations(IUiAnimation[] show, IUiAnimation[] hide) {
 				var type = typeof(aContainerBase);
@@ -59,7 +59,7 @@ namespace ANest.UI.Tests {
 		[SetUp]
 		public void SetUp() {
 			m_eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-			
+
 			m_testObject = new GameObject("aSelectableContainer", typeof(RectTransform));
 			m_testObject.AddComponent<CanvasGroup>();
 			var guiInfo = m_testObject.AddComponent<aGuiInfo>();
@@ -108,14 +108,42 @@ namespace ANest.UI.Tests {
 			var btnGo = new GameObject("Button", typeof(RectTransform), typeof(Button));
 			btnGo.transform.SetParent(m_testObject.transform);
 			var btn = btnGo.GetComponent<Button>();
-			
-			m_container.SetChildSelectableList(new List<Selectable> { btn });
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				btn
+			});
 			m_container.InitialSelectable = btn;
-			
+
 			m_container.Show();
 			yield return null;
 
 			Assert.AreEqual(btnGo, EventSystem.current.currentSelectedGameObject);
+		}
+
+		[UnityTest]
+		public IEnumerator CurrentSelectable_DisallowNull_WithEmptyList_DoesNotCrash() {
+			m_container.TestInitialize();
+			m_container.SetChildSelectableList(new List<Selectable>());
+			m_container.DisallowNullSelection = true;
+
+			// 空のリストで null をセットしてもクラッシュしないこと
+			Assert.DoesNotThrow(() => {
+				m_container.CurrentSelectable = null;
+			});
+			yield return null;
+		}
+
+		[UnityTest]
+		public IEnumerator CurrentSelectableIndex_DisallowNull_WithEmptyList_DoesNotCrash() {
+			m_container.TestInitialize();
+			m_container.SetChildSelectableList(new List<Selectable>());
+			m_container.DisallowNullSelection = true;
+
+			// 空のリストで範囲外のインデックスをセットしてもクラッシュせず、無視されること
+			Assert.DoesNotThrow(() => {
+				m_container.CurrentSelectableIndex = 0;
+			});
+			yield return null;
 		}
 
 		[UnityTest]
@@ -125,13 +153,15 @@ namespace ANest.UI.Tests {
 			var btnGo = new GameObject("Button", typeof(RectTransform), typeof(Button));
 			btnGo.transform.SetParent(m_testObject.transform);
 			var btn = btnGo.GetComponent<Button>();
-			
-			m_container.SetChildSelectableList(new List<Selectable> { btn });
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				btn
+			});
 			m_container.DisallowNullSelection = true;
-			
+
 			m_container.Show();
 			m_container.TestObserveSelectables();
-			
+
 			btn.Select();
 			yield return null;
 			Assert.AreEqual(btnGo, EventSystem.current.currentSelectedGameObject);
@@ -151,7 +181,9 @@ namespace ANest.UI.Tests {
 			var c1 = obj1.AddComponent<TestSelectableContainer>();
 			var b1 = new GameObject("Button1", typeof(RectTransform), typeof(Button)).GetComponent<Button>();
 			b1.transform.SetParent(obj1.transform);
-			c1.SetChildSelectableList(new List<Selectable> { b1 });
+			c1.SetChildSelectableList(new List<Selectable> {
+				b1
+			});
 			c1.DisallowNullSelection = true;
 			c1.IsVisible = true;
 			c1.TestInitialize();
@@ -161,7 +193,9 @@ namespace ANest.UI.Tests {
 			var c2 = obj2.AddComponent<TestSelectableContainer>();
 			var b2 = new GameObject("Button2", typeof(RectTransform), typeof(Button)).GetComponent<Button>();
 			b2.transform.SetParent(obj2.transform);
-			c2.SetChildSelectableList(new List<Selectable> { b2 });
+			c2.SetChildSelectableList(new List<Selectable> {
+				b2
+			});
 			c2.DisallowNullSelection = true;
 			c2.IsVisible = true;
 			c2.TestInitialize();
@@ -172,7 +206,7 @@ namespace ANest.UI.Tests {
 			// c1 を再度登録（最新にする）
 			aContainerManager.Add(c1);
 			Assert.IsTrue(aContainerManager.IsLatestSelectableContainer(c1), "C1が最新になった");
-			
+
 			Object.DestroyImmediate(obj1);
 			Object.DestroyImmediate(obj2);
 			yield return null;
@@ -185,15 +219,15 @@ namespace ANest.UI.Tests {
 		public IEnumerator InitialGuard_BlocksRaycastsTemporarily() {
 			m_container.TestInitialize();
 			m_container.SetInitialGuard(true, 0.2f);
-			
+
 			m_container.Show();
 			var canvasGroup = m_testObject.GetComponent<CanvasGroup>();
-			
+
 			// ShowInternal 内で base.ShowInternal (blocksRaycasts = true) の後に false に設定される
 			Assert.IsFalse(canvasGroup.blocksRaycasts, "InitialGuard中はblocksRaycastsがfalseであるべき");
-			
+
 			yield return new WaitForSeconds(0.3f);
-			
+
 			Assert.IsTrue(canvasGroup.blocksRaycasts, "InitialGuard終了後はblocksRaycastsがtrueに戻るべき");
 		}
 		#endregion
@@ -203,8 +237,12 @@ namespace ANest.UI.Tests {
 		[UnityTest]
 		public IEnumerator ShowAnimation_InterruptedByHide() {
 			m_container.TestInitialize();
-			var showAnim = new MockUiAnimation { Duration = 0.5f };
-			m_container.SetAnimations(new IUiAnimation[] { showAnim }, null);
+			var showAnim = new MockUiAnimation {
+				Duration = 0.5f
+			};
+			m_container.SetAnimations(new IUiAnimation[] {
+				showAnim
+			}, null);
 
 			m_container.Show();
 			Assert.IsTrue(m_container.IsVisible);

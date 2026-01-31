@@ -1623,10 +1623,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 368ed7da9cbba2f4388963a74773571c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fitWidth: 0
-  fitHeight: 0
-  pivotType: 0
-  layoutGroup: {fileID: 584493240}
+  m_fitWidth: 0
+  m_fitHeight: 0
+  m_pivotType: 0
+  m_layoutGroup: {fileID: 584493240}
 --- !u!1 &662333314
 GameObject:
   m_ObjectHideFlags: 0
@@ -3530,10 +3530,10 @@ RectTransform:
   - {fileID: 727869092}
   m_Father: {fileID: 1791166511}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 480, y: 375}
-  m_SizeDelta: {x: -960, y: -740}
+  m_SizeDelta: {x: 960, y: 340}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1150951253
 MonoBehaviour:
@@ -3680,10 +3680,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 368ed7da9cbba2f4388963a74773571c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fitWidth: 0
-  fitHeight: 1
-  pivotType: 0
-  layoutGroup: {fileID: 1150951255}
+  m_fitWidth: 1
+  m_fitHeight: 1
+  m_pivotType: 0
+  m_layoutGroup: {fileID: 1150951255}
 --- !u!1 &1172630143
 GameObject:
   m_ObjectHideFlags: 0
@@ -3921,7 +3921,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 830, y: -170}
+  m_AnchoredPosition: {x: 562, y: -352}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1251469159
@@ -6224,6 +6224,7 @@ GameObject:
   - component: {fileID: 1907836644}
   - component: {fileID: 1907836647}
   - component: {fileID: 1907836646}
+  - component: {fileID: 1907836648}
   m_Layer: 5
   m_Name: Panel - aVerticalTest
   m_TagString: Untagged
@@ -6366,6 +6367,22 @@ MonoBehaviour:
     m_RotationOrder: 4
   animationEase: 6
   spacing: 100
+--- !u!114 &1907836648
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1907836641}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 368ed7da9cbba2f4388963a74773571c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_fitWidth: 1
+  m_fitHeight: 1
+  m_pivotType: 0
+  m_layoutGroup: {fileID: 1907836647}
 --- !u!1 &1915607608
 GameObject:
   m_ObjectHideFlags: 0

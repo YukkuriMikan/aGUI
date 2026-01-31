@@ -149,7 +149,7 @@ namespace ANest.UI {
 			m_lastTargetPositions.Clear();
 			CollectRectChildren();
 			CalculateLayout();
-			EmitCompleteLayoutRect();
+			m_completeLayoutSubject.OnNext(CalculateContentRect());
 		}
 
 		/// <summary> 子要素を整列 </summary>
@@ -161,7 +161,7 @@ namespace ANest.UI {
 				CollectRectChildren();
 			}
 			CalculateLayout();
-			EmitCompleteLayoutRect();
+			m_completeLayoutSubject.OnNext(CalculateContentRect());
 		}
 
 		/// <summary> 1フレーム待ってから整列する </summary>
@@ -288,11 +288,11 @@ namespace ANest.UI {
 			m_positionTweens.Clear();
 		}
 
-		/// <summary> 子要素の配置範囲をRectとして通知 </summary>
-		private void EmitCompleteLayoutRect() {
+		/// <summary> 子要素の範囲をRectとして取得 </summary>
+		/// <returns>子要素が含まれるRect</returns>
+		public Rect CalculateContentRect() {
 			if(rectChildren.Count == 0) {
-				m_completeLayoutSubject.OnNext(new Rect());
-				return;
+				return new Rect();
 			}
 
 			float minX = float.PositiveInfinity;
@@ -323,8 +323,7 @@ namespace ANest.UI {
 			}
 
 			if(float.IsInfinity(minX) || float.IsInfinity(minY) || float.IsInfinity(maxX) || float.IsInfinity(maxY)) {
-				m_completeLayoutSubject.OnNext(new Rect());
-				return;
+				return new Rect();
 			}
 
 			// パディングを含めた親内側の境界も考慮したRectを作成
@@ -339,7 +338,7 @@ namespace ANest.UI {
 			float paddedMaxY = maxY + paddingBottom;
 
 			var rect = Rect.MinMaxRect(paddedMinX, paddedMinY, paddedMaxX, paddedMaxY);
-			m_completeLayoutSubject.OnNext(rect);
+			return rect;
 		}
 
 		/// <summary> レイアウト計算で使用する子サイズ情報 </summary>

@@ -154,6 +154,9 @@ namespace ANest.UI {
 		#region Public Method
 		/// <summary>コンテナを表示する</summary>
 		public virtual void Show() {
+			if(!m_initialized) {
+				Debug.LogError($"[{nameof(aContainerBase)}] {name} は未初期化のままShowが呼ばれました。Initializeを先に呼び出してください。", this);
+			}
 			if(m_nowShowing) return;
 
 			ShowInternal();
@@ -161,6 +164,9 @@ namespace ANest.UI {
 
 		/// <summary>コンテナを非表示にする</summary>
 		public virtual void Hide() {
+			if(!m_initialized) {
+				Debug.LogError($"[{nameof(aContainerBase)}] {name} は未初期化のままHideが呼ばれました。Initializeを先に呼び出してください。", this);
+			}
 			if(m_nowHiding) return;
 
 			HideInternal();

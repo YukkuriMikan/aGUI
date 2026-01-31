@@ -15,6 +15,9 @@ namespace ANest.UI.Tests {
 			/// <summary> 初期化メソッドをテスト用に公開 </summary>
 			public void TestInitialize() => Initialize();
 
+			/// <summary> 初期化フラグをテスト用に変更 </summary>
+			public void SetInitialized(bool initialized) => m_initialized = initialized;
+
 			/// <summary> リフレクションを使用してアニメーションを設定する </summary>
 			public void SetAnimations(IUiAnimation[] show, IUiAnimation[] hide) {
 				var type = typeof(aContainerBase);
@@ -137,6 +140,26 @@ namespace ANest.UI.Tests {
 
 			m_container.IsVisible = false;
 			Assert.IsFalse(m_testObject.activeSelf);
+		}
+
+		/// <summary> 未初期化時にShowを呼ぶとエラーログが出るか </summary>
+		[Test]
+		public void Show_WhenNotInitialized_LogsError() {
+			m_container.SetInitialized(false);
+			LogAssert.Expect(LogType.Error,
+				$"[{nameof(aContainerBase)}] {m_testObject.name} は未初期化のままShowが呼ばれました。Initializeを先に呼び出してください。");
+
+			m_container.Show();
+		}
+
+		/// <summary> 未初期化時にHideを呼ぶとエラーログが出るか </summary>
+		[Test]
+		public void Hide_WhenNotInitialized_LogsError() {
+			m_container.SetInitialized(false);
+			LogAssert.Expect(LogType.Error,
+				$"[{nameof(aContainerBase)}] {m_testObject.name} は未初期化のままHideが呼ばれました。Initializeを先に呼び出してください。");
+
+			m_container.Hide();
 		}
 
 		/// <summary> 表示完了時に ShowEndObservable が正しく発火するか </summary>

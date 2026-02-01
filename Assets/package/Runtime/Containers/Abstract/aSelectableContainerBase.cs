@@ -32,7 +32,6 @@ namespace ANest.UI {
 		[SerializeField]
 		private float m_initialGuardDuration = 0.05f; // 初期ガードする時間(秒)
 
-		[Header("Event")]
 		[Tooltip("選択状態が変更された時のイベント")]
 		[SerializeField]
 		private UnityEvent<T> m_onSelectChanged = new(); // 選択状態が変更された時のイベント

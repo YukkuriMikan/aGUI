@@ -9,8 +9,8 @@ namespace ANest.UI.Editor {
 		#region Fields
 		private SerializedProperty _guiInfoProp;            // GUI情報の参照
 		private SerializedProperty _canvasGroupProp;        // CanvasGroup参照
-		private SerializedProperty _onShowProp;             // Show完了イベント参照
-		private SerializedProperty _onHideProp;             // Hide完了イベント参照
+		protected SerializedProperty _onShowProp;             // Show完了イベント参照
+		protected SerializedProperty _onHideProp;             // Hide完了イベント参照
 		private SerializedProperty _debugModeProp;          // デバッグモード参照
 		private SerializedProperty _useCustomAnimationsProp; // 個別アニメーション使用フラグへの参照
 		private SerializedProperty _useSharedAnimationProp;  // 共有アニメーション使用フラグへの参照
@@ -49,9 +49,10 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.PropertyField(_canvasGroupProp);
 			EditorGUILayout.PropertyField(_guiInfoProp);
 
-			EditorGUILayout.PropertyField(_onShowProp);
-			EditorGUILayout.PropertyField(_onHideProp);
+			DrawEventSection();
 
+			DrawCustomSection();
+			
 			EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(_debugModeProp);
 
@@ -105,6 +106,16 @@ namespace ANest.UI.Editor {
 				}
 			}
 			EditorGUI.showMixedValue = false;
+		}
+
+		/// <summary>イベント設定を描画する。</summary>
+		protected virtual void DrawEventSection() {
+			EditorGUILayout.PropertyField(_onShowProp);
+			EditorGUILayout.PropertyField(_onHideProp);
+		}
+
+		/// <summary>派生クラス固有のカスタムセクションを描画する。</summary>
+		protected virtual void DrawCustomSection() {
 		}
 
 		/// <summary>共有/個別アニメーション設定を描画し、適切な警告とプロパティ表示を行う。</summary>

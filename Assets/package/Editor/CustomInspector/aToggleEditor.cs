@@ -44,6 +44,8 @@ namespace ANest.UI.Editor {
 		private SerializedProperty clickAnimationsProp;               // クリックアニメーション配列への参照
 		private SerializedProperty onAnimationsProp;                  // ONアニメーション配列への参照
 		private SerializedProperty offAnimationsProp;                 // OFFアニメーション配列への参照
+		private SerializedProperty guiInfoProp;                       // GUI情報の参照
+		private SerializedProperty graphicGuiInfoProp;                // トグルグラフィック用GUI情報の参照
 
 		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
 		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態の保存キー
@@ -88,9 +90,13 @@ namespace ANest.UI.Editor {
 			clickAnimationsProp = serializedObject.FindProperty("m_clickAnimations");
 			onAnimationsProp = serializedObject.FindProperty("m_onAnimations");
 			offAnimationsProp = serializedObject.FindProperty("m_offAnimations");
+			guiInfoProp = serializedObject.FindProperty("m_guiInfo");
+			graphicGuiInfoProp = serializedObject.FindProperty("m_graphicGuiInfo");
 
 			excludeProps = new[] {
 				"m_Script",
+				"m_guiInfo",
+				"m_graphicGuiInfo",
 				"m_Interactable",
 				"m_TargetGraphic",
 				"m_Transition",
@@ -189,11 +195,9 @@ namespace ANest.UI.Editor {
 			}
 
 			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("ShortCut", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(shortCutProp);
 
 			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
 			{
 				EditorGUILayout.PropertyField(useSharedAnimationProp, new GUIContent("Use Shared Animation"));
 				EditorGUILayout.PropertyField(sharedAnimationProp, new GUIContent("Shared Animation Set"));
@@ -249,6 +253,12 @@ namespace ANest.UI.Editor {
 			}
 
 			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("GUI Info", EditorStyles.boldLabel);
+			EditorGUILayout.PropertyField(guiInfoProp);
+			EditorGUILayout.PropertyField(graphicGuiInfoProp, new GUIContent("Graphic GUI Info"));
+
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Derived Properties", EditorStyles.boldLabel);
 			DrawPropertiesExcluding(serializedObject, excludeProps);
 
 			serializedObject.ApplyModifiedProperties();

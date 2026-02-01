@@ -5313,10 +5313,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 368ed7da9cbba2f4388963a74773571c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fitWidth: 0
-  fitHeight: 1
-  pivotType: 0
-  layoutGroup: {fileID: 588312535}
+  m_fitWidth: 0
+  m_fitHeight: 0
+  m_pivotType: 0
+  m_layoutGroup: {fileID: 588312535}
 --- !u!114 &588312535
 MonoBehaviour:
   m_ObjectHideFlags: 0

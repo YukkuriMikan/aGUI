@@ -10,12 +10,12 @@ namespace ANest.UI {
 	public abstract class aContainerBase : MonoBehaviour {
 		#region Field
 		[Header("Animation")]
-		[Tooltip("個別のアニメーション設定を使用するかどうか")]
-		[SerializeField]
-		protected bool m_useCustomAnimations = true; // 個別のアニメーション設定を使用するかどうか
 		[Tooltip("共通のアニメーションセットを使用するかどうか")]
 		[SerializeField]
 		protected bool m_useSharedAnimation = false; // 共通のアニメーションセットを使用するかどうか
+		[Tooltip("個別のアニメーション設定を使用するかどうか")]
+		[SerializeField]
+		protected bool m_useCustomAnimations = true; // 個別のアニメーション設定を使用するかどうか
 		[Tooltip("共通のアニメーション設定")]
 		[SerializeField]
 		protected UiAnimationSet m_sharedAnimation; // 共通のアニメーション設定

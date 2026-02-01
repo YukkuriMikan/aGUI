@@ -7,6 +7,11 @@ namespace ANest.UI.Editor {
 	[CanEditMultipleObjects]
 	public class aContainerEditor : UnityEditor.Editor {
 		#region Fields
+		private SerializedProperty _guiInfoProp;            // GUI情報の参照
+		private SerializedProperty _canvasGroupProp;        // CanvasGroup参照
+		private SerializedProperty _onShowProp;             // Show完了イベント参照
+		private SerializedProperty _onHideProp;             // Hide完了イベント参照
+		private SerializedProperty _debugModeProp;          // デバッグモード参照
 		private SerializedProperty _useCustomAnimationsProp; // 個別アニメーション使用フラグへの参照
 		private SerializedProperty _useSharedAnimationProp;  // 共有アニメーション使用フラグへの参照
 		private SerializedProperty _sharedAnimationProp;     // 共有アニメーションアセットへの参照
@@ -18,6 +23,11 @@ namespace ANest.UI.Editor {
 		#region Unity Methods
 		/// <summary>インスペクタ描画に使用するSerializedProperty参照を初期化する。</summary>
 		protected virtual void OnEnable() {
+			_guiInfoProp = serializedObject.FindProperty("m_guiInfo");
+			_canvasGroupProp = serializedObject.FindProperty("m_canvasGroup");
+			_onShowProp = serializedObject.FindProperty("m_onShow");
+			_onHideProp = serializedObject.FindProperty("m_onHide");
+			_debugModeProp = serializedObject.FindProperty("m_debugMode");
 			_useCustomAnimationsProp = serializedObject.FindProperty("m_useCustomAnimations");
 			_useSharedAnimationProp = serializedObject.FindProperty("m_useSharedAnimation");
 			_sharedAnimationProp = serializedObject.FindProperty("m_sharedAnimation");
@@ -36,7 +46,17 @@ namespace ANest.UI.Editor {
 			DrawStateSection();
 
 			EditorGUILayout.Space();
+			EditorGUILayout.PropertyField(_canvasGroupProp);
+			EditorGUILayout.PropertyField(_guiInfoProp);
 
+			EditorGUILayout.PropertyField(_onShowProp);
+			EditorGUILayout.PropertyField(_onHideProp);
+
+			EditorGUILayout.LabelField("Debug", EditorStyles.boldLabel);
+			EditorGUILayout.PropertyField(_debugModeProp);
+
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Derived Properties", EditorStyles.boldLabel);
 			DrawPropertiesExcluding(serializedObject, GetExcludedProperties());
 
 			serializedObject.ApplyModifiedProperties();
@@ -50,12 +70,17 @@ namespace ANest.UI.Editor {
 		protected virtual string[] GetExcludedProperties() {
 			return new[] {
 				"m_Script",
+				"m_guiInfo",
 				"m_useCustomAnimations",
 				"m_useSharedAnimation",
 				"m_sharedAnimation",
 				"m_showAnimations",
 				"m_hideAnimations",
-				"m_isVisible"
+				"m_isVisible",
+				"m_canvasGroup",
+				"m_onShow",
+				"m_onHide",
+				"m_debugMode"
 			};
 		}
 
@@ -93,7 +118,6 @@ namespace ANest.UI.Editor {
 				sharedAnimationSerializedObject.Update();
 			}
 
-			EditorGUILayout.LabelField("Animation", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(_useSharedAnimationProp, new GUIContent("Use Shared Animation"));
 			EditorGUILayout.PropertyField(_sharedAnimationProp, new GUIContent("Shared Animation Set"));
 			if(_useSharedAnimationProp.boolValue && !hasSharedAsset) {

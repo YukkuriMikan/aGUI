@@ -3682,7 +3682,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_fitWidth: 1
   m_fitHeight: 1
-  m_pivotType: 0
+  m_pivotType: 6
   m_layoutGroup: {fileID: 1150951255}
 --- !u!1 &1172630143
 GameObject:

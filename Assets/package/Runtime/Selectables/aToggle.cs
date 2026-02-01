@@ -40,10 +40,10 @@ namespace ANest.UI {
 		[SerializeField] private Animator textAnimator; // テキスト用アニメーター
 
 		[Header("Animation")]
-		[Tooltip("個別のアニメーション設定を使用するかどうか")]
-		[SerializeField] private bool m_useCustomAnimation; // カスタムアニメーションを使用するか
 		[Tooltip("共通のアニメーションセットを使用するかどうか")]
 		[SerializeField] private bool m_useSharedAnimation = false; // 共有アニメーションを使用するか
+		[Tooltip("個別のアニメーション設定を使用するかどうか")]
+		[SerializeField] private bool m_useCustomAnimation; // カスタムアニメーションを使用するか
 		[Tooltip("共通のアニメーション設定")]
 		[SerializeField] private UiAnimationSet m_sharedAnimation; // 共有アニメーション設定
 		[Tooltip("クリック時に再生するアニメーション")]

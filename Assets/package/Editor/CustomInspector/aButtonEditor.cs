@@ -39,6 +39,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty clickAnimationProp;             // クリックアニメーション配列への参照
 		private SerializedProperty longPressImageProp;             // 長押し進捗Imageへの参照
 		private SerializedProperty onClickProp;                    // OnClickイベントへの参照
+		private SerializedProperty guiInfoProp;                   // GUI情報の参照
 
 		private static bool showNavigation;                                         // ナビゲーション可視化トグルの状態
 		private const string ShowNavigationKey = "SelectableEditor.ShowNavigation"; // ナビゲーション可視化状態保存用キー
@@ -79,9 +80,11 @@ namespace ANest.UI.Editor {
 			clickAnimationProp = serializedObject.FindProperty("m_clickAnimations");
 			longPressImageProp = serializedObject.FindProperty("longPressImage");
 			onClickProp = serializedObject.FindProperty("m_OnClick");
+			guiInfoProp = serializedObject.FindProperty("m_guiInfo");
 
 			excludeProps = new[] {
 				"m_Script",
+				"m_guiInfo",
 				"m_Interactable",
 				"m_TargetGraphic",
 				"m_Transition",
@@ -168,7 +171,6 @@ namespace ANest.UI.Editor {
 			}
 
 			EditorGUILayout.Space();
-			EditorGUILayout.LabelField("ShortCut", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(shortCutProp);
 
 			EditorGUILayout.Space();
@@ -228,7 +230,10 @@ namespace ANest.UI.Editor {
 				EditorGUILayout.PropertyField(onLongPressCancelProp, new GUIContent("On Long Press Cancel"));
 			}
 
+			EditorGUILayout.PropertyField(guiInfoProp);
+
 			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Derived Properties", EditorStyles.boldLabel);
 			DrawPropertiesExcluding(serializedObject, excludeProps);
 
 			serializedObject.ApplyModifiedProperties();

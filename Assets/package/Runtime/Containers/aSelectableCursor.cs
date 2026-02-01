@@ -1,12 +1,13 @@
 using UniRx;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>aSelectableContainer の CurrentSelectable に追従するカーソルを制御するコンポーネント</summary>
 	public class aSelectableCursor : aCursorBase {
 		#region Serialize Fields
 		[Tooltip("追従対象のコンテナ")]
-		[SerializeField] private aSelectableContainer m_container; // 追従対象のコンテナ
+		[SerializeField] private aContainerBase m_container; // 追従対象のコンテナ
 		#endregion
 
 		#region Private Fields
@@ -16,14 +17,16 @@ namespace ANest.UI {
 		#region Lifecycle Methods
 		/// <summary>開始時にコンテナの選択変更を購読する</summary>
 		private void Start() {
+			var selectableContainer = m_container as aNormalSelectableContainerBase<Selectable>;
+
 			if(m_container != null) {
-				var currentSelectable = m_container.CurrentSelectable;
+				var currentSelectable = selectableContainer.CurrentSelectable;
 
 				if(currentSelectable != null) {
 					OnTargetRectChanged(currentSelectable.transform as RectTransform);
 				}
 
-				m_container.OnSelectChanged.AsObservable()
+				selectableContainer.OnSelectChanged.AsObservable()
 					.Subscribe(selectable => OnTargetRectChanged(selectable.transform as RectTransform))
 					.AddTo(m_disposables);
 
@@ -49,11 +52,11 @@ namespace ANest.UI {
 			base.OnValidate();
 
 			if(m_container == null) {
-				m_container = GetComponentInParent<aSelectableContainer>();
+				m_container = GetComponentInParent<aContainerBase>();
 			}
 
 			if(m_container == null) {
-				m_container = GetComponentInChildren<aSelectableContainer>();
+				m_container = GetComponentInChildren<aContainerBase>();
 			}
 		}
 #endif

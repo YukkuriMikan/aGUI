@@ -52,6 +52,10 @@ namespace ANest.UI.Editor {
 				EditorGUILayout.PropertyField(_sizeChangeEaseProp);
 			}
 
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Derived Properties", EditorStyles.boldLabel);
+			DrawPropertiesExcluding(serializedObject, GetExcludedProperties());
+
 			serializedObject.ApplyModifiedProperties();
 		}
 		#endregion
@@ -77,6 +81,23 @@ namespace ANest.UI.Editor {
 				return true;
 			}
 			return _sizeModeProp.enumValueIndex == (int)aCursorBase.SizeMode.MatchSelectable;
+		}
+
+		/// <summary>派生プロパティ表示時に除外するプロパティ名を返す。</summary>
+		private string[] GetExcludedProperties() {
+			return new[] {
+				"m_Script",
+				"m_cursorRect",
+				"m_cursorImage",
+				"m_updateMode",
+				"m_moveMode",
+				"m_moveDuration",
+				"m_moveEase",
+				"m_sizeMode",
+				"m_padding",
+				"m_sizeChangeDuration",
+				"m_sizeChangeEase"
+			};
 		}
 		#endregion
 	}

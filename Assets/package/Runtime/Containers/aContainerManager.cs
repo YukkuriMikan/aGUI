@@ -41,12 +41,11 @@ namespace ANest.UI {
 		/// <summary>指定されたコンテナが、DisallowNullSelectionが有効なaContainerの中で最新（最後に登録されたもの）かどうかを判定する</summary>
 		/// <param name="container">判定するコンテナ</param>
 		/// <returns>最新であればtrue</returns>
-		public static bool IsLatestSelectableContainer(aSelectableContainer container) {
+		public static bool IsLatestSelectableContainer(aContainerBase container) {
 			if(container == null || !container.IsVisible) return false;
 
 			var latest = m_aContainerDictionary
 				.Where(pair => pair.Key != null && pair.Key.IsVisible)
-				.Where(pair => pair.Key is aSelectableContainer selectable && selectable.DisallowNullSelection)
 				.OrderByDescending(pair => pair.Value)
 				.Select(pair => pair.Key)
 				.FirstOrDefault();

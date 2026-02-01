@@ -13,7 +13,7 @@ namespace ANest.UI.Tests {
 	public class aSelectableContainerTests {
 		#region Test Helper Classes
 		/// <summary> テスト用に aSelectableContainer の内部メソッドを公開する継承クラス </summary>
-		private class TestSelectableContainer : aSelectableContainer {
+		private class TestSelectableContainer : aNormalSelectableContainerBase<Selectable> {
 			public void TestInitialize() => Initialize();
 			public void TestObserveSelectables() => ObserveSelectables();
 

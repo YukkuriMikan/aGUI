@@ -125,6 +125,57 @@ namespace ANest.UI {
 			ObserveSelectables(); // キャッシュ更新時に監視も更新
 		}
 
+		/// <summary>子要素のSelectableを手動で設定する</summary>
+		public void SetChildSelectableList(List<T> selectables) {
+			m_childSelectableList = selectables ?? new List<T>();
+			ObserveSelectables();
+
+			if(m_currentSelectable == null) {
+				m_currentSelectableIndex = -1;
+				return;
+			}
+
+			if(m_childSelectableList.Count == 0 || !m_childSelectableList.Contains(m_currentSelectable)) {
+				CurrentSelectable = null;
+			} else {
+				UpdateCurrentSelectableIndex(m_currentSelectable);
+			}
+		}
+
+		/// <summary>子要素のSelectableを1つ追加する</summary>
+		public void AddChildSelectable(T selectable) {
+			if(selectable == null) return;
+
+			m_childSelectableList ??= new List<T>();
+			m_childSelectableList.Add(selectable);
+			ObserveSelectables();
+
+			if(m_currentSelectable == null) {
+				m_currentSelectableIndex = -1;
+				return;
+			}
+
+			if(m_childSelectableList.Count == 0 || !m_childSelectableList.Contains(m_currentSelectable)) {
+				CurrentSelectable = null;
+			} else {
+				UpdateCurrentSelectableIndex(m_currentSelectable);
+			}
+		}
+
+		/// <summary>子要素のSelectableリストをクリアする</summary>
+		public void ClearChildSelectables() {
+			m_childSelectableList ??= new List<T>();
+			m_childSelectableList.Clear();
+			ObserveSelectables();
+
+			if(m_currentSelectable == null) {
+				m_currentSelectableIndex = -1;
+				return;
+			}
+
+			CurrentSelectable = null;
+		}
+
 		/// <summary>次のSelectableを選択する。末尾の場合は何もしない</summary>
 		public void SelectNext() {
 			var nextIndex = CurrentSelectableIndex + 1;

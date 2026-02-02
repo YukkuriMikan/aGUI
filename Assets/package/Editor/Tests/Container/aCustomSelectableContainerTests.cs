@@ -11,10 +11,6 @@ namespace ANest.UI.Tests {
 		/// <summary> テスト用に内部メソッドやフィールドを操作可能にする継承クラス </summary>
 		private class TestCustomSelectableContainer : aCustomSelectableContainer {
 			public void TestInitialize() => Initialize();
-
-			public void SetChildSelectableList(List<Selectable> selectables) {
-				m_childSelectableList = selectables;
-			}
 		}
 		#endregion
 

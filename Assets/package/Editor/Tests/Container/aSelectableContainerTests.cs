@@ -24,10 +24,6 @@ namespace ANest.UI.Tests {
 				type.GetField("m_hideAnimations", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(this, hide);
 			}
 
-			public void SetChildSelectableList(List<Selectable> selectables) {
-				m_childSelectableList = selectables;
-			}
-
 			public void SetInitialGuard(bool enable, float duration) {
 				var type = typeof(aSelectableContainerBase<Selectable>);
 				type.GetField("m_initialGuard", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(this, enable);

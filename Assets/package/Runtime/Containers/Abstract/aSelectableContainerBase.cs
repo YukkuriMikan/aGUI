@@ -13,7 +13,7 @@ namespace ANest.UI {
 		[Header("Selection")]
 		[Tooltip("子要素にあるSelectableのキャッシュ")]
 		[SerializeField]
-		protected List<T> m_childSelectableList = new(16); // 子要素にあるSelectableのキャッシュ
+		private List<T> m_childSelectableList = new(16); // 子要素にあるSelectableのキャッシュ
 		[Tooltip("表示(Show)時に最初に選択されるSelectable")]
 		[SerializeField]
 		private T m_initialSelectable; // 表示(Show)時に最初に選択されるSelectable
@@ -175,6 +175,12 @@ namespace ANest.UI {
 
 			CurrentSelectable = null;
 		}
+
+		/// <summary> 引数の要素で子要素のSelectableリストのインデックスを取得する </summary>
+		/// <param name="selectable">対称の要素</param>
+		/// <returns>要素が含まれるインデックス</returns>
+		public int IndexOfChildSelectables(T selectable)
+			=> m_childSelectableList.IndexOf(selectable);
 
 		/// <summary>次のSelectableを選択する。末尾の場合は何もしない</summary>
 		public void SelectNext() {

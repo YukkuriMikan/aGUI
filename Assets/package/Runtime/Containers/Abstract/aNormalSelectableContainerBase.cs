@@ -25,7 +25,7 @@ namespace ANest.UI {
 				var es = aGuiManager.EventSystem;
 
 				// 範囲外チェック
-				if(m_childSelectableList == null || m_childSelectableList.Count == 0 || value < 0 || value >= m_childSelectableList.Count) {
+				if(ChildSelectableList == null || ChildSelectableList.Count == 0 || value < 0 || value >= ChildSelectableList.Count) {
 					if(m_disallowNullSelection) return;
 
 					if(es != null) {
@@ -37,10 +37,10 @@ namespace ANest.UI {
 				}
 
 				// 範囲内の場合は選択を実行（base.CurrentSelectableIndex の set 内で m_currentSelectableIndex が更新される）
-				var currentSelectedObject = m_childSelectableList[value].gameObject;
+				var currentSelectedObject = ChildSelectableList[value].gameObject;
 
 				if(es != null && es.currentSelectedGameObject != currentSelectedObject) {
-					m_childSelectableList[value].Select();
+					ChildSelectableList[value].Select();
 				}
 
 				base.CurrentSelectableIndex = value;
@@ -69,13 +69,13 @@ namespace ANest.UI {
 					return;
 				}
 
-				if(m_childSelectableList == null || m_childSelectableList.Count == 0) {
+				if(ChildSelectableList == null || ChildSelectableList.Count == 0) {
 					TrySetNull();
 
 					return;
 				}
 
-				var index = m_childSelectableList.IndexOf(value);
+				var index = IndexOfChildSelectables(value);
 
 				if(index == -1) {
 					TrySetNull();

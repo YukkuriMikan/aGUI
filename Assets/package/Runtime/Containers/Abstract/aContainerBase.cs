@@ -29,7 +29,7 @@ namespace ANest.UI {
 		[Header("State")]
 		[Tooltip("現在表示中（表示プロセス中を含む）かどうか")]
 		[SerializeField]
-		protected bool m_isVisible; // 現在表示中（表示プロセス中を含む）かどうか
+		protected bool m_isVisible = true; // 現在表示中（表示プロセス中を含む）かどうか
 
 		[Header("Reference")]
 		[Tooltip("キャンバスグループの参照")]

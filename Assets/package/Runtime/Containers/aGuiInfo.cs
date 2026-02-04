@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace ANest.UI {
 	/// <summary>aGUIの情報取得用クラス</summary>
@@ -39,6 +42,8 @@ namespace ANest.UI {
 
 		/// <summary>エディタ上の値変更時に初期値キャッシュを更新</summary>
 		private void OnValidate() {
+			if(Application.isPlaying) return;
+			if(PrefabUtility.IsPartOfPrefabAsset(gameObject)) return;
 			if(m_rectTransform != null) {
 				var currentValues = RectTransformValues.CreateValues(m_rectTransform);
 

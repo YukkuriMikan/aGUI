@@ -49,7 +49,7 @@ namespace ANest.UI.Editor {
 		}
 
 		/// <summary>Selection設定を描画する。</summary>
-		private void DrawSelectionSection() {
+		protected virtual void DrawSelectionSection() {
 			if(_childSelectableListProp != null) {
 				EditorGUILayout.PropertyField(_childSelectableListProp);
 			}
@@ -65,6 +65,11 @@ namespace ANest.UI.Editor {
 			if(_disallowNullSelectionProp != null) {
 				EditorGUILayout.PropertyField(_disallowNullSelectionProp);
 			}
+			DrawAdditionalSelectionFields();
+		}
+
+		/// <summary>Selection設定に追加で表示するフィールドを描画する。</summary>
+		protected virtual void DrawAdditionalSelectionFields() {
 		}
 
 		/// <summary>Guard設定を描画する。</summary>

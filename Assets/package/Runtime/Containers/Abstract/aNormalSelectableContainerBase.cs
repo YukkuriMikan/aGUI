@@ -7,15 +7,25 @@ namespace ANest.UI {
 	/// <summary>EventSystemに依存したSelectableなコンポーネントを抱えるコンテナ</summary>
 	public abstract class aNormalSelectableContainerBase<T> : aSelectableContainerBase<T> where T : Selectable {
 		#region Field
-		[SerializeField]
 		[Tooltip("CurrentSelectableがNullになる事を許可しない")]
+		[SerializeField]
 		protected bool m_disallowNullSelection = true; // CurrentSelectableがNullになる事を許可しない
+		[Tooltip("ChildSelectableにマウスホバーしたらSelectする")]
+		[SerializeField]
+		protected bool m_selectOnHover = false; // ChildSelectableにマウスホバーしたらSelectする
 		#endregion
 
 		#region Property
+		/// <summary>CurrentSelectableがNullになる事を許可しないかどうか</summary>
 		public bool DisallowNullSelection {
 			get => m_disallowNullSelection;
 			set => m_disallowNullSelection = value;
+		}
+
+		/// <summary>ChildSelectableにマウスホバーしたらSelectするかどうか</summary>
+		public bool SelectOnHover {
+			get => m_selectOnHover;
+			set => m_selectOnHover = value;
 		}
 
 		/// <summary>現在選択されているSelectableのインデックス</summary>
@@ -101,6 +111,14 @@ namespace ANest.UI {
 
 			foreach (var selectable in ChildSelectableList) {
 				if(selectable == null) continue;
+
+				selectable.OnPointerEnterAsObservable()
+					.Subscribe(_ => {
+						if(!m_selectOnHover) return;
+
+						CurrentSelectable = selectable;
+					})
+					.AddTo(m_selectDisposables);
 
 				// 選択解除された時の処理
 				selectable.OnDeselectAsObservable()

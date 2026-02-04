@@ -17,7 +17,8 @@ namespace ANest.UI.Tests {
 		/// </summary>
 		private class TestSelectableCursor : aSelectableCursor {
 			public void SetContainer(aSelectableContainer container) {
-				var field = typeof(aSelectableCursor).GetField("m_container", BindingFlags.NonPublic | BindingFlags.Instance);
+				var field = typeof(aNormalCursorBase<aSelectableContainerBase<Selectable>, Selectable>)
+					.GetField("m_container", BindingFlags.NonPublic | BindingFlags.Instance);
 				field.SetValue(this, container);
 			}
 
@@ -163,7 +164,7 @@ namespace ANest.UI.Tests {
 
 		[UnityTest]
 		public IEnumerator Cursor_MoveMode_Animation_TakesTime() {
-			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.OnSelectChanged);
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.EveryFrame);
 			m_cursor.SetMoveMode(aCursorBase.MoveMode.Animation);
 			float duration = 0.5f;
 			m_cursor.SetMoveDuration(duration);

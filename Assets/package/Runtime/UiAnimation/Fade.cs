@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
-	/// <summary> CanvasGroup のアルファを補間するフェードアニメーション </summary>
+	/// <summary> Graphic のアルファを補間するフェードアニメーション </summary>
 	public class Fade : IUiAnimation {
 		#region SerializeField
 		[SerializeField] private float m_startValue = 0;                                        // フェード開始時のアルファ
@@ -41,23 +41,24 @@ namespace ANest.UI {
 		#endregion
 
 		#region Methods
-		/// <summary> CanvasGroup のアルファをフェードさせるアニメーションを実行 </summary>
+		/// <summary> Graphic のアルファをフェードさせるアニメーションを実行 </summary>
 		/// <param name="graphic">アニメーション対象の Graphic</param>
 		/// <param name="callerRect">呼び出し元の RectTransform（位置復元用）</param>
 		/// <param name="original">復元用のRectTransform初期値</param>
 		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
+			// 入力チェック
 			if(callerRect == null) return null;
 			if(graphic == null) {
 				Debug.LogError($"[Fade] Graphic is null. Cannot animate on {callerRect.name}");
 				return null;
 			}
 
-			// 初期値
+			// 初期値設定
 			graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, m_startValue);
 
 			m_tween = DOTween
 				.To(() => graphic.color.a, value => graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, value), m_endValue, m_duration / 2f)
-				.SetDelay(Delay).OnComplete(() => Debug.Log($"{callerRect.name}"));
+				.SetDelay(Delay);
 
 			if(UseCurve) {
 				if(IsYoYo) {

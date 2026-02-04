@@ -246,10 +246,10 @@ namespace ANest.UI {
 					Navigation nav = selectable.navigation;
 					nav.mode = Navigation.Mode.Explicit;
 
-					nav.selectOnLeft = FindSelectableInGrid(grid, cols, rows, x, y, -1, 0, navigationLoop);
-					nav.selectOnRight = FindSelectableInGrid(grid, cols, rows, x, y, 1, 0, navigationLoop);
-					nav.selectOnUp = FindSelectableInGrid(grid, cols, rows, x, y, 0, -1, navigationLoop);
-					nav.selectOnDown = FindSelectableInGrid(grid, cols, rows, x, y, 0, 1, navigationLoop);
+					nav.selectOnLeft = FindSelectableInGrid(grid, cols, rows, x, y, -1, 0, navigationLoop, startAxis);
+					nav.selectOnRight = FindSelectableInGrid(grid, cols, rows, x, y, 1, 0, navigationLoop, startAxis);
+					nav.selectOnUp = FindSelectableInGrid(grid, cols, rows, x, y, 0, -1, navigationLoop, startAxis);
+					nav.selectOnDown = FindSelectableInGrid(grid, cols, rows, x, y, 0, 1, navigationLoop, startAxis);
 
 					selectable.navigation = nav;
 				}
@@ -257,46 +257,84 @@ namespace ANest.UI {
 		}
 
 		/// <summary>グリッド内で指定方向の次のSelectableを探索</summary>
-		private Selectable FindSelectableInGrid(RectTransform[,] grid, int cols, int rows, int startX, int startY, int dx, int dy, bool loop) {
-			int x = startX + dx;
-			int y = startY + dy;
-			if(loop) {
-				if(dx != 0) {
-					y = startY;
-					x = (x % cols + cols) % cols;
-					for (int i = 0; i < cols; i++) {
-						var rect = grid[y, x];
-						if(rect != null) {
-							var s = rect.GetComponent<Selectable>();
-							if(s != null) return s;
+		private Selectable FindSelectableInGrid(RectTransform[,] grid, int cols, int rows, int startX, int startY, int dx, int dy, bool loop, Axis startAxis) {
+			if(dx == 0 && dy == 0) return null;
+
+			int maxSteps = dx != 0 ? cols : rows;
+			bool allowCrossLine = !loop || (dx != 0 ? startAxis == Axis.Vertical : startAxis == Axis.Horizontal);
+			bool useSameLineFirst = !loop || !allowCrossLine;
+			// まずは同一行/列で方向が合うものを優先して探す
+			if(useSameLineFirst) {
+				for (int step = 1; step <= maxSteps; step++) {
+					int x = startX + dx * step;
+					int y = startY + dy * step;
+					if(loop) {
+						if(dx != 0) {
+							x = (x % cols + cols) % cols;
+							y = startY;
+						} else {
+							y = (y % rows + rows) % rows;
+							x = startX;
 						}
-						x = (x + dx + cols) % cols;
+					} else {
+						if(x < 0 || x >= cols || y < 0 || y >= rows) break;
 					}
-					return null;
-				}
-				if(dy != 0) {
-					x = startX;
-					y = (y % rows + rows) % rows;
-					for (int i = 0; i < rows; i++) {
-						var rect = grid[y, x];
-						if(rect != null) {
-							var s = rect.GetComponent<Selectable>();
-							if(s != null) return s;
-						}
-						y = (y + dy + rows) % rows;
-					}
-					return null;
+
+					var rect = grid[y, x];
+					if(rect == null) continue;
+					var selectable = rect.GetComponent<Selectable>();
+					if(selectable != null) return selectable;
 				}
 			}
 
-			while (x >= 0 && x < cols && y >= 0 && y < rows) {
-				var rect = grid[y, x];
-				if(rect != null) {
-					var s = rect.GetComponent<Selectable>();
-					if(s != null) return s;
+			if(!allowCrossLine) return null;
+
+			for (int step = 1; step <= maxSteps; step++) {
+				int x = startX + dx * step;
+				int y = startY + dy * step;
+				if(loop) {
+					if(dx != 0) {
+						x = (x % cols + cols) % cols;
+						y = startY;
+					} else {
+						y = (y % rows + rows) % rows;
+						x = startX;
+					}
+				} else {
+					if(x < 0 || x >= cols || y < 0 || y >= rows) break;
 				}
-				x += dx;
-				y += dy;
+
+				Selectable best = null;
+				int bestDistance = int.MaxValue;
+				if(dx != 0) {
+					for (int row = 0; row < rows; row++) {
+						var rect = grid[row, x];
+						if(rect == null) continue;
+						var s = rect.GetComponent<Selectable>();
+						if(s == null) continue;
+						int dist = Mathf.Abs(row - startY);
+						if(dist < bestDistance) {
+							bestDistance = dist;
+							best = s;
+							if(bestDistance == 0) return best;
+						}
+					}
+				} else {
+					for (int col = 0; col < cols; col++) {
+						var rect = grid[y, col];
+						if(rect == null) continue;
+						var s = rect.GetComponent<Selectable>();
+						if(s == null) continue;
+						int dist = Mathf.Abs(col - startX);
+						if(dist < bestDistance) {
+							bestDistance = dist;
+							best = s;
+							if(bestDistance == 0) return best;
+						}
+					}
+				}
+
+				if(best != null) return best;
 			}
 			return null;
 		}

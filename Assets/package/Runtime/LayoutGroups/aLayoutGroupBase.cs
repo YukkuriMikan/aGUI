@@ -6,9 +6,8 @@ using UnityEngine.UI;
 using DG.Tweening;
 using UniRx;
 
-
 namespace ANest.UI {
-	/// <summary>uGUIのLayoutGroupに近い挙動を自前で提供し、LayoutGroupを継承せず子RectTransformを直接駆動するレイアウト基底クラス。</summary>
+	/// <summary>LayoutGroupを継承せず子RectTransformを直接制御し、uGUI LayoutGroup相当の配置・アニメーション・Navigation設定を提供する基底クラス。</summary>
 	[DisallowMultipleComponent]
 	public abstract class aLayoutGroupBase : MonoBehaviour {
 		/// <summary> レイアウトを更新するタイミングの種類 </summary>
@@ -79,8 +78,13 @@ namespace ANest.UI {
 		/// <summary> レイアウト完了を通知するObservable </summary>
 		public IObservable<Rect> CompleteLayoutAsObservable => m_completeLayoutSubject;
 
+		/// <summary> アニメーションの再生時間（秒） </summary>
 		public float AnimationDuration => animationDuration;
 
+		/// <summary> アニメーションを適用する距離の閾値 </summary>
+		public float AnimationDistanceThreshold => animationDistanceThreshold;
+
+		/// <summary> アニメーションのイージング設定 </summary>
 		public Ease AnimationEase => animationEase;
 		#endregion
 
@@ -348,7 +352,7 @@ namespace ANest.UI {
 			public float flexible;
 		}
 
-		/// <summary> 子要素の最小/推奨/柔軟サイズを取得（制御フラグを考慮）</summary>
+		/// <summary> 子要素の最小/推奨/柔軟サイズを取得（制御フラグを考慮） </summary>
 		protected void GetChildSizes(RectTransform child, int axis, bool controlSize, bool forceExpand, out ChildSizes sizes) {
 			float min = LayoutUtility.GetMinSize(child, axis);
 			float preferred = LayoutUtility.GetPreferredSize(child, axis);
@@ -369,7 +373,7 @@ namespace ANest.UI {
 			};
 		}
 
-		/// <summary>収集済みのrectChildrenを用いて子要素の位置・サイズを決定し、必要に応じてナビゲーションやアニメーションを適用する抽象メソッド。</summary>
+		/// <summary> 収集済みのrectChildrenを用いて位置・サイズを決定し、必要に応じてNavigationやアニメーションを適用する抽象メソッド。 </summary>
 		protected abstract void CalculateLayout();
 		#endregion
 

@@ -168,6 +168,38 @@ namespace ANest.UI {
 			m_completeLayoutSubject.OnNext(CalculateContentRect());
 		}
 
+		/// <summary> rectChildrenへ子要素を追加 </summary>
+		public void AddRectChild(RectTransform child) {
+			if(!IsRectChildValid(child)) return;
+			if(rectChildren.Contains(child)) return;
+			rectChildren.Add(child);
+		}
+
+		/// <summary> rectChildrenへ複数の子要素を追加 </summary>
+		public void AddRectChildren(IEnumerable<RectTransform> children) {
+			if(children == null) return;
+			foreach (var child in children) {
+				AddRectChild(child);
+			}
+		}
+
+		/// <summary> rectChildrenから子要素を削除 </summary>
+		public bool RemoveRectChild(RectTransform child) {
+			if(child == null) return false;
+			KillTween(child);
+			m_lastTargetPositions.Remove(child);
+			return rectChildren.Remove(child);
+		}
+
+		/// <summary> rectChildrenをクリア </summary>
+		public void ClearRectChildren() {
+			for (int i = 0; i < rectChildren.Count; i++) {
+				KillTween(rectChildren[i]);
+			}
+			rectChildren.Clear();
+			m_lastTargetPositions.Clear();
+		}
+
 		/// <summary> 1フレーム待ってから整列する </summary>
 		public async UniTask AlignWithFrameWaitAndCollectionAsync() {
 			await UniTask.DelayFrame(1);
@@ -199,12 +231,16 @@ namespace ANest.UI {
 			if(RectTransform == null) return;
 			for (int i = 0; i < transform.childCount; i++) {
 				var child = transform.GetChild(i) as RectTransform;
-				if(child == null || !child.gameObject.activeSelf) continue;
-				if(excludedChildren != null && excludedChildren.Contains(child)) continue;
-				var ignorer = child.GetComponent<ILayoutIgnorer>();
-				if(ignorer != null && ignorer.ignoreLayout) continue;
+				if(!IsRectChildValid(child)) continue;
 				rectChildren.Add(child);
 			}
+		}
+
+		/// <summary> rectChildrenへ追加可能な子要素かを判定 </summary>
+		private bool IsRectChildValid(RectTransform child) {
+			if(child == null || !child.gameObject.activeSelf) return false;
+			if(excludedChildren != null && excludedChildren.Contains(child)) return false;
+			return true;
 		}
 
 		/// <summary> 指定軸での配置揃え値を取得（0:左/上、0.5:中央、1:右/下） </summary>

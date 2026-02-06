@@ -14,7 +14,6 @@ namespace ANest.UI.Tests {
 		#region Test Helper Classes
 		/// <summary> テスト用に aSelectableContainer の内部メソッドを公開する継承クラス </summary>
 		private class TestSelectableContainer : aNormalSelectableContainerBase<Selectable> {
-			public void TestInitialize() => Initialize();
 			public void TestObserveSelectables() => ObserveSelectables();
 
 			/// <summary> リフレクションを使用してアニメーションを設定する </summary>
@@ -66,6 +65,7 @@ namespace ANest.UI.Tests {
 			guiInfoType.GetField("m_originalRectTransformValues", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(guiInfo, RectTransformValues.CreateValues(rectTransform));
 
 			m_container = m_testObject.AddComponent<TestSelectableContainer>();
+			m_container.IsVisible = false;
 			// Initialize は呼ばない。Show() の中で base.Initialize() が走るか、
 			// あるいはテストで明示的に呼ぶ必要がある場合は各テストで行う。
 			// aContainerBase.cs の Show() -> ShowInternal() -> UpdateStateForShow() -> base.UpdateStateForShow() -> m_isVisible = true
@@ -82,14 +82,14 @@ namespace ANest.UI.Tests {
 		#region Basic Tests
 		[Test]
 		public void InitialState_IsCorrect() {
-			m_container.TestInitialize(); // 明示的に初期化
+			m_container.Initialize(); // 明示的に初期化
 			Assert.IsFalse(m_container.IsVisible);
 			Assert.IsFalse(m_testObject.activeSelf);
 		}
 
 		[Test]
 		public void Show_ActivatesGameObjectAndSetsInteractable() {
-			m_container.TestInitialize(); // 明示的に初期化
+			m_container.Initialize(); // 明示的に初期化
 			m_container.Show();
 			Assert.IsTrue(m_testObject.activeSelf);
 			Assert.IsTrue(m_container.Interactable);
@@ -99,7 +99,7 @@ namespace ANest.UI.Tests {
 		#region Selection Tests
 		[UnityTest]
 		public IEnumerator InitialSelectable_IsSelectedOnShow() {
-			m_container.TestInitialize(); // 明示的に初期化
+			m_container.Initialize(); // 明示的に初期化
 
 			var btnGo = new GameObject("Button", typeof(RectTransform), typeof(Button));
 			btnGo.transform.SetParent(m_testObject.transform);
@@ -118,7 +118,7 @@ namespace ANest.UI.Tests {
 
 		[UnityTest]
 		public IEnumerator CurrentSelectable_DisallowNull_WithEmptyList_DoesNotCrash() {
-			m_container.TestInitialize();
+			m_container.Initialize();
 			m_container.SetChildSelectableList(new List<Selectable>());
 			m_container.DisallowNullSelection = true;
 
@@ -131,7 +131,7 @@ namespace ANest.UI.Tests {
 
 		[UnityTest]
 		public IEnumerator CurrentSelectableIndex_DisallowNull_WithEmptyList_DoesNotCrash() {
-			m_container.TestInitialize();
+			m_container.Initialize();
 			m_container.SetChildSelectableList(new List<Selectable>());
 			m_container.DisallowNullSelection = true;
 
@@ -144,7 +144,7 @@ namespace ANest.UI.Tests {
 
 		[UnityTest]
 		public IEnumerator DisallowNullSelection_PreventsDeselection() {
-			m_container.TestInitialize(); // 明示的に初期化
+			m_container.Initialize(); // 明示的に初期化
 
 			var btnGo = new GameObject("Button", typeof(RectTransform), typeof(Button));
 			btnGo.transform.SetParent(m_testObject.transform);
@@ -182,7 +182,7 @@ namespace ANest.UI.Tests {
 			});
 			c1.DisallowNullSelection = true;
 			c1.IsVisible = true;
-			c1.TestInitialize();
+			c1.Initialize();
 
 			// コンテナ2 (後から登録される)
 			var obj2 = new GameObject("Container2", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
@@ -194,7 +194,7 @@ namespace ANest.UI.Tests {
 			});
 			c2.DisallowNullSelection = true;
 			c2.IsVisible = true;
-			c2.TestInitialize();
+			c2.Initialize();
 
 			Assert.IsFalse(aContainerManager.IsLatestSelectableContainer(c1), "C1は最新ではない");
 			Assert.IsTrue(aContainerManager.IsLatestSelectableContainer(c2), "C2は最新である");
@@ -213,7 +213,7 @@ namespace ANest.UI.Tests {
 		/// <summary> InitialGuard が有効な際、指定時間だけ blocksRaycasts が false になるか </summary>
 		[UnityTest]
 		public IEnumerator InitialGuard_BlocksRaycastsTemporarily() {
-			m_container.TestInitialize();
+			m_container.Initialize();
 			m_container.SetInitialGuard(true, 0.2f);
 
 			m_container.Show();
@@ -232,7 +232,7 @@ namespace ANest.UI.Tests {
 		/// <summary> Show アニメーション中に Hide を実行した際、正常に中断して非表示に遷移するか </summary>
 		[UnityTest]
 		public IEnumerator ShowAnimation_InterruptedByHide() {
-			m_container.TestInitialize();
+			m_container.Initialize();
 			var showAnim = new MockUiAnimation {
 				Duration = 0.5f
 			};

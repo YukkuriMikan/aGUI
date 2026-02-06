@@ -64,6 +64,7 @@ namespace ANest.UI.Tests {
 			guiInfoType.GetField("m_originalRectTransformValues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(guiInfo, RectTransformValues.CreateValues(rectTransform));
 
 			m_container = m_testObject.AddComponent<TestStaticContainer>();
+			m_container.IsVisible = false;
 		}
 
 		/// <summary> 各テスト実行後のクリーンアップ </summary>

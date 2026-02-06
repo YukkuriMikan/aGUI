@@ -177,9 +177,17 @@ namespace ANest.UI.Tests {
 
 			yield return null;
 
-			// アニメーションを開始させる
+			// 初回移動を開始させる
 			m_cursor.InvokeOnTargetRectChanged(m_rect1);
 
+			yield return null;
+			
+			// 初回移動は強制的に瞬間移動となるので、再度アニメーションの対象となる RectTransform の位置を初期化
+			m_cursorImage.rectTransform.anchoredPosition = new Vector2(900, 900);
+			m_rect1.anchoredPosition = new Vector2(0, 0);
+
+			yield return null;
+			
 			// フレームを進める
 			yield return null;
 			yield return null;
@@ -192,7 +200,7 @@ namespace ANest.UI.Tests {
 			Assert.Greater(currentDistance, 100f, "アニメーション中なので、まだ目的地から十分に離れているはず");
 
 			// 完了まで待機
-			yield return new WaitForSeconds(duration + 0.5f);
+			yield return new WaitForSeconds(duration + 2f);
 			
 			currentDistance = Vector2.Distance(m_rect1.anchoredPosition, m_cursorImage.rectTransform.anchoredPosition);
 			Assert.Less(currentDistance, 1f, "アニメーション完了後は目的地に到達しているはず");

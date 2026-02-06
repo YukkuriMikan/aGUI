@@ -10,7 +10,6 @@ namespace ANest.UI.Tests {
 		#region Test Helper Classes
 		/// <summary> テスト用に内部メソッドやフィールドを操作可能にする継承クラス </summary>
 		private class TestCustomSelectableContainer : aCustomSelectableContainer {
-			public void TestInitialize() => Initialize();
 		}
 		#endregion
 
@@ -32,6 +31,7 @@ namespace ANest.UI.Tests {
 			guiInfoType.GetField("m_originalRectTransformValues", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(guiInfo, RectTransformValues.CreateValues(rectTransform));
 
 			m_container = m_testObject.AddComponent<TestCustomSelectableContainer>();
+			m_container.IsVisible = false;
 		}
 
 		[TearDown]
@@ -44,7 +44,7 @@ namespace ANest.UI.Tests {
 		#region Basic Tests
 		[Test]
 		public void InitialState_IsCorrect() {
-			m_container.TestInitialize();
+			m_container.Initialize();
 			Assert.IsFalse(m_container.IsVisible);
 			Assert.IsFalse(m_testObject.activeSelf);
 			Assert.AreEqual(-1, m_container.CurrentSelectableIndex);
@@ -52,7 +52,7 @@ namespace ANest.UI.Tests {
 
 		[Test]
 		public void Show_ActivatesGameObject() {
-			m_container.TestInitialize();
+			m_container.Initialize();
 			m_container.Show();
 			Assert.IsTrue(m_testObject.activeSelf);
 			Assert.IsTrue(m_container.Interactable);
@@ -64,7 +64,7 @@ namespace ANest.UI.Tests {
 		public void Navigation_SelectNext_UpdatesIndex() {
 			var buttons = CreateButtons(3);
 			m_container.SetChildSelectableList(buttons);
-			m_container.TestInitialize();
+			m_container.Initialize();
 
 			m_container.CurrentSelectableIndex = 0;
 			Assert.AreEqual(0, m_container.CurrentSelectableIndex);
@@ -125,7 +125,7 @@ namespace ANest.UI.Tests {
 		public void SelectionChanged_InvokesEvent() {
 			var buttons = CreateButtons(2);
 			m_container.SetChildSelectableList(buttons);
-			m_container.TestInitialize();
+			m_container.Initialize();
 
 			Selectable selectedItem = null;
 			var field = typeof(aSelectableContainerBase<Selectable>).GetField("m_onSelectChanged", BindingFlags.NonPublic | BindingFlags.Instance);

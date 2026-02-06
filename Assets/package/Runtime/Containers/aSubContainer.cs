@@ -25,9 +25,9 @@ namespace ANest.UI {
 		}
 
 		/// <summary>初期化時にメインコンテナと状態を同期する</summary>
-		protected override void Initialize() {
-			base.Initialize();
-			
+		public override void Initialize() {
+			if(m_initialized) return;
+
 			m_suppressAnimation = true;
 
 			if(!IsStandalone) {
@@ -36,11 +36,15 @@ namespace ANest.UI {
 			}
 
 			m_suppressAnimation = false;
+			
+			base.Initialize();
 		}
 
 		/// <summary>破棄時にメインコンテナの購読を解除する</summary>
-		private void OnDestroy() {
+		protected override void OnDestroy() {
 			UnsubscribeFromMainContainer();
+
+			base.OnDestroy();
 		}
 
 		/// <summary>メインコンテナの状態を考慮して表示する</summary>

@@ -152,30 +152,8 @@ namespace ANest.UI {
 		#endregion
 
 		#region Public Method
-		/// <summary>コンテナを表示する</summary>
-		public virtual void Show() {
-			if(!m_initialized) {
-				Debug.LogError($"[{nameof(aContainerBase)}] {name} は未初期化のままShowが呼ばれました。Initializeを先に呼び出してください。", this);
-			}
-			if(m_nowShowing) return;
-
-			ShowInternal();
-		}
-
-		/// <summary>コンテナを非表示にする</summary>
-		public virtual void Hide() {
-			if(!m_initialized) {
-				Debug.LogError($"[{nameof(aContainerBase)}] {name} は未初期化のままHideが呼ばれました。Initializeを先に呼び出してください。", this);
-			}
-			if(m_nowHiding) return;
-
-			HideInternal();
-		}
-		#endregion
-
-		#region Protected Method
 		/// <summary>コンテナの初期状態を設定する。二重初期化は防止される</summary>
-		protected virtual void Initialize() {
+		public virtual void Initialize() {
 			if(m_initialized) return;
 
 			// 必要な参照の取得
@@ -203,6 +181,28 @@ namespace ANest.UI {
 			m_initialized = true;
 		}
 
+		/// <summary>コンテナを表示する</summary>
+		public virtual void Show() {
+			if(!m_initialized) {
+				Debug.LogError($"[{nameof(aContainerBase)}] {name} は未初期化のままShowが呼ばれました。Initializeを先に呼び出してください。", this);
+			}
+			if(m_nowShowing) return;
+
+			ShowInternal();
+		}
+
+		/// <summary>コンテナを非表示にする</summary>
+		public virtual void Hide() {
+			if(!m_initialized) {
+				Debug.LogError($"[{nameof(aContainerBase)}] {name} は未初期化のままHideが呼ばれました。Initializeを先に呼び出してください。", this);
+			}
+			if(m_nowHiding) return;
+
+			HideInternal();
+		}
+		#endregion
+
+		#region Protected Method
 		/// <summary>表示処理の実装</summary>
 		protected virtual void ShowInternal() {
 			m_nowShowing = true;

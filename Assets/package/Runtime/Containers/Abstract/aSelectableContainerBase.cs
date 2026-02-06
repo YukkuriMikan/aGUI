@@ -59,6 +59,9 @@ namespace ANest.UI {
 		/// <summary> 子要素にあるSelectableのキャッシュ </summary>
 		public IEnumerable<T> ChildSelectables => m_childSelectableList;
 
+		/// <summary> 非表示時に記録した、最後に選択されていたSelectable </summary>
+		public T LastSelected => m_lastSelected;
+
 		/// <summary>現在選択されているSelectableのインデックス</summary>
 		public virtual int CurrentSelectableIndex {
 			get => m_currentSelectableIndex;
@@ -118,6 +121,21 @@ namespace ANest.UI {
 		#endregion
 
 		#region Public Method
+		/// <summary>コンテナの初期状態を設定する。子要素のSelectableをキャッシュし、監視を開始する</summary>
+		public override void Initialize() {
+			if(m_initialized) return;
+
+			if(ChildSelectableList == null || ChildSelectableList.Count == 0) {
+				// 子要素の更新とイベントの監視開始
+				RefreshChildSelectables();
+			} else {
+				// 選択イベントの監視開始
+				ObserveSelectables();
+			}
+
+			base.Initialize();
+		}
+
 		/// <summary>子要素のSelectableを検索してキャッシュする</summary>
 		public void RefreshChildSelectables() {
 			m_childSelectableList ??= new List<T>();
@@ -224,21 +242,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Protected Method
-		/// <summary>コンテナの初期状態を設定する。子要素のSelectableをキャッシュし、監視を開始する</summary>
-		protected override void Initialize() {
-			if(m_initialized) return;
-
-			if(ChildSelectableList == null || ChildSelectableList.Count == 0) {
-				// 子要素の更新とイベントの監視開始
-				RefreshChildSelectables();
-			} else {
-				// 選択イベントの監視開始
-				ObserveSelectables();
-			}
-
-			base.Initialize();
-		}
-
 		/// <summary>表示処理の実装。InitialGuard機能と初期選択の設定を行う</summary>
 		protected override void ShowInternal() {
 			base.ShowInternal();

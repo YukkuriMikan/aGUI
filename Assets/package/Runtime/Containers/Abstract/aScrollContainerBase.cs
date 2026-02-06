@@ -19,9 +19,12 @@ namespace ANest.UI {
 		private T m_previousSelectable;              // 直前に選択されていたSelectable
 
 		/// <summary>初期化時に選択変更リスナーを登録する</summary>
-		protected override void Initialize() {
-			base.Initialize();
+		public override void Initialize() {
+			if(m_initialized) return;
+			
 			OnSelectChanged.AddListener(OnSelectChangedAction);
+
+			base.Initialize();
 		}
 
 		/// <summary>破棄時にスクロールアニメーションをキャンセルする</summary>

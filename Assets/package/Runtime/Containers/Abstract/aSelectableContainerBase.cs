@@ -20,6 +20,9 @@ namespace ANest.UI {
 		[Tooltip("現在選択されているSelectable")]
 		[SerializeField]
 		protected T m_currentSelectable; // 現在選択されているSelectable
+		[Tooltip("ChildSelectableにマウスホバーしたらSelectする")]
+		[SerializeField]
+		protected bool m_selectOnHover = false; // ChildSelectableにマウスホバーしたらSelectする
 		[Tooltip("表示時に、前回の選択状態を復元(Resume)することを優先するかどうか")]
 		[SerializeField]
 		private bool m_defaultResumeSelectionOnShow = true; // 表示時に、前回の選択状態を復元(Resume)することを優先するかどうか
@@ -91,6 +94,12 @@ namespace ANest.UI {
 					m_onSelectChanged?.Invoke(value);
 				}
 			}
+		}
+
+		/// <summary>ChildSelectableにマウスホバーしたらSelectするかどうか</summary>
+		public bool SelectOnHover {
+			get => m_selectOnHover;
+			set => m_selectOnHover = value;
 		}
 
 		/// <summary>Show時、デフォルトで選択するSelectable</summary>
@@ -279,6 +288,14 @@ namespace ANest.UI {
 
 			foreach (var selectable in ChildSelectableList) {
 				if(selectable == null) continue;
+
+				selectable.OnPointerEnterAsObservable()
+					.Subscribe(_ => {
+						if(!m_selectOnHover) return;
+
+						CurrentSelectable = selectable;
+					})
+					.AddTo(m_selectDisposables);
 
 				// 選択された時の処理
 				selectable.OnSelectAsObservable()

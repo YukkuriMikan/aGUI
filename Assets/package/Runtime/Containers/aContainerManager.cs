@@ -23,36 +23,6 @@ namespace ANest.UI {
 	#endregion
 
 	#region Public Methods
-		/// <summary>指定されたコンテナが、表示中のコンテナの中で最新（最後に登録されたもの）かどうかを判定する</summary>
-		/// <param name="container">判定するコンテナ</param>
-		/// <returns>最新であればtrue</returns>
-		public static bool IsLatestContainer(aContainerBase container) {
-			if(container == null || !container.IsVisible) return false;
-
-			var latest = m_aContainerDictionary
-				.Where(pair => pair.Key != null && pair.Key.IsVisible)
-				.OrderByDescending(pair => pair.Value)
-				.Select(pair => pair.Key)
-				.FirstOrDefault();
-
-			return latest == container;
-		}
-
-		/// <summary>指定されたコンテナが、DisallowNullSelectionが有効なaContainerの中で最新（最後に登録されたもの）かどうかを判定する</summary>
-		/// <param name="container">判定するコンテナ</param>
-		/// <returns>最新であればtrue</returns>
-		public static bool IsLatestSelectableContainer(aContainerBase container) {
-			if(container == null || !container.IsVisible) return false;
-
-			var latest = m_aContainerDictionary
-				.Where(pair => pair.Key != null && pair.Key.IsVisible)
-				.OrderByDescending(pair => pair.Value)
-				.Select(pair => pair.Key)
-				.FirstOrDefault();
-
-			return latest == container;
-		}
-
 		/// <summary>管理対象にコンテナを追加する</summary>
 		/// <param name="container">追加するコンテナ</param>
 		public static void Add(aContainerBase container)

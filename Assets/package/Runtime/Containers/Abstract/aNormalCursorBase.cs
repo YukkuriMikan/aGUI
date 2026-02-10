@@ -25,7 +25,11 @@ namespace ANest.UI {
 				var currentSelectable = selectableContainer.CurrentSelectable;
 
 				if(currentSelectable != null) {
-					OnTargetRectChanged(currentSelectable.transform as RectTransform);
+					var rect = currentSelectable.transform as RectTransform;
+
+					if(rect != null) {
+						OnTargetRectChanged(rect);
+					}
 				}
 
 				// 選択変更を監視して追従対象を切り替える

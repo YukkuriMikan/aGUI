@@ -143,6 +143,32 @@ namespace ANest.UI.Tests {
 		}
 
 		[UnityTest]
+		public IEnumerator CurrentSelectable_DisallowNull_DoesNotClearSelection() {
+			m_container.Initialize();
+
+			var btnGo = new GameObject("Button", typeof(RectTransform), typeof(Button));
+			btnGo.transform.SetParent(m_testObject.transform);
+			var btn = btnGo.GetComponent<Button>();
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				btn
+			});
+			m_container.DisallowNullSelection = true;
+			m_container.InitialSelectable = btn;
+
+			m_container.Show();
+			yield return null;
+
+			Assert.AreEqual(btnGo, EventSystem.current.currentSelectedGameObject);
+
+			m_container.CurrentSelectable = null;
+			yield return null;
+
+			Assert.AreEqual(btn, m_container.CurrentSelectable, "DisallowNullSelectionが有効ならCurrentSelectableは保持されるべき");
+			Assert.AreEqual(btnGo, EventSystem.current.currentSelectedGameObject, "DisallowNullSelectionが有効なら選択状態は維持されるべき");
+		}
+
+		[UnityTest]
 		public IEnumerator DisallowNullSelection_PreventsDeselection() {
 			m_container.Initialize(); // 明示的に初期化
 
@@ -170,43 +196,6 @@ namespace ANest.UI.Tests {
 			Assert.AreEqual(btnGo, EventSystem.current.currentSelectedGameObject, "DisallowNullSelectionが有効なら再選択されるべき");
 		}
 
-		[UnityTest]
-		public IEnumerator DisallowNullSelection_LatestContainerTakesPrecedence() {
-			// コンテナ1
-			var obj1 = new GameObject("Container1", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
-			var c1 = obj1.AddComponent<TestSelectableContainer>();
-			var b1 = new GameObject("Button1", typeof(RectTransform), typeof(Button)).GetComponent<Button>();
-			b1.transform.SetParent(obj1.transform);
-			c1.SetChildSelectableList(new List<Selectable> {
-				b1
-			});
-			c1.DisallowNullSelection = true;
-			c1.IsVisible = true;
-			c1.Initialize();
-
-			// コンテナ2 (後から登録される)
-			var obj2 = new GameObject("Container2", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
-			var c2 = obj2.AddComponent<TestSelectableContainer>();
-			var b2 = new GameObject("Button2", typeof(RectTransform), typeof(Button)).GetComponent<Button>();
-			b2.transform.SetParent(obj2.transform);
-			c2.SetChildSelectableList(new List<Selectable> {
-				b2
-			});
-			c2.DisallowNullSelection = true;
-			c2.IsVisible = true;
-			c2.Initialize();
-
-			Assert.IsFalse(aContainerManager.IsLatestSelectableContainer(c1), "C1は最新ではない");
-			Assert.IsTrue(aContainerManager.IsLatestSelectableContainer(c2), "C2は最新である");
-
-			// c1 を再度登録（最新にする）
-			aContainerManager.Add(c1);
-			Assert.IsTrue(aContainerManager.IsLatestSelectableContainer(c1), "C1が最新になった");
-
-			Object.DestroyImmediate(obj1);
-			Object.DestroyImmediate(obj2);
-			yield return null;
-		}
 		#endregion
 
 		#region Guard Tests

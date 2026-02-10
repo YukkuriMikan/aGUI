@@ -113,19 +113,18 @@ namespace ANest.UI {
 							// 自身が非アクティブになっていたら何もしない
 							if(this == null || !gameObject.activeInHierarchy) return;
 
-							// 最新のDisallowNullSelection有効コンテナである場合のみ再選択を行う
-							if(!aContainerManager.IsLatestSelectableContainer(this)) return;
-
 							var es = aGuiManager.EventSystem;
 
-							if(es != null && es.currentSelectedGameObject == null) {
-								if(m_currentSelectable != null &&
-									m_currentSelectable.IsActive() &&
-									m_currentSelectable.IsInteractable()) {
+							// EventSystemのCurrentObjectがNullでなければ処理しない
+							if(es == null) return;
+							if(es.currentSelectedGameObject != null) return;
 
-									if(es.currentSelectedGameObject != m_currentSelectable.gameObject) {
-										m_currentSelectable.Select();
-									}
+							if(m_currentSelectable != null &&
+								m_currentSelectable.IsActive() &&
+								m_currentSelectable.IsInteractable()) {
+
+								if(es.currentSelectedGameObject != m_currentSelectable.gameObject) {
+									m_currentSelectable.Select();
 								}
 							}
 						}).AddTo(m_selectDisposables);

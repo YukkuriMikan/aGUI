@@ -34,7 +34,11 @@ namespace ANest.UI {
 				var currentSelectable = m_selectableContainer.CurrentSelectable;
 
 				if(currentSelectable != null) {
-					OnTargetRectChanged(currentSelectable.transform as RectTransform);
+					var rect = currentSelectable.transform as RectTransform;
+
+					if(rect != null) {
+						OnTargetRectChanged(rect);
+					}
 				}
 
 				m_selectableContainer.OnSelectChanged.AsObservable()

@@ -1,11 +1,11 @@
+using System.Linq;
 using UniRx;
-using UniRx.Triggers;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>EventSystemに依存したSelectableなコンポーネントを抱えるコンテナ</summary>
-	public abstract class aNormalSelectableContainerBase<T> : aSelectableContainerBase<T> where T : Selectable {
+	public abstract class aNormalSelectableContainerBase<T> : aSelectableContainerBase<T>, IDisallowNullSelectionContainer where T : Selectable {
 		#region Field
 		[Tooltip("CurrentSelectableがNullになる事を許可しない")]
 		[SerializeField]
@@ -100,37 +100,35 @@ namespace ANest.UI {
 		protected override void ObserveSelectables() {
 			base.ObserveSelectables();
 
-			foreach (var selectable in ChildSelectableList) {
-				if(selectable == null) continue;
+			Observable.EveryUpdate()
+				.Subscribe(_ => {
+					if(!m_disallowNullSelection) return;
+					if(!aContainerManager.IsHighestPriorityDisallowNullSelectionContainer(this)) return;
+					if(this == null || !gameObject.activeInHierarchy) return;
 
-				// 選択解除された時の処理
-				selectable.OnDeselectAsObservable()
-					.Subscribe(_ => {
-						if(!m_disallowNullSelection) return;
+					var es = aGuiManager.EventSystem;
 
-						// 1フレーム待ってから再選択を試みる（Deselectの直後にSelectを呼ぶ必要があるため）
-						Observable.NextFrame().Subscribe(__ => {
-							// 自身が非アクティブになっていたら何もしない
-							if(this == null || !gameObject.activeInHierarchy) return;
+					// EventSystemのCurrentObjectがNullでなければ処理しない
+					if(es == null) return;
+					if(es.currentSelectedGameObject != null) return;
 
-							var es = aGuiManager.EventSystem;
+					if(LastSelected != null && LastSelected.IsActive() && LastSelected.IsInteractable()) {
+						// 最後に選択していたアイテムを選択
+						LastSelected.Select();
 
-							// EventSystemのCurrentObjectがNullでなければ処理しない
-							if(es == null) return;
-							if(es.currentSelectedGameObject != null) return;
+					} else if(InitialSelectable != null && InitialSelectable.IsActive() && InitialSelectable.IsInteractable()) {
+						// 初期選択に設定されているオブジェクトを選択
+						InitialSelectable.Select();
 
-							if(m_currentSelectable != null &&
-								m_currentSelectable.IsActive() &&
-								m_currentSelectable.IsInteractable()) {
+					} else if(ChildSelectableList != null && ChildSelectableList.Count > 0) {
+						// 選択中のアイテムが選択不能だった場合、最初のアイテムを選択する
+						var first = ChildSelectableList.FirstOrDefault(s => s.IsActive() && s.IsInteractable());
 
-								if(es.currentSelectedGameObject != m_currentSelectable.gameObject) {
-									m_currentSelectable.Select();
-								}
-							}
-						}).AddTo(m_selectDisposables);
-					})
-					.AddTo(m_selectDisposables);
-			}
+						if(first != null && first.IsActive() && first.IsInteractable()) {
+							first.Select();
+						}
+					}
+				}).AddTo(m_selectDisposables);
 		}
 
 		protected override void SetInitialSelection() {

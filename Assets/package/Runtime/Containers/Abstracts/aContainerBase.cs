@@ -240,6 +240,8 @@ namespace ANest.UI {
 			m_nowHiding = true;
 			m_canvasGroup.blocksRaycasts = false;
 
+			aContainerManager.Remove(this);
+
 #if UNITY_EDITOR
 			if(m_debugMode) {
 				var stackTrace = new System.Diagnostics.StackTrace();

@@ -70,11 +70,14 @@ namespace ANest.UI {
 			get => m_currentSelectableIndex;
 			set {
 				m_currentSelectableIndex = value;
+				
 				if(m_childSelectableList == null || value < 0 || value >= m_childSelectableList.Count) {
 					m_currentSelectable = null;
 				} else {
 					m_currentSelectable = m_childSelectableList[value];
 				}
+				
+				CaptureCurrentSelection();
 			}
 		}
 
@@ -93,6 +96,8 @@ namespace ANest.UI {
 					m_currentSelectable = value;
 					m_onSelectChanged?.Invoke(value);
 				}
+
+				CaptureCurrentSelection();
 			}
 		}
 
@@ -277,7 +282,7 @@ namespace ANest.UI {
 		protected override void HideInternal() {
 			base.HideInternal();
 
-			// 1. 現在の選択状態を保存
+			//選択状態を保存
 			CaptureCurrentSelection();
 		}
 
@@ -306,7 +311,9 @@ namespace ANest.UI {
 
 		/// <summary>現在フォーカスされているSelectableを記録する</summary>
 		protected virtual void CaptureCurrentSelection() {
-			m_lastSelected = m_currentSelectable;
+			if(m_currentSelectable != null) {
+				m_lastSelected = m_currentSelectable;
+			}
 		}
 
 		/// <summary>現在選択されているSelectableのインデックスを更新する</summary>
@@ -322,6 +329,7 @@ namespace ANest.UI {
 			} else if(m_initialSelectable != null) {
 				CurrentSelectable = m_initialSelectable;
 			}
+
 		}
 
 		/// <summary>表示状態の内部フラグを更新する</summary>

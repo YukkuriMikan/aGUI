@@ -108,18 +108,57 @@ namespace ANest.UI {
 			GetLocalCorners(viewRect, m_targetRect, m_localCorners);
 			GetBounds(m_localCorners, out float minX, out float minY, out float maxX, out float maxY);
 
+			var viewWidth = maxX - minX;
+			var viewHeight = maxY - minY;
+			DetermineChildParentSize(childRect.width, childRect.height, viewWidth, viewHeight, out bool childWider, out bool childTaller);
+			return CalculateAxisAwareCorrection(childRect, minX, minY, maxX, maxY, childWider, childTaller);
+		}
+
+		private Vector2 CalculatePolygonCorrection(RectTransform viewRect) {
+			if(!TryBuildChildRect(out Rect childRect)) return Vector2.zero;
+			GetLocalCorners(viewRect, m_targetRect, m_localCorners);
+			GetBounds(m_localCorners, out float minX, out float minY, out float maxX, out float maxY);
+
+			var viewWidth = maxX - minX;
+			var viewHeight = maxY - minY;
+			DetermineChildParentSize(childRect.width, childRect.height, viewWidth, viewHeight, out bool childWider, out bool childTaller);
+			if(childWider && childTaller) {
+				return CalculatePolygonCorrectionChildLarger(viewRect);
+			}
+
+			return CalculateAxisAwareCorrection(childRect, minX, minY, maxX, maxY, childWider, childTaller);
+		}
+
+		private static void DetermineChildParentSize(float childWidth, float childHeight, float viewWidth, float viewHeight, out bool childWider, out bool childTaller) {
+			const float epsilon = 0.01f;
+			childWider = childWidth + epsilon >= viewWidth;
+			childTaller = childHeight + epsilon >= viewHeight;
+		}
+
+		private static Vector2 CalculateAxisAwareCorrection(Rect childRect, float minX, float minY, float maxX, float maxY, bool childWider, bool childTaller) {
 			float deltaX = 0f;
 			float deltaY = 0f;
 
-			if(minX < childRect.xMin) deltaX += childRect.xMin - minX;
-			if(maxX > childRect.xMax) deltaX += childRect.xMax - maxX;
-			if(minY < childRect.yMin) deltaY += childRect.yMin - minY;
-			if(maxY > childRect.yMax) deltaY += childRect.yMax - maxY;
+			if(childWider) {
+				if(minX < childRect.xMin) deltaX += childRect.xMin - minX;
+				if(maxX > childRect.xMax) deltaX += childRect.xMax - maxX;
+			} else {
+				if(childRect.xMin < minX) deltaX += childRect.xMin - minX;
+				if(childRect.xMax > maxX) deltaX += childRect.xMax - maxX;
+			}
+
+			if(childTaller) {
+				if(minY < childRect.yMin) deltaY += childRect.yMin - minY;
+				if(maxY > childRect.yMax) deltaY += childRect.yMax - maxY;
+			} else {
+				if(childRect.yMin < minY) deltaY += childRect.yMin - minY;
+				if(childRect.yMax > maxY) deltaY += childRect.yMax - maxY;
+			}
 
 			return new Vector2(deltaX, deltaY);
 		}
 
-		private Vector2 CalculatePolygonCorrection(RectTransform viewRect) {
+		private Vector2 CalculatePolygonCorrectionChildLarger(RectTransform viewRect) {
 			BuildPolygonFromChildPoints();
 			GetLocalCorners(viewRect, m_targetRect, m_localCorners);
 			FillViewLocalCorners();
@@ -140,6 +179,7 @@ namespace ANest.UI {
 
 			return correction;
 		}
+
 
 		private void ApplyLocalCorrection(Vector2 correctionLocal) {
 			var worldDelta = m_targetRect.TransformVector(new Vector3(correctionLocal.x, correctionLocal.y, 0f));

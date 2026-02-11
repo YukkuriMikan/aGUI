@@ -235,6 +235,17 @@ namespace ANest.UI.Editor {
 			EditorGUILayout.Space();
 			EditorGUILayout.LabelField("Derived Properties", EditorStyles.boldLabel);
 			DrawPropertiesExcluding(serializedObject, excludeProps);
+			
+			EditorGUILayout.Space();
+			using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying)) {
+				if(GUILayout.Button("Select")) {
+					foreach(Object targetObject in targets) {
+						if(targetObject is aButton button) {
+							button.Select();
+						}
+					}
+				}
+			}
 
 			serializedObject.ApplyModifiedProperties();
 		}

@@ -36,7 +36,7 @@ namespace ANest.UI {
 			var latest = m_aContainerDictionary
 				.Where(pair => pair.Key != null)
 				.Where(pair => pair.Key.IsVisible)
-				.Where(pair => pair.Key is IDisallowNullSelectionContainer disallow && disallow.DisallowNullSelection)
+				.Where(pair => pair.Key is IDisallowNullSelectionContainer { DisallowNullSelection: true })
 				.OrderByDescending(pair => pair.Value)
 				.Select(pair => pair.Key)
 				.FirstOrDefault();

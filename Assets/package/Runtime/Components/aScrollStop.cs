@@ -30,11 +30,13 @@ namespace ANest.UI {
 		#region Fields
 		private readonly List<Vector2> m_childPoints = new List<Vector2>(64); // 子要素のローカル頂点
 		private readonly List<Vector2> m_polygonPoints = new List<Vector2>(16); // 可視化用ポリゴン
+		private readonly List<Vector2> m_polygonWorkPoints = new List<Vector2>(64); // ポリゴン計算用
 		private readonly Vector3[] m_worldCorners = new Vector3[4]; // 角取得用
 		private readonly Vector3[] m_localCorners = new Vector3[4]; // ローカル角
 		private readonly Vector2[] m_viewLocalCorners = new Vector2[4]; // ビュー角
 		private readonly float[] m_childMaxDots = new float[8]; // 方向別の最大投影
-		private readonly Vector2[] m_childExtremePoints = new Vector2[8]; // 方向別の極値点
+		private Vector3 m_prevTargetLocalPosition; // 前回のTargetRectローカル位置
+		private bool m_hasPrevTargetLocalPosition; // 前回位置の有無
 		private static readonly Vector2[] s_polygonDirections = {
 			new Vector2(1f, 0f),
 			new Vector2(1f, 1f).normalized,
@@ -89,18 +91,28 @@ namespace ANest.UI {
 			if(transform is not RectTransform viewRect) return;
 			if(!TryCollectChildPoints()) return;
 
+			var currentLocalPosition = m_targetRect.localPosition;
+			Vector2 movementLocal = Vector2.zero;
+			if(m_hasPrevTargetLocalPosition) {
+				var parentDelta = currentLocalPosition - m_prevTargetLocalPosition;
+				movementLocal = ConvertParentDeltaToTargetLocal(parentDelta);
+			}
+
 			Vector2 correctionLocal;
 			switch(m_stopMethod) {
 				case StopMethod.Polygon:
-					correctionLocal = CalculatePolygonCorrection(viewRect);
+					correctionLocal = CalculatePolygonCorrection(viewRect, movementLocal);
 					break;
 				default:
 					correctionLocal = CalculateRectCorrection(viewRect);
 					break;
 			}
 
-			if(correctionLocal == Vector2.zero) return;
-			ApplyLocalCorrection(correctionLocal);
+			if(correctionLocal != Vector2.zero) {
+				ApplyLocalCorrection(correctionLocal);
+			}
+			m_prevTargetLocalPosition = m_targetRect.localPosition;
+			m_hasPrevTargetLocalPosition = true;
 		}
 
 		private Vector2 CalculateRectCorrection(RectTransform viewRect) {
@@ -114,7 +126,7 @@ namespace ANest.UI {
 			return CalculateAxisAwareCorrection(childRect, minX, minY, maxX, maxY, childWider, childTaller);
 		}
 
-		private Vector2 CalculatePolygonCorrection(RectTransform viewRect) {
+		private Vector2 CalculatePolygonCorrection(RectTransform viewRect, Vector2 movementLocal) {
 			if(!TryBuildChildRect(out Rect childRect)) return Vector2.zero;
 			GetLocalCorners(viewRect, m_targetRect, m_localCorners);
 			GetBounds(m_localCorners, out float minX, out float minY, out float maxX, out float maxY);
@@ -123,7 +135,7 @@ namespace ANest.UI {
 			var viewHeight = maxY - minY;
 			DetermineChildParentSize(childRect.width, childRect.height, viewWidth, viewHeight, out bool childWider, out bool childTaller);
 			if(childWider && childTaller) {
-				return CalculatePolygonCorrectionChildLarger(viewRect);
+				return CalculatePolygonCorrectionChildLarger(viewRect, movementLocal);
 			}
 
 			return CalculateAxisAwareCorrection(childRect, minX, minY, maxX, maxY, childWider, childTaller);
@@ -158,12 +170,44 @@ namespace ANest.UI {
 			return new Vector2(deltaX, deltaY);
 		}
 
-		private Vector2 CalculatePolygonCorrectionChildLarger(RectTransform viewRect) {
+		private Vector2 CalculatePolygonCorrectionChildLarger(RectTransform viewRect, Vector2 movementLocal) {
 			BuildPolygonFromChildPoints();
 			GetLocalCorners(viewRect, m_targetRect, m_localCorners);
 			FillViewLocalCorners();
 
+			const float movementEpsilon = 0.0001f;
+			const float correctionEpsilon = 0.001f;
+			if(movementLocal.sqrMagnitude <= movementEpsilon) {
+				return CalculatePolygonCorrectionAllDirections();
+			}
+
+			var correctionDir = -movementLocal.normalized;
+			float requiredShift = 0f;
+			for(int i = 0; i < s_polygonDirections.Length; i++) {
+				var dir = s_polygonDirections[i];
+				float maxDot = float.NegativeInfinity;
+				for(int j = 0; j < m_viewLocalCorners.Length; j++) {
+					maxDot = Mathf.Max(maxDot, Vector2.Dot(m_viewLocalCorners[j], dir));
+				}
+				float limit = m_childMaxDots[i];
+				if(maxDot <= limit + correctionEpsilon) continue;
+				float dirDot = Vector2.Dot(correctionDir, dir);
+				if(dirDot <= 0f) {
+					return CalculatePolygonCorrectionAllDirections();
+				}
+				float shift = (maxDot - limit) / dirDot;
+				if(shift > requiredShift) {
+					requiredShift = shift;
+				}
+			}
+
+			if(requiredShift <= correctionEpsilon) return Vector2.zero;
+			return correctionDir * requiredShift;
+		}
+
+		private Vector2 CalculatePolygonCorrectionAllDirections() {
 			Vector2 correction = Vector2.zero;
+			const float correctionEpsilon = 0.001f;
 			for(int i = 0; i < s_polygonDirections.Length; i++) {
 				var dir = s_polygonDirections[i];
 				float maxDot = float.NegativeInfinity;
@@ -172,12 +216,21 @@ namespace ANest.UI {
 					maxDot = Mathf.Max(maxDot, Vector2.Dot(shifted, dir));
 				}
 				float limit = m_childMaxDots[i];
-				if(maxDot > limit) {
+				if(maxDot > limit + correctionEpsilon) {
 					correction += (limit - maxDot) * dir;
 				}
 			}
 
 			return correction;
+		}
+
+		private Vector2 ConvertParentDeltaToTargetLocal(Vector3 parentDelta) {
+			Vector3 worldDelta = parentDelta;
+			if(m_targetRect.parent != null) {
+				worldDelta = m_targetRect.parent.TransformVector(parentDelta);
+			}
+			var localDelta = m_targetRect.InverseTransformVector(worldDelta);
+			return new Vector2(localDelta.x, localDelta.y);
 		}
 
 
@@ -210,40 +263,75 @@ namespace ANest.UI {
 
 		private void BuildPolygonFromChildPoints() {
 			m_polygonPoints.Clear();
+			m_polygonWorkPoints.Clear();
 			for(int i = 0; i < s_polygonDirections.Length; i++) {
 				m_childMaxDots[i] = float.NegativeInfinity;
-				m_childExtremePoints[i] = Vector2.zero;
 			}
 
+			var hasPadding = m_padding != Vector2.zero;
 			for(int i = 0; i < m_childPoints.Count; i++) {
 				var point = m_childPoints[i];
-				for(int d = 0; d < s_polygonDirections.Length; d++) {
-					var dir = s_polygonDirections[d];
-					float dot = Vector2.Dot(point, dir);
-					if(dot > m_childMaxDots[d]) {
-						m_childMaxDots[d] = dot;
-						m_childExtremePoints[d] = point;
-					}
+				if(hasPadding) {
+					m_polygonWorkPoints.Add(new Vector2(point.x - m_padding.x, point.y - m_padding.y));
+					m_polygonWorkPoints.Add(new Vector2(point.x - m_padding.x, point.y + m_padding.y));
+					m_polygonWorkPoints.Add(new Vector2(point.x + m_padding.x, point.y + m_padding.y));
+					m_polygonWorkPoints.Add(new Vector2(point.x + m_padding.x, point.y - m_padding.y));
+				} else {
+					m_polygonWorkPoints.Add(point);
 				}
 			}
 
-			const float epsilon = 0.01f;
-			for(int i = 0; i < m_childExtremePoints.Length; i++) {
-				var dir = s_polygonDirections[i];
-				var padding = Mathf.Abs(dir.x) * m_padding.x + Mathf.Abs(dir.y) * m_padding.y;
-				var point = m_childExtremePoints[i] + dir * padding;
-				m_childMaxDots[i] += padding;
-				bool isDuplicate = false;
-				for(int j = 0; j < m_polygonPoints.Count; j++) {
-					if(Vector2.Distance(m_polygonPoints[j], point) < epsilon) {
-						isDuplicate = true;
-						break;
+			if(m_polygonWorkPoints.Count < 3) {
+				for(int i = 0; i < m_polygonWorkPoints.Count; i++) {
+					var point = m_polygonWorkPoints[i];
+					for(int d = 0; d < s_polygonDirections.Length; d++) {
+						float dot = Vector2.Dot(point, s_polygonDirections[d]);
+						if(dot > m_childMaxDots[d]) m_childMaxDots[d] = dot;
 					}
-				}
-				if(!isDuplicate) {
 					m_polygonPoints.Add(point);
 				}
+				return;
 			}
+
+			m_polygonWorkPoints.Sort(CompareVector2);
+
+			for(int i = 0; i < m_polygonWorkPoints.Count; i++) {
+				var point = m_polygonWorkPoints[i];
+				while(m_polygonPoints.Count >= 2 && Cross(m_polygonPoints[m_polygonPoints.Count - 2], m_polygonPoints[m_polygonPoints.Count - 1], point) <= 0f) {
+					m_polygonPoints.RemoveAt(m_polygonPoints.Count - 1);
+				}
+				m_polygonPoints.Add(point);
+			}
+
+			int lowerCount = m_polygonPoints.Count;
+			for(int i = m_polygonWorkPoints.Count - 2; i >= 0; i--) {
+				var point = m_polygonWorkPoints[i];
+				while(m_polygonPoints.Count > lowerCount && Cross(m_polygonPoints[m_polygonPoints.Count - 2], m_polygonPoints[m_polygonPoints.Count - 1], point) <= 0f) {
+					m_polygonPoints.RemoveAt(m_polygonPoints.Count - 1);
+				}
+				m_polygonPoints.Add(point);
+			}
+
+			if(m_polygonPoints.Count > 1) {
+				m_polygonPoints.RemoveAt(m_polygonPoints.Count - 1);
+			}
+
+			for(int i = 0; i < m_polygonPoints.Count; i++) {
+				var point = m_polygonPoints[i];
+				for(int d = 0; d < s_polygonDirections.Length; d++) {
+					float dot = Vector2.Dot(point, s_polygonDirections[d]);
+					if(dot > m_childMaxDots[d]) m_childMaxDots[d] = dot;
+				}
+			}
+		}
+
+		private static int CompareVector2(Vector2 a, Vector2 b) {
+			int compare = a.x.CompareTo(b.x);
+			return compare != 0 ? compare : a.y.CompareTo(b.y);
+		}
+
+		private static float Cross(Vector2 origin, Vector2 a, Vector2 b) {
+			return (a.x - origin.x) * (b.y - origin.y) - (a.y - origin.y) * (b.x - origin.x);
 		}
 
 		private bool TryBuildChildRect(out Rect rect) {

@@ -24,9 +24,7 @@ namespace ANest.UI {
 			get => m_currentSelectableIndex;
 			set {
 				var es = aGuiManager.EventSystem;
-
-				// 範囲外チェック
-				if(ChildSelectableList == null || ChildSelectableList.Count == 0 || value < 0 || value >= ChildSelectableList.Count) {
+				if(!TryGetSelectableIndex(value, out var normalizedIndex)) {
 					if(m_disallowNullSelection) return;
 
 					if(es != null) {
@@ -38,13 +36,13 @@ namespace ANest.UI {
 				}
 
 				// 範囲内の場合は選択を実行（base.CurrentSelectableIndex の set 内で m_currentSelectableIndex が更新される）
-				var currentSelectedObject = ChildSelectableList[value].gameObject;
+				var currentSelectedObject = ChildSelectableList[normalizedIndex].gameObject;
 
 				if(es != null && es.currentSelectedGameObject != currentSelectedObject) {
-					ChildSelectableList[value].Select();
+					ChildSelectableList[normalizedIndex].Select();
 				}
 
-				base.CurrentSelectableIndex = value;
+				base.CurrentSelectableIndex = normalizedIndex;
 			}
 		}
 

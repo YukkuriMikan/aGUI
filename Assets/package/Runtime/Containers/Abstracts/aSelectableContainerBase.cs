@@ -10,6 +10,15 @@ using UnityEngine.UI;
 namespace ANest.UI {
 	/// <summary>Selectableを子要素として管理するコンテナの基底クラス</summary>
 	public abstract class aSelectableContainerBase<T> : aContainerBase where T : Selectable {
+		#region Enum
+		/// <summary>CurrentSelectableIndexに範囲外の値を設定した時の挙動</summary>
+		public enum SelectableIndexMode {
+			Nullable, // 範囲外のインデックスをNull扱いにする
+			Clamp, // 範囲外のインデックスを最小/最大に丸める
+			Loop // 範囲外のインデックスを最小/最大でループする
+		}
+		#endregion
+
 		#region Field
 		[Header("Selection")]
 		[Tooltip("子要素にあるSelectableのキャッシュ")]
@@ -27,6 +36,9 @@ namespace ANest.UI {
 		[Tooltip("表示時に、前回の選択状態を復元(Resume)することを優先するかどうか")]
 		[SerializeField]
 		private bool m_defaultResumeSelectionOnShow = true; // 表示時に、前回の選択状態を復元(Resume)することを優先するかどうか
+		[Tooltip("CurrentSelectableIndexに範囲外の値を設定した時の挙動")]
+		[SerializeField]
+		private SelectableIndexMode m_indexMode = SelectableIndexMode.Loop; // CurrentSelectableIndexに範囲外の値を設定した時の挙動
 
 		[Header("Guard")]
 		[Tooltip("表示直後の操作をブロックするか？")]
@@ -70,13 +82,15 @@ namespace ANest.UI {
 		public virtual int CurrentSelectableIndex {
 			get => m_currentSelectableIndex;
 			set {
-				m_currentSelectableIndex = value;
-
-				if(m_childSelectableList == null || value < 0 || value >= m_childSelectableList.Count) {
+				if(!TryGetSelectableIndex(value, out var normalizedIndex)) {
+					m_currentSelectableIndex = -1;
 					m_currentSelectable = null;
-				} else {
-					m_currentSelectable = m_childSelectableList[value];
+					CaptureCurrentSelection();
+					return;
 				}
+
+				m_currentSelectableIndex = normalizedIndex;
+				m_currentSelectable = m_childSelectableList[normalizedIndex];
 
 				CaptureCurrentSelection();
 			}
@@ -106,6 +120,12 @@ namespace ANest.UI {
 		public bool SelectOnHover {
 			get => m_selectOnHover;
 			set => m_selectOnHover = value;
+		}
+
+		/// <summary>CurrentSelectableIndexに範囲外の値を設定した時の挙動</summary>
+		public SelectableIndexMode IndexMode {
+			get => m_indexMode;
+			set => m_indexMode = value;
 		}
 
 		/// <summary>Show時、デフォルトで選択するSelectable</summary>
@@ -332,6 +352,30 @@ namespace ANest.UI {
 		/// <summary>現在選択されているSelectableのインデックスを更新する</summary>
 		protected virtual void UpdateCurrentSelectableIndex(T selectable) {
 			m_currentSelectableIndex = selectable == null ? -1 : m_childSelectableList.IndexOf(selectable);
+		}
+
+		/// <summary>IndexModeに基づきSelectableのインデックスを正規化する</summary>
+		protected bool TryGetSelectableIndex(int value, out int normalizedIndex) {
+			normalizedIndex = -1;
+			if(ChildSelectableList == null || ChildSelectableList.Count == 0) return false;
+
+			var count = ChildSelectableList.Count;
+
+				switch(m_indexMode) {
+					case SelectableIndexMode.Clamp:
+						normalizedIndex = Mathf.Clamp(value, 0, count - 1);
+						return true;
+					case SelectableIndexMode.Loop:
+						var loopIndex = value % count;
+						if(loopIndex < 0) loopIndex += count;
+						normalizedIndex = loopIndex;
+						return true;
+					case SelectableIndexMode.Nullable:
+					default:
+						if(value < 0 || value >= count) return false;
+						normalizedIndex = value;
+						return true;
+				}
 		}
 
 		/// <summary>初期設定のSelectable、または最後に選択されていたSelectableにフォーカスを戻す</summary>

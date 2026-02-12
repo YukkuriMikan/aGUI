@@ -143,6 +143,92 @@ namespace ANest.UI.Tests {
 		}
 
 		[UnityTest]
+		public IEnumerator CurrentSelectableIndex_ClampMode_ClampsOutOfRange() {
+			m_container.Initialize();
+
+			var btnGo0 = new GameObject("Button0", typeof(RectTransform), typeof(Button));
+			btnGo0.transform.SetParent(m_testObject.transform);
+			var btn0 = btnGo0.GetComponent<Button>();
+			var btnGo1 = new GameObject("Button1", typeof(RectTransform), typeof(Button));
+			btnGo1.transform.SetParent(m_testObject.transform);
+			var btn1 = btnGo1.GetComponent<Button>();
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				btn0,
+				btn1
+			});
+			m_container.IndexMode = aSelectableContainerBase<Selectable>.SelectableIndexMode.Clamp;
+
+			m_container.CurrentSelectableIndex = -1;
+			yield return null;
+			Assert.AreEqual(0, m_container.CurrentSelectableIndex);
+			Assert.AreEqual(btn0, m_container.CurrentSelectable);
+
+			m_container.CurrentSelectableIndex = 5;
+			yield return null;
+			Assert.AreEqual(1, m_container.CurrentSelectableIndex);
+			Assert.AreEqual(btn1, m_container.CurrentSelectable);
+		}
+
+		[UnityTest]
+		public IEnumerator CurrentSelectableIndex_LoopMode_LoopsOutOfRange() {
+			m_container.Initialize();
+
+			var btnGo0 = new GameObject("Button0", typeof(RectTransform), typeof(Button));
+			btnGo0.transform.SetParent(m_testObject.transform);
+			var btn0 = btnGo0.GetComponent<Button>();
+			var btnGo1 = new GameObject("Button1", typeof(RectTransform), typeof(Button));
+			btnGo1.transform.SetParent(m_testObject.transform);
+			var btn1 = btnGo1.GetComponent<Button>();
+			var btnGo2 = new GameObject("Button2", typeof(RectTransform), typeof(Button));
+			btnGo2.transform.SetParent(m_testObject.transform);
+			var btn2 = btnGo2.GetComponent<Button>();
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				btn0,
+				btn1,
+				btn2
+			});
+			m_container.IndexMode = aSelectableContainerBase<Selectable>.SelectableIndexMode.Loop;
+
+			m_container.CurrentSelectableIndex = -1;
+			yield return null;
+			Assert.AreEqual(2, m_container.CurrentSelectableIndex);
+			Assert.AreEqual(btn2, m_container.CurrentSelectable);
+
+			m_container.CurrentSelectableIndex = 3;
+			yield return null;
+			Assert.AreEqual(0, m_container.CurrentSelectableIndex);
+			Assert.AreEqual(btn0, m_container.CurrentSelectable);
+
+			m_container.CurrentSelectableIndex = 4;
+			yield return null;
+			Assert.AreEqual(1, m_container.CurrentSelectableIndex);
+			Assert.AreEqual(btn1, m_container.CurrentSelectable);
+		}
+
+		[UnityTest]
+		public IEnumerator CurrentSelectableIndex_NullableMode_SetsNullOnOutOfRange() {
+			m_container.Initialize();
+
+			var btnGo = new GameObject("Button", typeof(RectTransform), typeof(Button));
+			btnGo.transform.SetParent(m_testObject.transform);
+			var btn = btnGo.GetComponent<Button>();
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				btn
+			});
+			m_container.DisallowNullSelection = false;
+			m_container.IndexMode = aSelectableContainerBase<Selectable>.SelectableIndexMode.Nullable;
+
+			m_container.CurrentSelectableIndex = 3;
+			yield return null;
+
+			Assert.AreEqual(-1, m_container.CurrentSelectableIndex);
+			Assert.IsNull(m_container.CurrentSelectable);
+		}
+
+		[UnityTest]
 		public IEnumerator CurrentSelectable_DisallowNull_DoesNotClearSelection() {
 			m_container.Initialize();
 

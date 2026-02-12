@@ -11,6 +11,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty _initialSelectableProp;              // 初期選択Selectable
 		private SerializedProperty _currentSelectableProp;              // 現在選択中Selectable
 		private SerializedProperty _defaultResumeSelectionOnShowProp;    // 表示時に前回選択を優先するか
+		private SerializedProperty _indexModeProp;                      // インデックス範囲外指定時の挙動
 		private SerializedProperty _initialGuardProp;                   // 初期ガード
 		private SerializedProperty _initialGuardDurationProp;           // 初期ガード時間
 		private SerializedProperty _onSelectChangedProp;                // 選択変更イベント
@@ -25,6 +26,7 @@ namespace ANest.UI.Editor {
 			_initialSelectableProp = serializedObject.FindProperty("m_initialSelectable");
 			_currentSelectableProp = serializedObject.FindProperty("m_currentSelectable");
 			_defaultResumeSelectionOnShowProp = serializedObject.FindProperty("m_defaultResumeSelectionOnShow");
+			_indexModeProp = serializedObject.FindProperty("m_indexMode");
 			_initialGuardProp = serializedObject.FindProperty("m_initialGuard");
 			_initialGuardDurationProp = serializedObject.FindProperty("m_initialGuardDuration");
 			_onSelectChangedProp = serializedObject.FindProperty("m_onSelectChanged");
@@ -40,6 +42,7 @@ namespace ANest.UI.Editor {
 				"m_initialSelectable",
 				"m_currentSelectable",
 				"m_defaultResumeSelectionOnShow",
+				"m_indexMode",
 				"m_initialGuard",
 				"m_initialGuardDuration",
 				"m_onSelectChanged",
@@ -61,6 +64,9 @@ namespace ANest.UI.Editor {
 			}
 			if(_defaultResumeSelectionOnShowProp != null) {
 				EditorGUILayout.PropertyField(_defaultResumeSelectionOnShowProp);
+			}
+			if(_indexModeProp != null) {
+				EditorGUILayout.PropertyField(_indexModeProp);
 			}
 			if(_disallowNullSelectionProp != null) {
 				EditorGUILayout.PropertyField(_disallowNullSelectionProp);

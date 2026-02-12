@@ -1461,7 +1461,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_targetRect: {fileID: 1816411932}
-  m_stopMethod: 0
+  m_stopMethod: 1
   m_padding: {x: 0, y: 0}
   m_updateTiming: 1
 --- !u!114 &1832291622

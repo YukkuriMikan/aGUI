@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
@@ -70,13 +71,13 @@ namespace ANest.UI {
 			get => m_currentSelectableIndex;
 			set {
 				m_currentSelectableIndex = value;
-				
+
 				if(m_childSelectableList == null || value < 0 || value >= m_childSelectableList.Count) {
 					m_currentSelectable = null;
 				} else {
 					m_currentSelectable = m_childSelectableList[value];
 				}
-				
+
 				CaptureCurrentSelection();
 			}
 		}
@@ -284,6 +285,13 @@ namespace ANest.UI {
 
 			//選択状態を保存
 			CaptureCurrentSelection();
+
+			//Disableでもイベントシステムのオブジェクトとして選択され続けるのを防ぐ
+			var es = aGuiManager.EventSystem;
+
+			if(ChildSelectableList.Any(selectable => es.currentSelectedGameObject == selectable.gameObject)) {
+				es.SetSelectedGameObject(null);
+			}
 		}
 
 		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
@@ -329,7 +337,6 @@ namespace ANest.UI {
 			} else if(m_initialSelectable != null) {
 				CurrentSelectable = m_initialSelectable;
 			}
-
 		}
 
 		/// <summary>表示状態の内部フラグを更新する</summary>

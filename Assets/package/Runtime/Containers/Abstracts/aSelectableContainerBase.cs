@@ -302,9 +302,11 @@ namespace ANest.UI {
 			foreach (var selectable in ChildSelectableList) {
 				if(selectable == null) continue;
 
-				selectable.OnPointerEnterAsObservable()
+				selectable
+					.OnPointerEnterAsObservable()
 					.Subscribe(_ => {
 						if(!m_selectOnHover) return;
+						if(!selectable.IsActive() || selectable.IsInteractable()) return;
 
 						CurrentSelectable = selectable;
 					})

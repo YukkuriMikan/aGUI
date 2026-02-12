@@ -306,7 +306,7 @@ namespace ANest.UI {
 					.OnPointerEnterAsObservable()
 					.Subscribe(_ => {
 						if(!m_selectOnHover) return;
-						if(!selectable.IsActive() || selectable.IsInteractable()) return;
+						if(!selectable.IsActive() || !selectable.IsInteractable()) return;
 
 						CurrentSelectable = selectable;
 					})

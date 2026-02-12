@@ -88,7 +88,9 @@ namespace ANest.UI {
 
 		/// <summary>ショートカット入力を監視する</summary>
 		private void Update() {
+#if UNITY_EDITOR
 			if(!Application.isPlaying) return;
+#endif
 
 			UpdateShortCutState();
 		}
@@ -196,7 +198,10 @@ namespace ANest.UI {
 
 		/// <summary>トグル状態変化時にカスタムアニメーションを再生する</summary>
 		private void OnToggleValueChanged(bool isOn) {
+#if UNITY_EDITOR
 			if(!Application.isPlaying) return;
+#endif
+			
 			if(!m_useCustomAnimation) return;
 
 			PlayToggleAnimations(isOn);
@@ -279,7 +284,7 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#if UNITY_EDITOR
+#if UNITY_EDITOR
 		/// <summary>インスペクターでの値変更時の処理</summary>
 		protected override void OnValidate() {
 			base.OnValidate();
@@ -312,6 +317,6 @@ namespace ANest.UI {
 
 			UnityEditor.EditorUtility.SetDirty(this);
 		}
-		#endif
+#endif
 	}
 }

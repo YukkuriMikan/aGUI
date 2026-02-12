@@ -32,7 +32,7 @@ namespace ANest.UI {
 			m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
 		}
 
-		#if UNITY_EDITOR
+#if UNITY_EDITOR
 		/// <summary>コンポーネント追加・リセット時に参照を取得</summary>
 		private void Reset() {
 			m_rectTransform = transform as RectTransform;
@@ -52,6 +52,6 @@ namespace ANest.UI {
 				}
 			}
 		}
-		#endif
+#endif
 	}
 }

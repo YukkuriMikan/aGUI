@@ -155,6 +155,9 @@ namespace ANest.UI {
 		public void RefreshChildSelectables() {
 			m_childSelectableList ??= new List<T>();
 			GetComponentsInChildren(false, m_childSelectableList);
+#if UNITY_EDITOR
+			if(!Application.isPlaying) return;
+#endif
 			ObserveSelectables(); // キャッシュ更新時に監視も更新
 		}
 

@@ -125,16 +125,19 @@ namespace ANest.UI {
 		protected override void OnDisable() {
 			base.OnDisable();
 
+#if UNITY_EDITOR
 			if(!Application.isPlaying) return;
-
+#endif
 			TryInvokeLongPressCancel();
 			ResetPressState();
 		}
 
 		/// <summary> フレーム更新で長押しの進捗を監視 </summary>
 		private void Update() {
+#if UNITY_EDITOR
 			if(!Application.isPlaying) return;
-
+#endif
+			
 			UpdateSubmitPressState();
 			UpdateShortCutState();
 
@@ -553,7 +556,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Editor Support
-		#if UNITY_EDITOR
+#if UNITY_EDITOR
 		/// <summary> インスペクターでの値変更時の処理 </summary>
 		protected override void OnValidate() {
 			base.OnValidate();
@@ -580,7 +583,7 @@ namespace ANest.UI {
 
 			UnityEditor.EditorUtility.SetDirty(this);
 		}
-		#endif
+#endif
 		#endregion
 	}
 }

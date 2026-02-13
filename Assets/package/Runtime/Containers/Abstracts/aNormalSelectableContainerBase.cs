@@ -35,7 +35,7 @@ namespace ANest.UI {
 					return;
 				}
 
-				// 範囲内の場合は選択を実行（base.CurrentSelectableIndex の set 内で m_currentSelectableIndex が更新される）
+				// 範囲内の場合は選択を実行（EventSystem側の選択と同期させる）
 				var currentSelectedObject = ChildSelectableList[normalizedIndex].gameObject;
 
 				if(es != null && es.currentSelectedGameObject != currentSelectedObject) {
@@ -50,6 +50,7 @@ namespace ANest.UI {
 		public override T CurrentSelectable {
 			get => m_currentSelectable;
 			set {
+				// Null許可時のみEventSystem側の選択をクリアする
 				void TrySetNull() {
 					if(m_disallowNullSelection) return;
 
@@ -106,20 +107,20 @@ namespace ANest.UI {
 
 					var es = aGuiManager.EventSystem;
 
-					// EventSystemのCurrentObjectがNullでなければ処理しない
+					// EventSystemの選択が空の時だけ復帰処理を行う
 					if(es == null) return;
 					if(es.currentSelectedGameObject != null) return;
 
 					if(LastSelected != null && LastSelected.IsActive() && LastSelected.IsInteractable()) {
-						// 最後に選択していたアイテムを選択
+						// 直近の選択を優先して復帰する
 						LastSelected.Select();
 
 					} else if(InitialSelectable != null && InitialSelectable.IsActive() && InitialSelectable.IsInteractable()) {
-						// 初期選択に設定されているオブジェクトを選択
+						// 初期選択に設定された要素があれば採用する
 						InitialSelectable.Select();
 
 					} else if(ChildSelectableList != null && ChildSelectableList.Count > 0) {
-						// 選択中のアイテムが選択不能だった場合、最初のアイテムを選択する
+						// それ以外は最初に選択可能な要素を選択する
 						var first = ChildSelectableList.FirstOrDefault(s => s.IsActive() && s.IsInteractable());
 
 						if(first != null && first.IsActive() && first.IsInteractable()) {
@@ -129,6 +130,7 @@ namespace ANest.UI {
 				}).AddTo(m_selectDisposables);
 		}
 
+		/// <summary>表示直後に最低1つは選択状態にする</summary>
 		protected override void SetInitialSelection() {
 			base.SetInitialSelection();
 

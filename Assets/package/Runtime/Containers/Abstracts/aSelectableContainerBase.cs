@@ -14,8 +14,8 @@ namespace ANest.UI {
 		/// <summary>CurrentSelectableIndexに範囲外の値を設定した時の挙動</summary>
 		public enum SelectableIndexMode {
 			Nullable, // 範囲外のインデックスをNull扱いにする
-			Clamp, // 範囲外のインデックスを最小/最大に丸める
-			Loop // 範囲外のインデックスを最小/最大でループする
+			Clamp,    // 範囲外のインデックスを最小/最大に丸める
+			Loop      // 範囲外のインデックスを最小/最大でループする
 		}
 		#endregion
 
@@ -175,9 +175,7 @@ namespace ANest.UI {
 		public void RefreshChildSelectables() {
 			m_childSelectableList ??= new List<T>();
 			GetComponentsInChildren(false, m_childSelectableList);
-#if UNITY_EDITOR
-			if(!Application.isPlaying) return;
-#endif
+
 			ObserveSelectables(); // キャッシュ更新時に監視も更新
 		}
 
@@ -361,21 +359,21 @@ namespace ANest.UI {
 
 			var count = ChildSelectableList.Count;
 
-				switch(m_indexMode) {
-					case SelectableIndexMode.Clamp:
-						normalizedIndex = Mathf.Clamp(value, 0, count - 1);
-						return true;
-					case SelectableIndexMode.Loop:
-						var loopIndex = value % count;
-						if(loopIndex < 0) loopIndex += count;
-						normalizedIndex = loopIndex;
-						return true;
-					case SelectableIndexMode.Nullable:
-					default:
-						if(value < 0 || value >= count) return false;
-						normalizedIndex = value;
-						return true;
-				}
+			switch(m_indexMode) {
+				case SelectableIndexMode.Clamp:
+					normalizedIndex = Mathf.Clamp(value, 0, count - 1);
+					return true;
+				case SelectableIndexMode.Loop:
+					var loopIndex = value % count;
+					if(loopIndex < 0) loopIndex += count;
+					normalizedIndex = loopIndex;
+					return true;
+				case SelectableIndexMode.Nullable:
+				default:
+					if(value < 0 || value >= count) return false;
+					normalizedIndex = value;
+					return true;
+			}
 		}
 
 		/// <summary>初期設定のSelectable、または最後に選択されていたSelectableにフォーカスを戻す</summary>
@@ -402,7 +400,10 @@ namespace ANest.UI {
 
 			if(Application.isPlaying) return;
 
-			RefreshChildSelectables();
+			if(m_childSelectableList == null || m_childSelectableList.Count == 0) {
+				m_childSelectableList ??= new List<T>();
+				GetComponentsInChildren(false, m_childSelectableList);
+			}
 		}
 
 		/// <summary>Inspectorでの値変更時の処理</summary>
@@ -411,7 +412,10 @@ namespace ANest.UI {
 
 			if(Application.isPlaying) return;
 
-			RefreshChildSelectables();
+			if(m_childSelectableList == null || m_childSelectableList.Count == 0) {
+				m_childSelectableList ??= new List<T>();
+				GetComponentsInChildren(false, m_childSelectableList);
+			}
 		}
 #endif
 	}

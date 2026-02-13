@@ -143,25 +143,5 @@ namespace ANest.UI {
 			Interactable = true;
 		}
 		#endregion
-
-#if UNITY_EDITOR
-		/// <summary>コンポーネント追加・リセット時の処理</summary>
-		protected override void Reset() {
-			base.Reset();
-
-			if(Application.isPlaying) return;
-
-			RefreshChildSelectables();
-		}
-
-		/// <summary>Inspectorでの値変更時の処理</summary>
-		protected override void OnValidate() {
-			base.OnValidate();
-
-			if(Application.isPlaying) return;
-
-			RefreshChildSelectables();
-		}
-#endif
 	}
 }

@@ -207,8 +207,103 @@ namespace ANest.UI.Editor {
 					}
 				}
 
+				SerializedProperty childAlignment = so.FindProperty("childAlignment");
+				if(childAlignment != null) {
+					TextAnchor alignment = (TextAnchor)childAlignment.enumValueIndex;
+					Vector2 alignment01 = GetAlignment01(alignment);
+					Vector3 originLocal = new Vector3(
+						Mathf.Lerp(inner.xMin, inner.xMax, alignment01.x),
+						Mathf.Lerp(inner.yMax, inner.yMin, alignment01.y),
+						0f
+					);
+					Vector3 localDirection = GetLayoutDirectionLocal(group, so, alignment);
+					if(localDirection.sqrMagnitude > 0.0001f) {
+						Vector3 worldDirection = rectTransform.TransformDirection(localDirection.normalized);
+						float axisSizeLocal = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y)
+							? Mathf.Abs(inner.width)
+							: Mathf.Abs(inner.height);
+						Vector3 centerLocal = new Vector3(inner.center.x, inner.center.y, 0f);
+						float baseSize = axisSizeLocal;
+						float arrowSizeLocal = baseSize * 0.2f;
+						float paddingRatio = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y) ? 0.05f : 0.08f;
+						float arrowPaddingLocal = baseSize * paddingRatio;
+						float insetLocal = baseSize * 0.05f;
+						Vector3 insetDirection = centerLocal - originLocal;
+						if(insetDirection.sqrMagnitude > 0.0001f) {
+							originLocal += insetDirection.normalized * insetLocal;
+						}
+						Vector3 originWorld = rectTransform.TransformPoint(originLocal);
+						if(baseSize <= 0.001f) {
+							baseSize = HandleUtility.GetHandleSize(originWorld);
+							arrowSizeLocal = baseSize * 0.2f;
+							arrowPaddingLocal = baseSize * paddingRatio;
+						}
+						float arrowSize = rectTransform.TransformVector(localDirection.normalized * arrowSizeLocal).magnitude;
+						Vector3 arrowPadding = rectTransform.TransformVector(localDirection.normalized * arrowPaddingLocal);
+						Vector3 arrowOrigin = originWorld + arrowPadding;
+						Handles.color = new Color(0.2f, 0.9f, 1f, 0.9f);
+						Handles.ArrowHandleCap(0, arrowOrigin, Quaternion.LookRotation(worldDirection), arrowSize, EventType.Repaint);
+					}
+				}
+
 				Handles.color = prevColor;
 			}
+		}
+
+		private static Vector2 GetAlignment01(TextAnchor alignment) {
+			int column = (int)alignment % 3;
+			int row = (int)alignment / 3;
+			return new Vector2(column * 0.5f, row * 0.5f);
+		}
+
+		private static float GetCircularAlignmentAngleOffset(TextAnchor alignment) {
+			switch(alignment) {
+				case TextAnchor.UpperLeft: return -45f;
+				case TextAnchor.UpperCenter: return 0f;
+				case TextAnchor.UpperRight: return 45f;
+				case TextAnchor.MiddleLeft: return 270f;
+				case TextAnchor.MiddleCenter: return 0f;
+				case TextAnchor.MiddleRight: return 90f;
+				case TextAnchor.LowerLeft: return 225f;
+				case TextAnchor.LowerCenter: return 180f;
+				case TextAnchor.LowerRight: return 135f;
+				default: return 0f;
+			}
+		}
+
+		private static Vector3 GetLayoutDirectionLocal(aLayoutGroupBase group, SerializedObject so, TextAnchor alignment) {
+			if(group is aLayoutGroupHorizontal) {
+				return Vector3.right;
+			}
+			if(group is aLayoutGroupVertical) {
+				return Vector3.down;
+			}
+			if(group is aLayoutGroupGrid) {
+				SerializedProperty startCorner = so.FindProperty("startCorner");
+				SerializedProperty startAxis = so.FindProperty("startAxis");
+				int corner = startCorner != null ? startCorner.enumValueIndex : 0;
+				int axis = startAxis != null ? startAxis.enumValueIndex : 0;
+				int cornerX = corner % 2;
+				int cornerY = corner / 2;
+				if(axis == 0) {
+					return cornerX == 0 ? Vector3.right : Vector3.left;
+				}
+				return cornerY == 0 ? Vector3.down : Vector3.up;
+			}
+			if(group is aLayoutGroupCircular) {
+				SerializedProperty startAngle = so.FindProperty("startAngle");
+				SerializedProperty angleOffset = so.FindProperty("angleOffset");
+				float baseAngle = startAngle != null ? startAngle.floatValue : 0f;
+				float offsetAngle = angleOffset != null ? angleOffset.floatValue : 0f;
+				float alignmentOffset = GetCircularAlignmentAngleOffset(alignment);
+				float angle = baseAngle + offsetAngle + alignmentOffset;
+				float rad = (90f - angle) * Mathf.Deg2Rad;
+				return new Vector3(Mathf.Sin(rad), Mathf.Cos(rad), 0f);
+			}
+			if(group is aLayoutGroupLinear) {
+				return Vector3.right;
+			}
+			return Vector3.right;
 		}
 		#endregion
 

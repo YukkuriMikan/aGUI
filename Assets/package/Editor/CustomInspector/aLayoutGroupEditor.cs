@@ -211,28 +211,34 @@ namespace ANest.UI.Editor {
 				SerializedProperty childAlignment = so.FindProperty("childAlignment");
 				if(childAlignment != null) {
 					TextAnchor alignment = (TextAnchor)childAlignment.enumValueIndex;
-					Vector2 alignment01 = GetAlignment01(alignment);
-					Vector3 originLocal = new Vector3(
-						Mathf.Lerp(inner.xMin, inner.xMax, alignment01.x),
-						Mathf.Lerp(inner.yMax, inner.yMin, alignment01.y),
-						0f
-					);
-					Vector3 localDirection = GetLayoutDirectionLocal(group, so, alignment);
-					if(localDirection.sqrMagnitude > 0.0001f) {
-						Vector3 worldDirection = rectTransform.TransformDirection(localDirection.normalized);
-						float axisSizeLocal = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y)
+					bool isCircular = group is aLayoutGroupCircular;
+					Vector3 originLocal = Vector3.zero;
+					Vector3 localDirection = Vector3.right;
+					float baseSize = 0f;
+					bool hasCircularData = isCircular && TryGetCircularArrowData(rectTransform, so, alignment, left, right, top, bottom, out originLocal, out localDirection, out baseSize);
+					if(!hasCircularData) {
+						Vector2 alignment01 = GetAlignment01(alignment);
+						originLocal = new Vector3(
+							Mathf.Lerp(inner.xMin, inner.xMax, alignment01.x),
+							Mathf.Lerp(inner.yMax, inner.yMin, alignment01.y),
+							0f
+						);
+						localDirection = GetLayoutDirectionLocal(group, so, alignment);
+						baseSize = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y)
 							? Mathf.Abs(inner.width)
 							: Mathf.Abs(inner.height);
 						Vector3 centerLocal = new Vector3(inner.center.x, inner.center.y, 0f);
-						float baseSize = axisSizeLocal;
-						float arrowSizeLocal = baseSize * 0.2f;
-						float paddingRatio = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y) ? 0.05f : 0.08f;
-						float arrowPaddingLocal = baseSize * paddingRatio;
 						float insetLocal = baseSize * 0.05f;
 						Vector3 insetDirection = centerLocal - originLocal;
 						if(insetDirection.sqrMagnitude > 0.0001f) {
 							originLocal += insetDirection.normalized * insetLocal;
 						}
+					}
+					if(localDirection.sqrMagnitude > 0.0001f) {
+						Vector3 worldDirection = rectTransform.TransformDirection(localDirection.normalized);
+						float arrowSizeLocal = baseSize * 0.2f;
+						float paddingRatio = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y) ? 0.05f : 0.08f;
+						float arrowPaddingLocal = baseSize * paddingRatio;
 						Vector3 originWorld = rectTransform.TransformPoint(originLocal);
 						if(baseSize <= 0.001f) {
 							baseSize = HandleUtility.GetHandleSize(originWorld);
@@ -381,6 +387,42 @@ namespace ANest.UI.Editor {
 				case TextAnchor.LowerRight: return 135f;
 				default: return 0f;
 			}
+		}
+
+		private static bool TryGetCircularArrowData(RectTransform rectTransform, SerializedObject so, TextAnchor alignment, int left, int right, int top, int bottom, out Vector3 originLocal, out Vector3 localDirection, out float baseSize) {
+			originLocal = Vector3.zero;
+			localDirection = Vector3.right;
+			baseSize = 0f;
+			if(rectTransform == null || so == null) return false;
+			SerializedProperty startAngleProp = so.FindProperty("startAngle");
+			SerializedProperty angleOffsetProp = so.FindProperty("angleOffset");
+			SerializedProperty radiusProp = so.FindProperty("radius");
+			SerializedProperty centerOffsetProp = so.FindProperty("centerOffset");
+			float baseAngle = startAngleProp != null ? startAngleProp.floatValue : 0f;
+			float offsetAngle = angleOffsetProp != null ? angleOffsetProp.floatValue : 0f;
+			float radius = radiusProp != null ? radiusProp.floatValue : 0f;
+			Vector2 centerOffset = centerOffsetProp != null ? centerOffsetProp.vector2Value : Vector2.zero;
+			Rect rect = rectTransform.rect;
+			float width = rect.width;
+			float height = rect.height;
+			Vector2 pivot = rectTransform.pivot;
+			Vector2 center = new Vector2(width * pivot.x, height * (1f - pivot.y)) + centerOffset;
+			float leftSpace = center.x - left;
+			float rightSpace = (width - right) - center.x;
+			float topSpace = center.y - top;
+			float bottomSpace = (height - bottom) - center.y;
+			float actualRadius = radius > 0f ? radius : Mathf.Max(0f, Mathf.Min(Mathf.Min(leftSpace, rightSpace), Mathf.Min(topSpace, bottomSpace)));
+			float alignmentOffset = GetCircularAlignmentAngleOffset(alignment);
+			float angle = baseAngle + offsetAngle + alignmentOffset;
+			float rad = (90f - angle) * Mathf.Deg2Rad;
+			Vector2 posTopLeft = new Vector2(
+				center.x + Mathf.Cos(rad) * actualRadius,
+				center.y - Mathf.Sin(rad) * actualRadius
+			);
+			originLocal = new Vector3(rect.xMin + posTopLeft.x, rect.yMax - posTopLeft.y, 0f);
+			localDirection = new Vector3(Mathf.Sin(rad), -Mathf.Cos(rad), 0f);
+			baseSize = actualRadius;
+			return true;
 		}
 
 		private static Vector3 GetLayoutDirectionLocal(aLayoutGroupBase group, SerializedObject so, TextAnchor alignment) {

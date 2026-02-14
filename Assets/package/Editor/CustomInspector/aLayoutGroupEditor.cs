@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -246,8 +247,119 @@ namespace ANest.UI.Editor {
 					}
 				}
 
+				SerializedProperty rectChildren = so.FindProperty("rectChildren");
+				DrawRectChildrenHandles(group, rectChildren);
+
 				Handles.color = prevColor;
 			}
+		}
+
+		private static void DrawRectChildrenHandles(aLayoutGroupBase group, SerializedProperty rectChildren) {
+			if(group == null) return;
+			if(rectChildren == null || !rectChildren.isArray) return;
+			var corners = new Vector3[4];
+			Color prevColor = Handles.color;
+			Handles.color = new Color(0.2f, 1f, 0.6f, 0.9f);
+			List<RectTransform> previewTargets = CollectPreviewChildren(group);
+			if(previewTargets.Count == 0) {
+				Handles.color = prevColor;
+				return;
+			}
+
+			Dictionary<RectTransform, RectTransformSnapshot> snapshots = new();
+			for(int i = 0; i < previewTargets.Count; i++) {
+				RectTransform child = previewTargets[i];
+				if(child == null) continue;
+				snapshots[child] = new RectTransformSnapshot(child);
+			}
+
+			List<RectTransform> rectChildrenList = GetRectChildrenList(group);
+			List<RectTransform> rectChildrenBackup = rectChildrenList != null ? new List<RectTransform>(rectChildrenList) : null;
+			bool suppressSet = TrySetSuppressAnimation(group, true, out bool previousSuppress);
+			try {
+				group.AlignWithCollection();
+
+				rectChildrenList = GetRectChildrenList(group);
+				IEnumerable<RectTransform> drawTargets = rectChildrenList ?? previewTargets;
+				foreach (RectTransform child in drawTargets) {
+					if(child == null) continue;
+					child.GetWorldCorners(corners);
+					Handles.DrawAAPolyLine(2.5f, new [] { corners[0], corners[1], corners[2], corners[3], corners[0] });
+					float handleSize = HandleUtility.GetHandleSize(child.position) * 0.04f;
+					Handles.DotHandleCap(0, corners[0], Quaternion.identity, handleSize, EventType.Repaint);
+					Handles.DotHandleCap(0, corners[1], Quaternion.identity, handleSize, EventType.Repaint);
+					Handles.DotHandleCap(0, corners[2], Quaternion.identity, handleSize, EventType.Repaint);
+					Handles.DotHandleCap(0, corners[3], Quaternion.identity, handleSize, EventType.Repaint);
+				}
+			} finally {
+				if(rectChildrenList != null && rectChildrenBackup != null) {
+					rectChildrenList.Clear();
+					rectChildrenList.AddRange(rectChildrenBackup);
+				}
+				foreach (var pair in snapshots) {
+					pair.Value.Restore(pair.Key);
+				}
+				if(suppressSet) {
+					TrySetSuppressAnimation(group, previousSuppress, out _);
+				}
+			}
+
+			Handles.color = prevColor;
+		}
+
+		private readonly struct RectTransformSnapshot {
+			public readonly Vector2 AnchoredPosition;
+			public readonly Vector2 SizeDelta;
+			public readonly Vector2 AnchorMin;
+			public readonly Vector2 AnchorMax;
+
+			public RectTransformSnapshot(RectTransform rect) {
+				AnchoredPosition = rect.anchoredPosition;
+				SizeDelta = rect.sizeDelta;
+				AnchorMin = rect.anchorMin;
+				AnchorMax = rect.anchorMax;
+			}
+
+			public void Restore(RectTransform rect) {
+				if(rect == null) return;
+				rect.anchoredPosition = AnchoredPosition;
+				rect.sizeDelta = SizeDelta;
+				rect.anchorMin = AnchorMin;
+				rect.anchorMax = AnchorMax;
+			}
+		}
+
+		private static List<RectTransform> CollectPreviewChildren(aLayoutGroupBase group) {
+			var results = new List<RectTransform>();
+			if(group == null) return results;
+			List<RectTransform> excluded = GetExcludedChildrenList(group);
+			Transform parent = group.transform;
+			for(int i = 0; i < parent.childCount; i++) {
+				if(parent.GetChild(i) is not RectTransform child) continue;
+				if(!child.gameObject.activeSelf) continue;
+				if(excluded != null && excluded.Contains(child)) continue;
+				results.Add(child);
+			}
+			return results;
+		}
+
+		private static List<RectTransform> GetRectChildrenList(aLayoutGroupBase group) {
+			FieldInfo field = typeof(aLayoutGroupBase).GetField("rectChildren", BindingFlags.Instance | BindingFlags.NonPublic);
+			return field?.GetValue(group) as List<RectTransform>;
+		}
+
+		private static List<RectTransform> GetExcludedChildrenList(aLayoutGroupBase group) {
+			FieldInfo field = typeof(aLayoutGroupBase).GetField("excludedChildren", BindingFlags.Instance | BindingFlags.NonPublic);
+			return field?.GetValue(group) as List<RectTransform>;
+		}
+
+		private static bool TrySetSuppressAnimation(aLayoutGroupBase group, bool value, out bool previous) {
+			previous = false;
+			FieldInfo field = typeof(aLayoutGroupBase).GetField("m_suppressAnimation", BindingFlags.Instance | BindingFlags.NonPublic);
+			if(field == null) return false;
+			previous = (bool)field.GetValue(group);
+			field.SetValue(group, value);
+			return true;
 		}
 
 		private static Vector2 GetAlignment01(TextAnchor alignment) {

@@ -109,24 +109,27 @@ namespace ANest.UI.Editor {
 		/// <summary>RectTransformのPaddingを可視化し、ハンドルで編集できるようにする。</summary>
 		private void OnSceneGUI() {
 			if(target is not aLayoutGroupBase group) return;
+
 			var rectTransform = group.transform as RectTransform;
+
 			if(rectTransform == null) return;
 
 			using (new Handles.DrawingScope()) {
-				SerializedObject so = new SerializedObject(group);
-				SerializedProperty padding = so.FindProperty("padding");
+				var so = new SerializedObject(group);
+				var padding = so.FindProperty("padding");
+
 				if(padding == null) return;
 
-				SerializedProperty leftProp = padding.FindPropertyRelative("m_Left");
-				SerializedProperty rightProp = padding.FindPropertyRelative("m_Right");
-				SerializedProperty topProp = padding.FindPropertyRelative("m_Top");
-				SerializedProperty bottomProp = padding.FindPropertyRelative("m_Bottom");
+				var leftProp = padding.FindPropertyRelative("m_Left");
+				var rightProp = padding.FindPropertyRelative("m_Right");
+				var topProp = padding.FindPropertyRelative("m_Top");
+				var bottomProp = padding.FindPropertyRelative("m_Bottom");
 				if(leftProp == null || rightProp == null || topProp == null || bottomProp == null) return;
 
-				int left = leftProp.intValue;
-				int right = rightProp.intValue;
-				int top = topProp.intValue;
-				int bottom = bottomProp.intValue;
+				var left = leftProp.intValue;
+				var right = rightProp.intValue;
+				var top = topProp.intValue;
+				var bottom = bottomProp.intValue;
 
 				var outer = rectTransform.rect;
 				var inner = new Rect(
@@ -134,47 +137,55 @@ namespace ANest.UI.Editor {
 					outer.yMin + bottom,
 					outer.width - left - right,
 					outer.height - top - bottom
-				);
+					);
 
-				Vector3[] corners = new Vector3[4];
+				var corners = new Vector3[4];
+
 				corners[0] = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.yMin, 0f));
 				corners[1] = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.yMax, 0f));
 				corners[2] = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.yMax, 0f));
 				corners[3] = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.yMin, 0f));
 
-				Color prevColor = Handles.color;
+				var prevColor = Handles.color;
+
 				Handles.color = new Color(1f, 0.6f, 0f, 0.9f);
-				Handles.DrawAAPolyLine(3f, new [] { corners[0], corners[1], corners[2], corners[3], corners[0] });
+				Handles.DrawAAPolyLine(3f, new[] {
+					corners[0],
+					corners[1],
+					corners[2],
+					corners[3],
+					corners[0]
+				});
 
 				EditorGUI.BeginChangeCheck();
 				{
-					Vector3 worldLeft = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.center.y, 0f));
-					Vector3 worldRight = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.center.y, 0f));
-					Vector3 worldTop = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMax, 0f));
-					Vector3 worldBottom = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMin, 0f));
+					var worldLeft = rectTransform.TransformPoint(new Vector3(inner.xMin, inner.center.y, 0f));
+					var worldRight = rectTransform.TransformPoint(new Vector3(inner.xMax, inner.center.y, 0f));
+					var worldTop = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMax, 0f));
+					var worldBottom = rectTransform.TransformPoint(new Vector3(inner.center.x, inner.yMin, 0f));
 
-					Vector3 dirRight = rectTransform.right;
-					Vector3 dirUp = rectTransform.up;
+					var dirRight = rectTransform.right;
+					var dirUp = rectTransform.up;
 
-					float sizeX = HandleUtility.GetHandleSize(worldLeft) * 0.1f;
-					float sizeY = HandleUtility.GetHandleSize(worldTop) * 0.1f;
+					var sizeX = HandleUtility.GetHandleSize(worldLeft) * 0.1f;
+					var sizeY = HandleUtility.GetHandleSize(worldTop) * 0.1f;
 
 					Handles.color = new Color(1f, 0.6f, 0f, 1f);
-					Vector3 newLeftPos = Handles.Slider(worldLeft, dirRight, sizeX, Handles.DotHandleCap, 0f);
-					Vector3 newRightPos = Handles.Slider(worldRight, dirRight, sizeX, Handles.DotHandleCap, 0f);
-					Vector3 newTopPos = Handles.Slider(worldTop, dirUp, sizeY, Handles.DotHandleCap, 0f);
-					Vector3 newBottomPos = Handles.Slider(worldBottom, dirUp, sizeY, Handles.DotHandleCap, 0f);
+					var newLeftPos = Handles.Slider(worldLeft, dirRight, sizeX, Handles.DotHandleCap, 0f);
+					var newRightPos = Handles.Slider(worldRight, dirRight, sizeX, Handles.DotHandleCap, 0f);
+					var newTopPos = Handles.Slider(worldTop, dirUp, sizeY, Handles.DotHandleCap, 0f);
+					var newBottomPos = Handles.Slider(worldBottom, dirUp, sizeY, Handles.DotHandleCap, 0f);
 					Handles.color = prevColor;
 
-					float deltaLeft = Vector3.Dot(newLeftPos - worldLeft, dirRight);
-					float deltaRight = Vector3.Dot(newRightPos - worldRight, dirRight);
-					float deltaTop = Vector3.Dot(newTopPos - worldTop, dirUp);
-					float deltaBottom = Vector3.Dot(newBottomPos - worldBottom, dirUp);
+					var deltaLeft = Vector3.Dot(newLeftPos - worldLeft, dirRight);
+					var deltaRight = Vector3.Dot(newRightPos - worldRight, dirRight);
+					var deltaTop = Vector3.Dot(newTopPos - worldTop, dirUp);
+					var deltaBottom = Vector3.Dot(newBottomPos - worldBottom, dirUp);
 
-					int newLeft = Mathf.RoundToInt(left + deltaLeft);
-					int newRight = Mathf.RoundToInt(right - deltaRight);
-					int newTop = Mathf.RoundToInt(top - deltaTop);
-					int newBottom = Mathf.RoundToInt(bottom + deltaBottom);
+					var newLeft = Mathf.RoundToInt(left + deltaLeft);
+					var newRight = Mathf.RoundToInt(right - deltaRight);
+					var newTop = Mathf.RoundToInt(top - deltaTop);
+					var newBottom = Mathf.RoundToInt(bottom + deltaBottom);
 
 					const float minInnerSize = 1f;
 					newLeft = Mathf.RoundToInt(newLeft);
@@ -182,16 +193,16 @@ namespace ANest.UI.Editor {
 					newTop = Mathf.RoundToInt(newTop);
 					newBottom = Mathf.RoundToInt(newBottom);
 
-					float maxLeft = Mathf.Max(0f, outer.width - minInnerSize - newRight);
+					var maxLeft = Mathf.Max(0f, outer.width - minInnerSize - newRight);
 					newLeft = Mathf.Min(newLeft, Mathf.RoundToInt(maxLeft));
 
-					float maxRight = Mathf.Max(0f, outer.width - minInnerSize - newLeft);
+					var maxRight = Mathf.Max(0f, outer.width - minInnerSize - newLeft);
 					newRight = Mathf.Min(newRight, Mathf.RoundToInt(maxRight));
 
-					float maxTop = Mathf.Max(0f, outer.height - minInnerSize - newBottom);
+					var maxTop = Mathf.Max(0f, outer.height - minInnerSize - newBottom);
 					newTop = Mathf.Min(newTop, Mathf.RoundToInt(maxTop));
 
-					float maxBottom = Mathf.Max(0f, outer.height - minInnerSize - newTop);
+					var maxBottom = Mathf.Max(0f, outer.height - minInnerSize - newTop);
 					newBottom = Mathf.Min(newBottom, Mathf.RoundToInt(maxBottom));
 
 					if(EditorGUI.EndChangeCheck()) {
@@ -210,44 +221,48 @@ namespace ANest.UI.Editor {
 
 				SerializedProperty childAlignment = so.FindProperty("childAlignment");
 				if(childAlignment != null) {
-					TextAnchor alignment = (TextAnchor)childAlignment.enumValueIndex;
-					bool isCircular = group is aLayoutGroupCircular;
-					Vector3 originLocal = Vector3.zero;
-					Vector3 localDirection = Vector3.right;
-					float baseSize = 0f;
-					bool hasCircularData = isCircular && TryGetCircularArrowData(rectTransform, so, alignment, left, right, top, bottom, out originLocal, out localDirection, out baseSize);
+					var alignment = (TextAnchor)childAlignment.enumValueIndex;
+					var isCircular = group is aLayoutGroupCircular;
+					var originLocal = Vector3.zero;
+					var localDirection = Vector3.right;
+					var baseSize = 0f;
+					var hasCircularData = isCircular && TryGetCircularArrowData(rectTransform, so, alignment, left, right, top, bottom, out originLocal, out localDirection, out baseSize);
+
 					if(!hasCircularData) {
 						Vector2 alignment01 = GetAlignment01(alignment);
 						originLocal = new Vector3(
 							Mathf.Lerp(inner.xMin, inner.xMax, alignment01.x),
 							Mathf.Lerp(inner.yMax, inner.yMin, alignment01.y),
 							0f
-						);
+							);
 						localDirection = GetLayoutDirectionLocal(group, so, alignment);
 						baseSize = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y)
 							? Mathf.Abs(inner.width)
 							: Mathf.Abs(inner.height);
-						Vector3 centerLocal = new Vector3(inner.center.x, inner.center.y, 0f);
-						float insetLocal = baseSize * 0.05f;
-						Vector3 insetDirection = centerLocal - originLocal;
+						var centerLocal = new Vector3(inner.center.x, inner.center.y, 0f);
+						var insetLocal = baseSize * 0.05f;
+						var insetDirection = centerLocal - originLocal;
+
 						if(insetDirection.sqrMagnitude > 0.0001f) {
 							originLocal += insetDirection.normalized * insetLocal;
 						}
 					}
 					if(localDirection.sqrMagnitude > 0.0001f) {
-						Vector3 worldDirection = rectTransform.TransformDirection(localDirection.normalized);
-						float arrowSizeLocal = baseSize * 0.2f;
-						float paddingRatio = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y) ? 0.05f : 0.08f;
-						float arrowPaddingLocal = baseSize * paddingRatio;
-						Vector3 originWorld = rectTransform.TransformPoint(originLocal);
+						var worldDirection = rectTransform.TransformDirection(localDirection.normalized);
+						var arrowSizeLocal = baseSize * 0.2f;
+						var paddingRatio = Mathf.Abs(localDirection.x) >= Mathf.Abs(localDirection.y) ? 0.05f : 0.08f;
+						var arrowPaddingLocal = baseSize * paddingRatio;
+						var originWorld = rectTransform.TransformPoint(originLocal);
+
 						if(baseSize <= 0.001f) {
 							baseSize = HandleUtility.GetHandleSize(originWorld);
 							arrowSizeLocal = baseSize * 0.2f;
 							arrowPaddingLocal = baseSize * paddingRatio;
 						}
-						float arrowSize = rectTransform.TransformVector(localDirection.normalized * arrowSizeLocal).magnitude;
-						Vector3 arrowPadding = rectTransform.TransformVector(localDirection.normalized * arrowPaddingLocal);
-						Vector3 arrowOrigin = originWorld + arrowPadding;
+
+						var arrowSize = rectTransform.TransformVector(localDirection.normalized * arrowSizeLocal).magnitude;
+						var arrowPadding = rectTransform.TransformVector(localDirection.normalized * arrowPaddingLocal);
+						var arrowOrigin = originWorld + arrowPadding;
 						Handles.color = new Color(0.2f, 0.9f, 1f, 0.9f);
 						Handles.ArrowHandleCap(0, arrowOrigin, Quaternion.LookRotation(worldDirection), arrowSize, EventType.Repaint);
 					}
@@ -263,35 +278,50 @@ namespace ANest.UI.Editor {
 		private static void DrawRectChildrenHandles(aLayoutGroupBase group, SerializedProperty rectChildren) {
 			if(group == null) return;
 			if(rectChildren == null || !rectChildren.isArray) return;
+
 			var corners = new Vector3[4];
-			Color prevColor = Handles.color;
+			var prevColor = Handles.color;
 			Handles.color = new Color(0.2f, 1f, 0.6f, 0.9f);
-			List<RectTransform> previewTargets = CollectPreviewChildren(group);
+			var previewTargets = CollectPreviewChildren(group);
+
 			if(previewTargets.Count == 0) {
 				Handles.color = prevColor;
 				return;
 			}
 
-			Dictionary<RectTransform, RectTransformSnapshot> snapshots = new();
-			for(int i = 0; i < previewTargets.Count; i++) {
-				RectTransform child = previewTargets[i];
+			var snapshots = new Dictionary<RectTransform, RectTransformSnapshot>();
+			for (int i = 0; i < previewTargets.Count; i++) {
+				var child = previewTargets[i];
 				if(child == null) continue;
+
 				snapshots[child] = new RectTransformSnapshot(child);
 			}
 
-			List<RectTransform> rectChildrenList = GetRectChildrenList(group);
-			List<RectTransform> rectChildrenBackup = rectChildrenList != null ? new List<RectTransform>(rectChildrenList) : null;
-			bool suppressSet = TrySetSuppressAnimation(group, true, out bool previousSuppress);
+			var rectChildrenList = GetRectChildrenList(group);
+			var rectChildrenBackup = rectChildrenList != null ? new List<RectTransform>(rectChildrenList) : null;
+			var suppressSet = TrySetSuppressAnimation(group, true, out bool previousSuppress);
+
 			try {
 				group.AlignWithCollection();
 
 				rectChildrenList = GetRectChildrenList(group);
-				IEnumerable<RectTransform> drawTargets = rectChildrenList ?? previewTargets;
-				foreach (RectTransform child in drawTargets) {
+
+				var drawTargets = rectChildrenList ?? previewTargets;
+
+				foreach (var child in drawTargets) {
 					if(child == null) continue;
+
 					child.GetWorldCorners(corners);
-					Handles.DrawAAPolyLine(2.5f, new [] { corners[0], corners[1], corners[2], corners[3], corners[0] });
-					float handleSize = HandleUtility.GetHandleSize(child.position) * 0.04f;
+
+					Handles.DrawAAPolyLine(2.5f, new[] {
+						corners[0],
+						corners[1],
+						corners[2],
+						corners[3],
+						corners[0]
+					});
+
+					var handleSize = HandleUtility.GetHandleSize(child.position) * 0.04f;
 					Handles.DotHandleCap(0, corners[0], Quaternion.identity, handleSize, EventType.Repaint);
 					Handles.DotHandleCap(0, corners[1], Quaternion.identity, handleSize, EventType.Repaint);
 					Handles.DotHandleCap(0, corners[2], Quaternion.identity, handleSize, EventType.Repaint);
@@ -337,10 +367,12 @@ namespace ANest.UI.Editor {
 
 		private static List<RectTransform> CollectPreviewChildren(aLayoutGroupBase group) {
 			var results = new List<RectTransform>();
+
 			if(group == null) return results;
-			List<RectTransform> excluded = GetExcludedChildrenList(group);
-			Transform parent = group.transform;
-			for(int i = 0; i < parent.childCount; i++) {
+			var excluded = GetExcludedChildrenList(group);
+			var parent = group.transform;
+
+			for (int i = 0; i < parent.childCount; i++) {
 				if(parent.GetChild(i) is not RectTransform child) continue;
 				if(!child.gameObject.activeSelf) continue;
 				if(excluded != null && excluded.Contains(child)) continue;
@@ -350,27 +382,33 @@ namespace ANest.UI.Editor {
 		}
 
 		private static List<RectTransform> GetRectChildrenList(aLayoutGroupBase group) {
-			FieldInfo field = typeof(aLayoutGroupBase).GetField("rectChildren", BindingFlags.Instance | BindingFlags.NonPublic);
+			var field = typeof(aLayoutGroupBase).GetField("rectChildren", BindingFlags.Instance | BindingFlags.NonPublic);
+
 			return field?.GetValue(group) as List<RectTransform>;
 		}
 
 		private static List<RectTransform> GetExcludedChildrenList(aLayoutGroupBase group) {
-			FieldInfo field = typeof(aLayoutGroupBase).GetField("excludedChildren", BindingFlags.Instance | BindingFlags.NonPublic);
+			var field = typeof(aLayoutGroupBase).GetField("excludedChildren", BindingFlags.Instance | BindingFlags.NonPublic);
+
 			return field?.GetValue(group) as List<RectTransform>;
 		}
 
 		private static bool TrySetSuppressAnimation(aLayoutGroupBase group, bool value, out bool previous) {
 			previous = false;
-			FieldInfo field = typeof(aLayoutGroupBase).GetField("m_suppressAnimation", BindingFlags.Instance | BindingFlags.NonPublic);
+			var field = typeof(aLayoutGroupBase).GetField("m_suppressAnimation", BindingFlags.Instance | BindingFlags.NonPublic);
+
 			if(field == null) return false;
+
 			previous = (bool)field.GetValue(group);
 			field.SetValue(group, value);
+
 			return true;
 		}
 
 		private static Vector2 GetAlignment01(TextAnchor alignment) {
-			int column = (int)alignment % 3;
-			int row = (int)alignment / 3;
+			var column = (int)alignment % 3;
+			var row = (int)alignment / 3;
+
 			return new Vector2(column * 0.5f, row * 0.5f);
 		}
 
@@ -393,32 +431,34 @@ namespace ANest.UI.Editor {
 			originLocal = Vector3.zero;
 			localDirection = Vector3.right;
 			baseSize = 0f;
+
 			if(rectTransform == null || so == null) return false;
-			SerializedProperty startAngleProp = so.FindProperty("startAngle");
-			SerializedProperty angleOffsetProp = so.FindProperty("angleOffset");
-			SerializedProperty radiusProp = so.FindProperty("radius");
-			SerializedProperty centerOffsetProp = so.FindProperty("centerOffset");
-			float baseAngle = startAngleProp != null ? startAngleProp.floatValue : 0f;
-			float offsetAngle = angleOffsetProp != null ? angleOffsetProp.floatValue : 0f;
-			float radius = radiusProp != null ? radiusProp.floatValue : 0f;
-			Vector2 centerOffset = centerOffsetProp != null ? centerOffsetProp.vector2Value : Vector2.zero;
-			Rect rect = rectTransform.rect;
-			float width = rect.width;
-			float height = rect.height;
-			Vector2 pivot = rectTransform.pivot;
-			Vector2 center = new Vector2(width * pivot.x, height * (1f - pivot.y)) + centerOffset;
-			float leftSpace = center.x - left;
-			float rightSpace = (width - right) - center.x;
-			float topSpace = center.y - top;
-			float bottomSpace = (height - bottom) - center.y;
-			float actualRadius = radius > 0f ? radius : Mathf.Max(0f, Mathf.Min(Mathf.Min(leftSpace, rightSpace), Mathf.Min(topSpace, bottomSpace)));
-			float alignmentOffset = GetCircularAlignmentAngleOffset(alignment);
-			float angle = baseAngle + offsetAngle + alignmentOffset;
-			float rad = (90f - angle) * Mathf.Deg2Rad;
-			Vector2 posTopLeft = new Vector2(
+
+			var startAngleProp = so.FindProperty("startAngle");
+			var angleOffsetProp = so.FindProperty("angleOffset");
+			var radiusProp = so.FindProperty("radius");
+			var centerOffsetProp = so.FindProperty("centerOffset");
+			var baseAngle = startAngleProp != null ? startAngleProp.floatValue : 0f;
+			var offsetAngle = angleOffsetProp != null ? angleOffsetProp.floatValue : 0f;
+			var radius = radiusProp != null ? radiusProp.floatValue : 0f;
+			var centerOffset = centerOffsetProp != null ? centerOffsetProp.vector2Value : Vector2.zero;
+			var rect = rectTransform.rect;
+			var width = rect.width;
+			var height = rect.height;
+			var pivot = rectTransform.pivot;
+			var center = new Vector2(width * pivot.x, height * (1f - pivot.y)) + centerOffset;
+			var leftSpace = center.x - left;
+			var rightSpace = (width - right) - center.x;
+			var topSpace = center.y - top;
+			var bottomSpace = (height - bottom) - center.y;
+			var actualRadius = radius > 0f ? radius : Mathf.Max(0f, Mathf.Min(Mathf.Min(leftSpace, rightSpace), Mathf.Min(topSpace, bottomSpace)));
+			var alignmentOffset = GetCircularAlignmentAngleOffset(alignment);
+			var angle = baseAngle + offsetAngle + alignmentOffset;
+			var rad = (90f - angle) * Mathf.Deg2Rad;
+			var posTopLeft = new Vector2(
 				center.x + Mathf.Cos(rad) * actualRadius,
 				center.y - Mathf.Sin(rad) * actualRadius
-			);
+				);
 			originLocal = new Vector3(rect.xMin + posTopLeft.x, rect.yMax - posTopLeft.y, 0f);
 			localDirection = new Vector3(Mathf.Sin(rad), -Mathf.Cos(rad), 0f);
 			baseSize = actualRadius;
@@ -433,25 +473,27 @@ namespace ANest.UI.Editor {
 				return Vector3.down;
 			}
 			if(group is aLayoutGroupGrid) {
-				SerializedProperty startCorner = so.FindProperty("startCorner");
-				SerializedProperty startAxis = so.FindProperty("startAxis");
-				int corner = startCorner != null ? startCorner.enumValueIndex : 0;
-				int axis = startAxis != null ? startAxis.enumValueIndex : 0;
-				int cornerX = corner % 2;
-				int cornerY = corner / 2;
+				var startCorner = so.FindProperty("startCorner");
+				var startAxis = so.FindProperty("startAxis");
+				var corner = startCorner != null ? startCorner.enumValueIndex : 0;
+				var axis = startAxis != null ? startAxis.enumValueIndex : 0;
+				var cornerX = corner % 2;
+				var cornerY = corner / 2;
+
 				if(axis == 0) {
 					return cornerX == 0 ? Vector3.right : Vector3.left;
 				}
 				return cornerY == 0 ? Vector3.down : Vector3.up;
 			}
 			if(group is aLayoutGroupCircular) {
-				SerializedProperty startAngle = so.FindProperty("startAngle");
-				SerializedProperty angleOffset = so.FindProperty("angleOffset");
-				float baseAngle = startAngle != null ? startAngle.floatValue : 0f;
-				float offsetAngle = angleOffset != null ? angleOffset.floatValue : 0f;
-				float alignmentOffset = GetCircularAlignmentAngleOffset(alignment);
-				float angle = baseAngle + offsetAngle + alignmentOffset;
-				float rad = (90f - angle) * Mathf.Deg2Rad;
+				var startAngle = so.FindProperty("startAngle");
+				var angleOffset = so.FindProperty("angleOffset");
+				var baseAngle = startAngle != null ? startAngle.floatValue : 0f;
+				var offsetAngle = angleOffset != null ? angleOffset.floatValue : 0f;
+				var alignmentOffset = GetCircularAlignmentAngleOffset(alignment);
+				var angle = baseAngle + offsetAngle + alignmentOffset;
+				var rad = (90f - angle) * Mathf.Deg2Rad;
+
 				return new Vector3(Mathf.Sin(rad), Mathf.Cos(rad), 0f);
 			}
 			if(group is aLayoutGroupLinear) {
@@ -469,7 +511,7 @@ namespace ANest.UI.Editor {
 			PropertyFieldSafe(rectChildrenProp, true);
 			PropertyFieldSafe(excludedChildrenProp, true);
 			PropertyFieldSafe(paddingProp, true);
-			if (target is aLayoutGroupCircular) {
+			if(target is aLayoutGroupCircular) {
 				EditorGUILayout.HelpBox("Radiusが自動計算される際の制限範囲、およびScene上でのガイド枠として機能します。", MessageType.Info);
 			}
 
@@ -480,19 +522,23 @@ namespace ANest.UI.Editor {
 				PropertyFieldSafe(startAxisProp);
 				PropertyFieldSafe(childAlignmentProp);
 				PropertyFieldSafe(constraintProp);
+
 				if(constraintProp != null && constraintProp.enumValueIndex != 0) {
 					PropertyFieldSafe(constraintCountProp);
 				}
+
 				PropertyFieldSafe(reverseArrangementProp);
 				DrawChildControlsSection();
 				DrawAnimationSection();
 			} else {
 				PropertyFieldSafe(spacingProp);
-				if (target is aLayoutGroupCircular) {
+
+				if(target is aLayoutGroupCircular) {
 					EditorGUILayout.HelpBox("要素間の角度。Child Force Expandが無効な場合に使用されます。", MessageType.Info);
 				}
 				PropertyFieldSafe(childAlignmentProp);
-				if (target is aLayoutGroupCircular) {
+
+				if(target is aLayoutGroupCircular) {
 					EditorGUILayout.HelpBox("円形配置全体の基準回転を決定します（例: LowerCenterで180度回転）。", MessageType.Info);
 				}
 				PropertyFieldSafe(reverseArrangementProp);
@@ -500,21 +546,25 @@ namespace ANest.UI.Editor {
 				DrawAnimationSection();
 			}
 		}
-	
+
 		/// <summary>子要素のサイズ制御やナビゲーション設定を描画する。</summary>
 		private void DrawChildControlsSection() {
-			bool isCircular = target is aLayoutGroupCircular;
+			var isCircular = target is aLayoutGroupCircular;
+
 			if(!isCircular) {
 				DrawToggleRow(childControlsLabel, childControlWidthProp, childControlHeightProp);
 				DrawToggleRow(childScaleLabel, childScaleWidthProp, childScaleHeightProp);
 			}
+
 			if(isCircular) {
 				PropertyFieldSafe(childForceExpandCircularProp, childForceExpandLabel);
 				EditorGUILayout.HelpBox("有効な場合、Start-Endの範囲内に要素を均等に広げます。", MessageType.Info);
 			} else {
 				DrawToggleRow(childForceExpandLabel, childForceExpandWidthProp, childForceExpandHeightProp);
 			}
+
 			DrawToggleRow(navigationLabel, setNavigationProp, navigationLoopProp, navigationEnableLabel, navigationLoopLabel);
+
 			if(setNavigationProp != null && setNavigationProp.boolValue) {
 				EditorGUI.indentLevel++;
 				PropertyFieldSafe(navigationAxisRangeProp, new GUIContent("Navigation Axis Range"));
@@ -523,23 +573,28 @@ namespace ANest.UI.Editor {
 				}
 				EditorGUI.indentLevel--;
 			}
+
 			EditorGUILayout.Space();
 		}
 
 		/// <summary>アニメーション有効時の各種パラメータを描画する。</summary>
 		private void DrawAnimationSection() {
 			if(useAnimationProp == null) return;
+
 			PropertyFieldSafe(useAnimationProp, new GUIContent("Use Animation"));
+
 			if(useAnimationProp.boolValue) {
 				EditorGUI.indentLevel++;
 				PropertyFieldSafe(animationDurationProp, new GUIContent("Animation Duration"));
 				PropertyFieldSafe(animationDistanceThresholdProp, new GUIContent("Distance Threshold"));
 				PropertyFieldSafe(useAnimationCurveProp, new GUIContent("Use Animation Curve"));
+
 				if(useAnimationCurveProp.boolValue) {
 					PropertyFieldSafe(animationCurveProp, new GUIContent("Animation Curve"));
 				} else {
 					PropertyFieldSafe(animationEaseProp, new GUIContent("Animation Ease"));
 				}
+
 				if(target is aLayoutGroupCircular) {
 					PropertyFieldSafe(useCircularMoveProp, new GUIContent("Use Circular Move"));
 					if(useCircularMoveProp.boolValue) {
@@ -560,7 +615,9 @@ namespace ANest.UI.Editor {
 		private void DrawToggleRow(GUIContent rowLabel, SerializedProperty leftProp, SerializedProperty rightProp, GUIContent leftLabel, GUIContent rightLabel) {
 			EditorGUILayout.BeginHorizontal();
 			EditorGUILayout.LabelField(rowLabel, GUILayout.Width(EditorGUIUtility.labelWidth - 4f));
-			float oldLabelWidth = EditorGUIUtility.labelWidth;
+
+			var oldLabelWidth = EditorGUIUtility.labelWidth;
+
 			EditorGUIUtility.labelWidth = 50f;
 			PropertyFieldSafe(leftProp, leftLabel);
 			PropertyFieldSafe(rightProp, rightLabel);
@@ -570,16 +627,16 @@ namespace ANest.UI.Editor {
 
 		/// <summary>派生クラス固有プロパティを描画し、Circular向け補足情報を表示する。</summary>
 		private void DrawDerivedProperties() {
-			bool isCircular = target is aLayoutGroupCircular;
-			SerializedProperty iterator = serializedObject.GetIterator();
-			bool enterChildren = true;
+			var isCircular = target is aLayoutGroupCircular;
+			var iterator = serializedObject.GetIterator();
+			var enterChildren = true;
 			while (iterator.NextVisible(enterChildren)) {
 				enterChildren = false;
 				if(IsBaseProperty(iterator.propertyPath)) continue;
 				EditorGUILayout.PropertyField(iterator, true);
 
-				if (isCircular) {
-					switch (iterator.propertyPath) {
+				if(isCircular) {
+					switch(iterator.propertyPath) {
 						case "radius":
 							EditorGUILayout.HelpBox("円の半径。0以下の場合は親のRectサイズ（Padding考慮）に合わせて自動計算されます。", MessageType.Info);
 							break;
@@ -602,8 +659,9 @@ namespace ANest.UI.Editor {
 
 		/// <summary>m_Scriptを読み取り専用で表示する。</summary>
 		private void DrawScriptField() {
-			SerializedProperty script = serializedObject.FindProperty("m_Script");
+			var script = serializedObject.FindProperty("m_Script");
 			if(script == null) return;
+
 			using (new EditorGUI.DisabledScope(true)) {
 				EditorGUILayout.PropertyField(script);
 			}
@@ -666,7 +724,7 @@ namespace ANest.UI.Editor {
 		/// <summary>選択中のレイアウトを再構築し、Undoを記録する。</summary>
 		private void RebuildTargets() {
 			Undo.IncrementCurrentGroup();
-			int undoGroup = Undo.GetCurrentGroup();
+			var undoGroup = Undo.GetCurrentGroup();
 			Undo.SetCurrentGroupName("Rebuild Layout");
 
 			foreach (var targetObject in targets) {
@@ -707,13 +765,16 @@ namespace ANest.UI.Editor {
 			AddTarget(group.transform as RectTransform);
 
 			// Collect layout target children (same criteria as aLayoutGroupBase: active & not ignored)
-			Transform parent = group.transform;
-			int childCount = parent.childCount;
+			var parent = group.transform;
+			var childCount = parent.childCount;
+
 			for (int i = 0; i < childCount; i++) {
 				if(parent.GetChild(i) is not RectTransform child) continue;
 				if(!child.gameObject.activeInHierarchy) continue;
+
 				var ignorer = child.GetComponent<ILayoutIgnorer>();
 				if(ignorer != null && ignorer.ignoreLayout) continue;
+
 				AddTarget(child);
 			}
 

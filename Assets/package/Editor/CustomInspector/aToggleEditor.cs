@@ -29,6 +29,7 @@ namespace ANest.UI.Editor {
 
 		private SerializedProperty useMultipleInputGuardProp;          // 連打ガード使用フラグへの参照
 		private SerializedProperty multipleInputGuardIntervalProp;     // 連打ガード間隔への参照
+		private SerializedProperty skipNonInteractableNavigationProp;  // 非Interactableナビゲーションスキップ設定への参照
 		private SerializedProperty shortCutProp;                      // ショートカット入力への参照
 
 		private SerializedProperty targetTextProp;                    // テキスト対象への参照
@@ -75,6 +76,7 @@ namespace ANest.UI.Editor {
 
 			useMultipleInputGuardProp = serializedObject.FindProperty("useMultipleInputGuard");
 			multipleInputGuardIntervalProp = serializedObject.FindProperty("multipleInputGuardInterval");
+			skipNonInteractableNavigationProp = serializedObject.FindProperty("skipNonInteractableNavigation");
 			shortCutProp = serializedObject.FindProperty("shortCut");
 
 			targetTextProp = serializedObject.FindProperty("targetText");
@@ -113,6 +115,7 @@ namespace ANest.UI.Editor {
 				"onValueChanged",
 				"useMultipleInputGuard",
 				"multipleInputGuardInterval",
+				"skipNonInteractableNavigation",
 				"shortCut",
 				"targetText",
 				"textTransition",
@@ -170,9 +173,7 @@ namespace ANest.UI.Editor {
 
 			DrawSelectableTransitionSection(isSharedEnabled, sharedSerializedObject);
 
-			using (new EditorGUI.DisabledScope(isSharedEnabled)) {
-				DrawTextTransitionSection(isSharedEnabled, sharedSerializedObject);
-			}
+			DrawTextTransitionSection(isSharedEnabled, sharedSerializedObject);
 
 			EditorGUILayout.Space();
 
@@ -192,10 +193,14 @@ namespace ANest.UI.Editor {
 						EditorGUILayout.PropertyField(guardIntervalToShow, new GUIContent("Guard Interval"));
 					}
 				}
+				EditorGUILayout.PropertyField(skipNonInteractableNavigationProp);
 			}
 
 			EditorGUILayout.Space();
 			EditorGUILayout.PropertyField(shortCutProp);
+
+			EditorGUILayout.Space();
+			DrawNavigationSection();
 
 			EditorGUILayout.Space();
 			{
@@ -426,29 +431,31 @@ namespace ANest.UI.Editor {
 			if(targetTextProp.objectReferenceValue == null) return;
 
 			SerializedProperty transitionPropToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textTransition") : textTransitionProp;
-			EditorGUILayout.PropertyField(transitionPropToShow, new GUIContent("Transition"));
-			if(transitionPropToShow == null) return;
+			using (new EditorGUI.DisabledScope(isSharedEnabled)) {
+				EditorGUILayout.PropertyField(transitionPropToShow, new GUIContent("Transition"));
+				if(transitionPropToShow == null) return;
 
-			EditorGUI.indentLevel++;
-			switch((TextTransitionType)transitionPropToShow.enumValueIndex) {
-				case TextTransitionType.TextColor: {
-					aGuiEditorUtils.DrawTextColorPresetButtons(presetColorsProp);
-					SerializedProperty colorsToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textColors") : textColorsProp;
-					EditorGUILayout.PropertyField(colorsToShow, new GUIContent("Colors"));
-					break;
+				EditorGUI.indentLevel++;
+				switch((TextTransitionType)transitionPropToShow.enumValueIndex) {
+					case TextTransitionType.TextColor: {
+						aGuiEditorUtils.DrawTextColorPresetButtons(presetColorsProp);
+						SerializedProperty colorsToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textColors") : textColorsProp;
+						EditorGUILayout.PropertyField(colorsToShow, new GUIContent("Colors"));
+						break;
+					}
+					case TextTransitionType.TextSwap:
+						DrawTextSwapFields(isSharedEnabled ? sharedSerializedObject?.FindProperty("textSwapState") : textSwapStateProp);
+						break;
+					case TextTransitionType.TextAnimation: {
+						SerializedProperty triggersToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textAnimationTriggers") : textAnimationTriggersProp;
+						SerializedProperty animatorToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textAnimator") : textAnimatorProp;
+						EditorGUILayout.PropertyField(triggersToShow, new GUIContent("Animation Triggers"));
+						EditorGUILayout.PropertyField(animatorToShow, new GUIContent("Text Animator"));
+						break;
+					}
 				}
-				case TextTransitionType.TextSwap:
-					DrawTextSwapFields(isSharedEnabled ? sharedSerializedObject?.FindProperty("textSwapState") : textSwapStateProp);
-					break;
-				case TextTransitionType.TextAnimation: {
-					SerializedProperty triggersToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textAnimationTriggers") : textAnimationTriggersProp;
-					SerializedProperty animatorToShow = isSharedEnabled ? sharedSerializedObject?.FindProperty("textAnimator") : textAnimatorProp;
-					EditorGUILayout.PropertyField(triggersToShow, new GUIContent("Animation Triggers"));
-					EditorGUILayout.PropertyField(animatorToShow, new GUIContent("Text Animator"));
-					break;
-				}
+				EditorGUI.indentLevel--;
 			}
-			EditorGUI.indentLevel--;
 		}
 
 		/// <summary>テキスト差し替え用の各ステート文字列設定を描画する。</summary>

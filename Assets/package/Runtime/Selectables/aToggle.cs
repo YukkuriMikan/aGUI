@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -15,16 +16,6 @@ namespace ANest.UI {
 		[Tooltip("共通パラメータの参照")]
 		[SerializeField] private aSelectablesSharedParameters sharedParameters; // 共通パラメータの参照
 
-		[Header("Multiple Input Guard")]
-		[Tooltip("入力ガード（連打防止）を使用するかどうか")]
-		[SerializeField] private bool useMultipleInputGuard = true; // 入力ガードを使うか
-		[Tooltip("入力ガードの待機秒数")]
-		[SerializeField] private float multipleInputGuardInterval = 0.5f; // 入力ガードの待機秒数
-
-		[Header("ShortCut")]
-		[Tooltip("ショートカット入力の設定")]
-		[SerializeReference, SerializeReferenceDropdown] private IShortCut shortCut; // ショートカット入力
-
 		[Header("Text Transition")]
 		[Tooltip("状態遷移に合わせてテキストを変更する対象")]
 		[SerializeField] private TMP_Text targetText; // 遷移対象のテキスト
@@ -38,6 +29,16 @@ namespace ANest.UI {
 		[SerializeField] private AnimationTriggers textAnimationTriggers = new(); // テキストアニメーション用トリガー
 		[Tooltip("テキスト用アニメーター")]
 		[SerializeField] private Animator textAnimator; // テキスト用アニメーター
+
+		[Header("Navigation")]
+		[Tooltip("入力ガード（連打防止）を使用するかどうか")]
+		[SerializeField] private bool useMultipleInputGuard = true; // 入力ガードを使うか
+		[Tooltip("入力ガードの待機秒数")]
+		[SerializeField] private float multipleInputGuardInterval = 0.5f; // 入力ガードの待機秒数
+		[Tooltip("非Interactableをスキップして次のSelectableに移動するかどうか")]
+		[SerializeField] private bool skipNonInteractableNavigation = true; // 非Interactableをスキップするか
+		[Tooltip("ショートカット入力の設定")]
+		[SerializeReference, SerializeReferenceDropdown] private IShortCut shortCut; // ショートカット入力
 
 		[Header("Animation")]
 		[Tooltip("共通のアニメーションセットを使用するかどうか")]
@@ -119,6 +120,21 @@ namespace ANest.UI {
 			base.OnSubmit(eventData);
 		}
 
+		/// <summary>方向入力によるナビゲーション移動（非Interactableを無視）</summary>
+		public override void OnMove(AxisEventData eventData) {
+			if(!IsActive()) return;
+			if(eventData == null) return;
+			if(!skipNonInteractableNavigation) {
+				base.OnMove(eventData);
+				return;
+			}
+
+			var target = FindInteractableSelectable(eventData.moveDir);
+			if(target == null) return;
+
+			eventData.selectedObject = target.gameObject;
+		}
+
 		/// <summary>ステート遷移に応じてテキスト遷移を適用する</summary>
 		protected override void DoStateTransition(SelectionState state, bool instant) {
 			base.DoStateTransition(state, instant);
@@ -137,6 +153,107 @@ namespace ANest.UI {
 			}
 		}
 		#endregion
+
+		/// <summary>指定方向にあるInteractableなSelectableを探索する</summary>
+		private Selectable FindInteractableSelectable(MoveDirection direction) {
+			if(direction == MoveDirection.None) return null;
+
+			var visited = new HashSet<Selectable> { this };
+			var current = (Selectable)this;
+
+			while(true) {
+				var next = FindSelectableInDirection(current, direction);
+
+				if(next == null) return null;
+				if(!visited.Add(next)) return null;
+
+				if(next.IsActive() && next.IsInteractable()) {
+					return next;
+				}
+
+				current = next;
+			}
+		}
+
+		/// <summary>方向に応じて次のSelectableを取得する（非Interactableも対象）</summary>
+		private static Selectable FindSelectableInDirection(Selectable current, MoveDirection direction) {
+			if(current == null) return null;
+			var navigation = current.navigation;
+
+			if(navigation.mode == Navigation.Mode.Explicit) {
+				return direction switch {
+					MoveDirection.Left => navigation.selectOnLeft,
+					MoveDirection.Right => navigation.selectOnRight,
+					MoveDirection.Up => navigation.selectOnUp,
+					MoveDirection.Down => navigation.selectOnDown,
+					_ => null
+				};
+			}
+
+			return direction switch {
+				MoveDirection.Left when (navigation.mode & Navigation.Mode.Horizontal) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.left),
+				MoveDirection.Right when (navigation.mode & Navigation.Mode.Horizontal) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.right),
+				MoveDirection.Up when (navigation.mode & Navigation.Mode.Vertical) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.up),
+				MoveDirection.Down when (navigation.mode & Navigation.Mode.Vertical) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.down),
+				_ => null
+			};
+		}
+
+		/// <summary>Interactable判定を除外したSelectable探索</summary>
+		private static Selectable FindSelectableWithoutInteractableFilter(Selectable current, Vector3 dir) {
+			dir = dir.normalized;
+			Vector3 localDir = Quaternion.Inverse(current.transform.rotation) * dir;
+			Vector3 pos = current.transform.TransformPoint(GetPointOnRectEdge(current.transform as RectTransform, localDir));
+			float maxScore = Mathf.NegativeInfinity;
+			float maxFurthestScore = Mathf.NegativeInfinity;
+			float score = 0f;
+			var navigation = current.navigation;
+			bool wantsWrapAround = navigation.wrapAround && (navigation.mode == Navigation.Mode.Vertical || navigation.mode == Navigation.Mode.Horizontal);
+
+			Selectable bestPick = null;
+			Selectable bestFurthestPick = null;
+
+			var selectables = Selectable.allSelectablesArray;
+			for(int i = 0; i < selectables.Length; ++i) {
+				Selectable sel = selectables[i];
+				if(sel == null || sel == current) continue;
+				if(sel.navigation.mode == Navigation.Mode.None) continue;
+
+				var selRect = sel.transform as RectTransform;
+				Vector3 selCenter = selRect != null ? (Vector3)selRect.rect.center : Vector3.zero;
+				Vector3 myVector = sel.transform.TransformPoint(selCenter) - pos;
+				float dot = Vector3.Dot(dir, myVector);
+
+				if(wantsWrapAround && dot < 0) {
+					score = -dot * myVector.sqrMagnitude;
+					if(score > maxFurthestScore) {
+						maxFurthestScore = score;
+						bestFurthestPick = sel;
+					}
+					continue;
+				}
+
+				if(dot <= 0) continue;
+				score = dot / myVector.sqrMagnitude;
+				if(score > maxScore) {
+					maxScore = score;
+					bestPick = sel;
+				}
+			}
+
+			if(wantsWrapAround && bestPick == null) return bestFurthestPick;
+			return bestPick;
+		}
+
+		/// <summary>RectTransformのエッジ上の点を取得する</summary>
+		private static Vector3 GetPointOnRectEdge(RectTransform rect, Vector2 dir) {
+			if(rect == null) return Vector3.zero;
+			if(dir != Vector2.zero) {
+				dir /= Mathf.Max(Mathf.Abs(dir.x), Mathf.Abs(dir.y));
+			}
+			dir = rect.rect.center + Vector2.Scale(rect.rect.size, dir * 0.5f);
+			return dir;
+		}
 
 		#region ShortCut Support
 		/// <summary>ショートカット入力状態の更新と押下・解放処理</summary>

@@ -1,7 +1,6 @@
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
 
 namespace ANest.UI {
 	/// <summary> 子要素を円形に配置するレイアウトグループ </summary>

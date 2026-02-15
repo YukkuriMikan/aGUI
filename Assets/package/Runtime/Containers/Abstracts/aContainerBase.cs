@@ -304,6 +304,7 @@ namespace ANest.UI {
 
 		/// <summary>直接GameObject.SetActiveが呼ばれた場合に警告を出力する</summary>
 		private void WarnActiveChange() {
+			if(gameObject.activeSelf) return;
 			if(m_isQuitting) return;
 			Debug.LogWarning($"[{nameof(aContainerBase)}] {name} の gameObject.SetActive が直接変更されました。Show/Hide または表示フラグを使用してください。", this);
 		}

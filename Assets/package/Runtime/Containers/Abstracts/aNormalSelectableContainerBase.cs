@@ -127,7 +127,7 @@ namespace ANest.UI {
 							first.Select();
 						}
 					}
-				}).AddTo(m_selectDisposables);
+				}).AddTo(m_eventDisposables);
 		}
 
 		/// <summary>表示直後に最低1つは選択状態にする</summary>

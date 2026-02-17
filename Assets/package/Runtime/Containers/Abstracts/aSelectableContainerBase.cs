@@ -54,7 +54,7 @@ namespace ANest.UI {
 
 		protected int m_currentSelectableIndex = -1;                        // 現在選択されているSelectableのインデックス
 		protected T m_lastSelected;                                         // 非表示時に記録した、最後に選択されていたSelectable
-		protected readonly CompositeDisposable m_selectDisposables = new(); // 選択監視用
+		protected readonly CompositeDisposable m_eventDisposables = new(); // イベント用
 		#endregion
 
 		#region Property
@@ -151,7 +151,7 @@ namespace ANest.UI {
 		protected override void OnDestroy() {
 			base.OnDestroy();
 
-			m_selectDisposables.Dispose();
+			m_eventDisposables.Dispose();
 		}
 		#endregion
 
@@ -317,7 +317,7 @@ namespace ANest.UI {
 
 		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
 		protected virtual void ObserveSelectables() {
-			m_selectDisposables.Clear();
+			m_eventDisposables.Clear();
 			if(ChildSelectableList == null || ChildSelectableList.Count == 0) return;
 
 			foreach (var selectable in ChildSelectableList) {
@@ -331,12 +331,12 @@ namespace ANest.UI {
 
 						CurrentSelectable = selectable;
 					})
-					.AddTo(m_selectDisposables);
+					.AddTo(m_eventDisposables);
 
 				// 選択された時の処理
 				selectable.OnSelectAsObservable()
 					.Subscribe(_ => CurrentSelectable = selectable)
-					.AddTo(m_selectDisposables);
+					.AddTo(m_eventDisposables);
 			}
 		}
 

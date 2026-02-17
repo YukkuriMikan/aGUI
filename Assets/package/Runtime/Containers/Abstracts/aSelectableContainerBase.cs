@@ -165,7 +165,7 @@ namespace ANest.UI {
 				RefreshChildSelectables();
 			} else {
 				// 選択イベントの監視開始
-				ObserveSelectables();
+				SetEvents();
 			}
 
 			base.Initialize();
@@ -176,13 +176,13 @@ namespace ANest.UI {
 			m_childSelectableList ??= new List<T>();
 			GetComponentsInChildren(false, m_childSelectableList);
 
-			ObserveSelectables(); // キャッシュ更新時に監視も更新
+			SetEvents(); // キャッシュ更新時に監視も更新
 		}
 
 		/// <summary>子要素のSelectableを手動で設定する</summary>
 		public void SetChildSelectableList(List<T> selectables) {
 			m_childSelectableList = selectables ?? new List<T>();
-			ObserveSelectables();
+			SetEvents();
 
 			if(m_currentSelectable == null) {
 				m_currentSelectableIndex = -1;
@@ -202,7 +202,7 @@ namespace ANest.UI {
 
 			m_childSelectableList ??= new List<T>();
 			m_childSelectableList.Add(selectable);
-			ObserveSelectables();
+			SetEvents();
 
 			if(m_currentSelectable == null) {
 				m_currentSelectableIndex = -1;
@@ -220,7 +220,7 @@ namespace ANest.UI {
 		public void ClearChildSelectables() {
 			m_childSelectableList ??= new List<T>();
 			m_childSelectableList.Clear();
-			ObserveSelectables();
+			SetEvents();
 
 			if(m_currentSelectable == null) {
 				m_currentSelectableIndex = -1;
@@ -316,7 +316,7 @@ namespace ANest.UI {
 		}
 
 		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
-		protected virtual void ObserveSelectables() {
+		protected virtual void SetEvents() {
 			m_eventDisposables.Clear();
 			if(ChildSelectableList == null || ChildSelectableList.Count == 0) return;
 

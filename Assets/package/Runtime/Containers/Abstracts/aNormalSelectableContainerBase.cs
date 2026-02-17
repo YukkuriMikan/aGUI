@@ -96,8 +96,8 @@ namespace ANest.UI {
 
 		#region Protected Method
 		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
-		protected override void ObserveSelectables() {
-			base.ObserveSelectables();
+		protected override void SetEvents() {
+			base.SetEvents();
 
 			Observable.EveryUpdate()
 				.Subscribe(_ => {

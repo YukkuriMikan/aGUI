@@ -14,7 +14,7 @@ namespace ANest.UI.Tests {
 		#region Test Helper Classes
 		/// <summary> テスト用に aSelectableContainer の内部メソッドを公開する継承クラス </summary>
 		private class TestSelectableContainer : aNormalSelectableContainerBase<Selectable> {
-			public void TestObserveSelectables() => ObserveSelectables();
+			public void TestObserveSelectables() => SetEvents();
 
 			/// <summary> リフレクションを使用してアニメーションを設定する </summary>
 			public void SetAnimations(IUiAnimation[] show, IUiAnimation[] hide) {

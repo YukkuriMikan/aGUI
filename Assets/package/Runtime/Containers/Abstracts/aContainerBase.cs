@@ -156,11 +156,6 @@ namespace ANest.UI {
 		public virtual void Initialize() {
 			if(m_initialized) return;
 
-			// 必要な参照の取得
-			if(m_canvasGroup == null) m_canvasGroup = GetComponent<CanvasGroup>();
-			if(m_guiInfo == null) m_guiInfo = GetComponent<aGuiInfo>();
-			if(m_rectTransform == null) m_rectTransform = GetComponent<RectTransform>();
-
 			// 管理対象に登録
 			aContainerManager.Add(this);
 

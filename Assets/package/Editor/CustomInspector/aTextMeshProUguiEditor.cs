@@ -19,6 +19,8 @@ namespace ANest.UI {
 		private int m_selectedKeyIndex;                     // 選択中キーインデックス
 		private string m_keySearchFilter = "";              // キー検索フィルタ
 		private string[] m_filteredKeys;                    // フィルタ済みキー一覧
+		private SerializedProperty m_textProp;              // TMP m_text プロパティ
+		private string m_previousText;                      // 前回のテキスト値
 		private UnityEditor.Editor m_tmpEditor;             // TMP標準エディタ
 		private static Type s_tmpEditorType;                // TMP_EditorPanelUI型キャッシュ
 		#endregion
@@ -31,6 +33,8 @@ namespace ANest.UI {
 			RefreshKeys();
 			SyncSelectedKeyIndex();
 			CreateTmpEditor();
+			m_textProp = serializedObject.FindProperty("m_text");
+			m_previousText = m_textProp != null ? m_textProp.stringValue : "";
 		}
 		private void OnDisable() {
 			if(m_tmpEditor != null) {
@@ -52,7 +56,19 @@ namespace ANest.UI {
 			}
 			EditorGUILayout.Space();
 			if(m_tmpEditor != null) {
+				EditorGUI.BeginChangeCheck();
 				m_tmpEditor.OnInspectorGUI();
+				if(EditorGUI.EndChangeCheck() && m_textProp != null) {
+					serializedObject.Update();
+					var currentText = m_textProp.stringValue;
+					if(currentText != m_previousText) {
+						m_previousText = currentText;
+						foreach(var t in targets) {
+							var tmp = (aTextMeshProUgui)t;
+							tmp.text = currentText;
+						}
+					}
+				}
 			}
 		}
 		#endregion

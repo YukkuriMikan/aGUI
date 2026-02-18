@@ -23,7 +23,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 11571455488000
-    m_Localized: "<ruby=\"ruby\">\u30C6\u30B9\u30C8</ruby>"
+    m_Localized: "<link=\"ruby:\u30EB\u30D3\u30C6\u30AD\u30B9\u30C8\">\u672C\u6587</link>"
     m_Metadata:
       m_Items: []
   references:

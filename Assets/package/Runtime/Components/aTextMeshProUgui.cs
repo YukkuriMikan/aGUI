@@ -4,6 +4,15 @@ using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Tables;
 namespace ANest.UI {
+	/// <summary>ルビのサイズモード。</summary>
+	public enum RubySizeMode {
+		/// <summary>本文の横幅にルビの横幅を合わせる。</summary>
+		Auto,
+		/// <summary>本文を基準とした割合で大きさを決める。</summary>
+		Scale,
+		/// <summary>サイズを直接指定する。</summary>
+		Size,
+	}
 	/// <summary>Localization対応およびルビ表示を備えたTextMeshProUGUI拡張。</summary>
 	public class aTextMeshProUgui : TextMeshProUGUI {
 		#region Constants
@@ -15,6 +24,14 @@ namespace ANest.UI {
 		[SerializeField] private LocalizedStringTable m_stringTable;
 		[Tooltip("StringTable内のキー名")]
 		[SerializeField] private string m_localizationKey;
+		[Tooltip("ルビのサイズモード")]
+		[SerializeField] private RubySizeMode m_rubySizeMode = RubySizeMode.Auto;
+		[Tooltip("Scaleモード時の本文に対するルビの割合 (0.0〜1.0)")]
+		[SerializeField] private float m_rubyScale = 0.5f;
+		[Tooltip("Sizeモード時のルビのフォントサイズ")]
+		[SerializeField] private float m_rubySize = 8f;
+		[Tooltip("ルビと本文の間隔（現在の配置位置からの相対値）")]
+		[SerializeField] private float m_rubyOffset = 0f;
 		#endregion
 		#region Fields
 		private StringTable m_currentTable;
@@ -24,6 +41,26 @@ namespace ANest.UI {
 		#region Properties
 		/// <summary>Localization用StringTableCollectionの参照</summary>
 		public LocalizedStringTable StringTable => m_stringTable;
+		/// <summary>ルビのサイズモード</summary>
+		public RubySizeMode RubySizeMode {
+			get => m_rubySizeMode;
+			set { m_rubySizeMode = value; ForceMeshUpdate(); }
+		}
+		/// <summary>Scaleモード時の本文に対するルビの割合</summary>
+		public float RubyScale {
+			get => m_rubyScale;
+			set { m_rubyScale = value; ForceMeshUpdate(); }
+		}
+		/// <summary>Sizeモード時のルビのフォントサイズ</summary>
+		public float RubySize {
+			get => m_rubySize;
+			set { m_rubySize = value; ForceMeshUpdate(); }
+		}
+		/// <summary>ルビと本文の間隔（現在の配置位置からの相対値）</summary>
+		public float RubyOffset {
+			get => m_rubyOffset;
+			set { m_rubyOffset = value; ForceMeshUpdate(); }
+		}
 		/// <summary>StringTable内のキー名</summary>
 		public string LocalizationKey {
 			get => m_localizationKey;
@@ -139,7 +176,6 @@ namespace ANest.UI {
 				// ルビテキストの設定
 				var rubyTmpComponent = rubyObj.GetComponent<TextMeshProUGUI>();
 				rubyTmpComponent.font = font;
-				rubyTmpComponent.fontSize = fontSize * RubyFontSizeRatio;
 				rubyTmpComponent.color = color;
 				rubyTmpComponent.alignment = TextAlignmentOptions.Center;
 				rubyTmpComponent.text = rubyText;
@@ -163,12 +199,31 @@ namespace ANest.UI {
 				float left = firstCharInfo.topLeft.x;
 				float right = lastCharInfo.topRight.x;
 				float top = firstCharInfo.topLeft.y;
+				float baseWidth = right - left;
+				// ルビサイズモードに応じたフォントサイズ計算
+				float rubyFontSize;
+				switch(m_rubySizeMode) {
+					case RubySizeMode.Auto:
+						// ルビ文字数と本文幅から、ルビが本文幅に収まるサイズを算出
+						rubyFontSize = rubyText.Length > 0 ? baseWidth / rubyText.Length : fontSize * RubyFontSizeRatio;
+						break;
+					case RubySizeMode.Scale:
+						rubyFontSize = fontSize * m_rubyScale;
+						break;
+					case RubySizeMode.Size:
+						rubyFontSize = m_rubySize;
+						break;
+					default:
+						rubyFontSize = fontSize * RubyFontSizeRatio;
+						break;
+				}
+				rubyTmpComponent.fontSize = rubyFontSize;
 				// ベーステキストの上にルビを配置
 				float centerX = (left + right) * 0.5f;
-				float rubyY = top + fontSize * RubyFontSizeRatio * 0.6f;
+				float rubyY = top + rubyFontSize * 0.6f + m_rubyOffset;
 				var rt = rubyObj.GetComponent<RectTransform>();
 				rt.localPosition = new Vector3(centerX, rubyY, 0f);
-				rt.sizeDelta = new Vector2(right - left + fontSize, fontSize * RubyFontSizeRatio * 1.2f);
+				rt.sizeDelta = new Vector2(baseWidth + fontSize, rubyFontSize * 1.2f);
 				rubyIndex++;
 			}
 		}

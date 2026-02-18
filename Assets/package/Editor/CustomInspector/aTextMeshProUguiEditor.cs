@@ -19,6 +19,10 @@ namespace ANest.UI {
 		private int m_selectedKeyIndex;                     // 選択中キーインデックス
 		private string m_keySearchFilter = "";              // キー検索フィルタ
 		private string[] m_filteredKeys;                    // フィルタ済みキー一覧
+		private SerializedProperty m_rubySizeModeProp;     // ルビサイズモード
+		private SerializedProperty m_rubyScaleProp;         // ルビスケール
+		private SerializedProperty m_rubySizeProp;          // ルビサイズ
+		private SerializedProperty m_rubyOffsetProp;        // ルビオフセット
 		private SerializedProperty m_textProp;              // TMP m_text プロパティ
 		private string m_previousText;                      // 前回のテキスト値
 		private UnityEditor.Editor m_tmpEditor;             // TMP標準エディタ
@@ -32,6 +36,10 @@ namespace ANest.UI {
 			SyncSelectedTableIndex();
 			RefreshKeys();
 			SyncSelectedKeyIndex();
+			m_rubySizeModeProp = serializedObject.FindProperty("m_rubySizeMode");
+			m_rubyScaleProp = serializedObject.FindProperty("m_rubyScale");
+			m_rubySizeProp = serializedObject.FindProperty("m_rubySize");
+			m_rubyOffsetProp = serializedObject.FindProperty("m_rubyOffset");
 			CreateTmpEditor();
 			m_textProp = serializedObject.FindProperty("m_text");
 			m_previousText = m_textProp != null ? m_textProp.stringValue : "";
@@ -48,10 +56,21 @@ namespace ANest.UI {
 			DrawTableDropdown();
 			DrawKeySearchField();
 			DrawKeyDropdown();
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Ruby", EditorStyles.boldLabel);
+			EditorGUILayout.PropertyField(m_rubySizeModeProp, new GUIContent("Size Mode"));
+			var mode = (RubySizeMode)m_rubySizeModeProp.enumValueIndex;
+			if(mode == RubySizeMode.Scale) {
+				EditorGUILayout.PropertyField(m_rubyScaleProp, new GUIContent("Scale"));
+			} else if(mode == RubySizeMode.Size) {
+				EditorGUILayout.PropertyField(m_rubySizeProp, new GUIContent("Font Size"));
+			}
+			EditorGUILayout.PropertyField(m_rubyOffsetProp, new GUIContent("Offset"));
 			if(serializedObject.ApplyModifiedProperties()) {
 				foreach(var t in targets) {
 					var tmp = (aTextMeshProUgui)t;
 					tmp.LocalizationKey = tmp.LocalizationKey;
+					tmp.ForceMeshUpdate();
 				}
 			}
 			EditorGUILayout.Space();

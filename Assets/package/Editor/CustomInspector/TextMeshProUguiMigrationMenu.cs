@@ -45,7 +45,7 @@ namespace ANest.UI.Editor {
 			} else {
 				EditorUtility.SetDirty(go);
 			}
- 		Undo.CollapseUndoOperations(group);
+			Undo.CollapseUndoOperations(group);
 		}
 
 		[MenuItem("CONTEXT/TextMeshProUGUI/Migrate to aTextMeshProUgui", true)]

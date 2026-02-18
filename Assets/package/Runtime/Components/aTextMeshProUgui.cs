@@ -3,64 +3,83 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Tables;
+
 namespace ANest.UI {
 	/// <summary>ルビのサイズモード。</summary>
 	public enum RubySizeMode {
-		/// <summary>本文の横幅にルビの横幅を合わせる。</summary>
-		Auto,
-		/// <summary>本文を基準とした割合で大きさを決める。</summary>
-		Scale,
-		/// <summary>サイズを直接指定する。</summary>
-		Size,
+		Auto,  // 本文の横幅にルビの横幅を合わせる
+		Scale, // 本文を基準とした割合で大きさを決める
+		Size,  // サイズを直接指定する
 	}
+
 	/// <summary>Localization対応およびルビ表示を備えたTextMeshProUGUI拡張。</summary>
 	public class aTextMeshProUgui : TextMeshProUGUI {
 		#region Constants
-		private const string RubyPrefix = "ruby:";
-		private const float RubyFontSizeRatio = 0.5f;
+		private const string RubyPrefix = "ruby:";    // linkタグのルビ識別プレフィックス
+		private const float RubyFontSizeRatio = 0.5f; // デフォルトのルビフォントサイズ比率
 		#endregion
+
 		#region SerializeField
 		[Tooltip("Localization用StringTableCollectionの参照")]
-		[SerializeField] private LocalizedStringTable m_stringTable;
+		[SerializeField] private LocalizedStringTable m_stringTable; // Localization用テーブル参照
 		[Tooltip("StringTable内のキー名")]
-		[SerializeField] private string m_localizationKey;
+		[SerializeField] private string m_localizationKey; // ローカライズキー
 		[Tooltip("ルビのサイズモード")]
-		[SerializeField] private RubySizeMode m_rubySizeMode = RubySizeMode.Auto;
+		[SerializeField] private RubySizeMode m_rubySizeMode = RubySizeMode.Auto; // ルビサイズモード
 		[Tooltip("Scaleモード時の本文に対するルビの割合 (0.0〜1.0)")]
-		[SerializeField] private float m_rubyScale = 0.5f;
+		[SerializeField] private float m_rubyScale = 0.5f; // Scaleモード時の割合
 		[Tooltip("Sizeモード時のルビのフォントサイズ")]
-		[SerializeField] private float m_rubySize = 8f;
+		[SerializeField] private float m_rubySize = 8f; // Sizeモード時のフォントサイズ
 		[Tooltip("ルビと本文の間隔（現在の配置位置からの相対値）")]
-		[SerializeField] private float m_rubyOffset = 0f;
+		[SerializeField] private float m_rubyOffset = 0f; // ルビと本文の間隔
 		#endregion
+
 		#region Fields
-		private StringTable m_currentTable;
-		private readonly List<GameObject> m_rubyObjects = new List<GameObject>();
-		private bool m_isUpdatingRuby;
+		private StringTable m_currentTable;                                       // 現在のStringTable
+		private readonly List<GameObject> m_rubyObjects = new List<GameObject>(); // ルビ用子オブジェクト
+		private bool m_isUpdatingRuby;                                            // ルビ更新中の再帰防止フラグ
 		#endregion
+
 		#region Properties
 		/// <summary>Localization用StringTableCollectionの参照</summary>
 		public LocalizedStringTable StringTable => m_stringTable;
+
 		/// <summary>ルビのサイズモード</summary>
 		public RubySizeMode RubySizeMode {
 			get => m_rubySizeMode;
-			set { m_rubySizeMode = value; ForceMeshUpdate(); }
+			set {
+				m_rubySizeMode = value;
+				ForceMeshUpdate();
+			}
 		}
+
 		/// <summary>Scaleモード時の本文に対するルビの割合</summary>
 		public float RubyScale {
 			get => m_rubyScale;
-			set { m_rubyScale = value; ForceMeshUpdate(); }
+			set {
+				m_rubyScale = value;
+				ForceMeshUpdate();
+			}
 		}
+
 		/// <summary>Sizeモード時のルビのフォントサイズ</summary>
 		public float RubySize {
 			get => m_rubySize;
-			set { m_rubySize = value; ForceMeshUpdate(); }
+			set {
+				m_rubySize = value;
+				ForceMeshUpdate();
+			}
 		}
+
 		/// <summary>ルビと本文の間隔（現在の配置位置からの相対値）</summary>
 		public float RubyOffset {
 			get => m_rubyOffset;
-			set { m_rubyOffset = value; ForceMeshUpdate(); }
+			set {
+				m_rubyOffset = value;
+				ForceMeshUpdate();
+			}
 		}
+
 		/// <summary>StringTable内のキー名</summary>
 		public string LocalizationKey {
 			get => m_localizationKey;
@@ -70,7 +89,9 @@ namespace ANest.UI {
 			}
 		}
 		#endregion
+
 		#region Unity Methods
+		/// <summary>有効化時にイベント購読とLocalization適用を行う</summary>
 		protected override void OnEnable() {
 			base.OnEnable();
 			// シーン再読み込み時に残存するルビオブジェクトを回収
@@ -82,6 +103,8 @@ namespace ANest.UI {
 			ApplyLocalization();
 			ForceMeshUpdate();
 		}
+
+		/// <summary>無効化時にイベント解除とルビオブジェクト破棄を行う</summary>
 		protected override void OnDisable() {
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
 			ClearRubyObjects();
@@ -91,8 +114,9 @@ namespace ANest.UI {
 			base.OnDisable();
 		}
 		#endregion
+
 		#region Private Methods
-		/// <summary>テキスト変更イベントのコールバック。</summary>
+		/// <summary>テキスト変更イベントのコールバック</summary>
 		private void OnTextChanged(Object obj) {
 			if(obj != this) return;
 			if(m_isUpdatingRuby) return;
@@ -106,40 +130,47 @@ namespace ANest.UI {
 				m_isUpdatingRuby = false;
 			}
 		}
-		/// <summary>Localizationテーブル変更時のコールバック。</summary>
+
+		/// <summary>Localizationテーブル変更時のコールバック</summary>
 		private void OnStringTableChanged(StringTable table) {
 			m_currentTable = table;
 			ApplyLocalization();
 			ForceMeshUpdate();
 			UpdateRubyObjects();
 		}
-		/// <summary>現在のLocalization設定からテキストを適用する。</summary>
+
+		/// <summary>現在のLocalization設定からテキストを適用する</summary>
 		private void ApplyLocalization() {
 			if(m_currentTable == null) return;
 			if(string.IsNullOrEmpty(m_localizationKey)) return;
 			var entry = m_currentTable.GetEntry(m_localizationKey);
 			if(entry == null) return;
+			// タグを含む未加工の生データを取得
 			var rawValue = entry.Value;
 			if(rawValue != null) {
 				text = rawValue;
 			}
 		}
-		/// <summary>linkInfoからルビ情報を解析し、ルビオブジェクトを更新する。</summary>
+
+		/// <summary>linkInfoからルビ情報を解析し、ルビオブジェクトを更新する</summary>
 		private void UpdateRubyObjects() {
 			var info = textInfo;
 			if(info == null) {
 				ClearRubyObjects();
 				return;
 			}
+
+			// ルビ用linkの数を集計
 			int rubyCount = 0;
-			for(int i = 0; i < info.linkCount; i++) {
+			for (int i = 0; i < info.linkCount; i++) {
 				var linkInfo = info.linkInfo[i];
 				var linkId = linkInfo.GetLinkID();
 				if(!linkId.StartsWith(RubyPrefix)) continue;
 				rubyCount++;
 			}
+
 			// 不要なルビオブジェクトを破棄
-			while(m_rubyObjects.Count > rubyCount) {
+			while (m_rubyObjects.Count > rubyCount) {
 				int last = m_rubyObjects.Count - 1;
 				var obj = m_rubyObjects[last];
 				m_rubyObjects.RemoveAt(last);
@@ -148,12 +179,14 @@ namespace ANest.UI {
 					else DestroyImmediate(obj);
 				}
 			}
+
 			int rubyIndex = 0;
-			for(int i = 0; i < info.linkCount; i++) {
+			for (int i = 0; i < info.linkCount; i++) {
 				var linkInfo = info.linkInfo[i];
 				var linkId = linkInfo.GetLinkID();
 				if(!linkId.StartsWith(RubyPrefix)) continue;
 				var rubyText = linkId.Substring(RubyPrefix.Length);
+
 				// ルビオブジェクトの取得または生成
 				GameObject rubyObj;
 				if(rubyIndex < m_rubyObjects.Count) {
@@ -161,8 +194,8 @@ namespace ANest.UI {
 				} else {
 					rubyObj = new GameObject($"Ruby_{rubyIndex}", typeof(RectTransform), typeof(TextMeshProUGUI));
 					rubyObj.transform.SetParent(transform, false);
- 				rubyObj.hideFlags = HideFlags.NotEditable;
- 				var rubyRect = rubyObj.GetComponent<RectTransform>();
+					rubyObj.hideFlags = HideFlags.NotEditable;
+					var rubyRect = rubyObj.GetComponent<RectTransform>();
 					rubyRect.anchorMin = new Vector2(0.5f, 0.5f);
 					rubyRect.anchorMax = new Vector2(0.5f, 0.5f);
 					rubyRect.pivot = new Vector2(0.5f, 0.5f);
@@ -173,12 +206,14 @@ namespace ANest.UI {
 					rubyTmp.raycastTarget = false;
 					m_rubyObjects.Add(rubyObj);
 				}
+
 				// ルビテキストの設定
 				var rubyTmpComponent = rubyObj.GetComponent<TextMeshProUGUI>();
 				rubyTmpComponent.font = font;
 				rubyTmpComponent.color = color;
 				rubyTmpComponent.alignment = TextAlignmentOptions.Center;
 				rubyTmpComponent.text = rubyText;
+
 				// ベーステキストの文字位置からルビの配置位置を計算
 				int firstCharIdx = linkInfo.linkTextfirstCharacterIndex;
 				int lastCharIdx = firstCharIdx + linkInfo.linkTextLength - 1;
@@ -187,6 +222,7 @@ namespace ANest.UI {
 					rubyIndex++;
 					continue;
 				}
+
 				var firstCharInfo = info.characterInfo[firstCharIdx];
 				var lastCharInfo = info.characterInfo[lastCharIdx];
 				if(!firstCharInfo.isVisible || !lastCharInfo.isVisible) {
@@ -195,11 +231,13 @@ namespace ANest.UI {
 					continue;
 				}
 				rubyObj.SetActive(true);
+
 				// characterInfoの座標は親RectTransformのpivot基準ローカル座標
 				float left = firstCharInfo.topLeft.x;
 				float right = lastCharInfo.topRight.x;
 				float top = firstCharInfo.topLeft.y;
 				float baseWidth = right - left;
+
 				// ルビサイズモードに応じたフォントサイズ計算
 				float rubyFontSize;
 				switch(m_rubySizeMode) {
@@ -208,9 +246,11 @@ namespace ANest.UI {
 						rubyFontSize = rubyText.Length > 0 ? baseWidth / rubyText.Length : fontSize * RubyFontSizeRatio;
 						break;
 					case RubySizeMode.Scale:
+						// 本文フォントサイズに対する割合で算出
 						rubyFontSize = fontSize * m_rubyScale;
 						break;
 					case RubySizeMode.Size:
+						// 直接指定
 						rubyFontSize = m_rubySize;
 						break;
 					default:
@@ -218,6 +258,7 @@ namespace ANest.UI {
 						break;
 				}
 				rubyTmpComponent.fontSize = rubyFontSize;
+
 				// ベーステキストの上にルビを配置
 				float centerX = (left + right) * 0.5f;
 				float rubyY = top + rubyFontSize * 0.6f + m_rubyOffset;
@@ -227,19 +268,22 @@ namespace ANest.UI {
 				rubyIndex++;
 			}
 		}
-		/// <summary>シーン再読み込み時に残存するルビ子オブジェクトをリストに回収する。</summary>
+
+		/// <summary>シーン再読み込み時に残存するルビ子オブジェクトをリストに回収する</summary>
 		private void CollectExistingRubyObjects() {
 			m_rubyObjects.Clear();
-			for(int i = transform.childCount - 1; i >= 0; i--) {
+			for (int i = transform.childCount - 1; i >= 0; i--) {
 				var child = transform.GetChild(i);
 				if(child.name.StartsWith("Ruby_")) {
+					// 名前がRuby_で始まる子オブジェクトをルビとして回収
 					m_rubyObjects.Add(child.gameObject);
 				}
 			}
 		}
-		/// <summary>全ルビオブジェクトを破棄する。</summary>
+
+		/// <summary>全ルビオブジェクトを破棄する</summary>
 		private void ClearRubyObjects() {
-			for(int i = 0; i < m_rubyObjects.Count; i++) {
+			for (int i = 0; i < m_rubyObjects.Count; i++) {
 				if(m_rubyObjects[i] != null) {
 					if(Application.isPlaying) Destroy(m_rubyObjects[i]);
 					else DestroyImmediate(m_rubyObjects[i]);

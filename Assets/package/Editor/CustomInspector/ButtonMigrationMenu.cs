@@ -10,6 +10,7 @@ namespace ANest.UI.Editor {
 		/// <summary> Button を aButton に変換 </summary>
 		[MenuItem("CONTEXT/Button/Migrate to aButton")]
 		private static void MigrateButton(MenuCommand command) {
+			if(command.context is aButton) return;
 			if(command.context is not Button src) return;
 			var go = src.gameObject;
 			if(PrefabUtility.IsPartOfAnyPrefab(go)) {
@@ -49,6 +50,58 @@ namespace ANest.UI.Editor {
 				EditorUtility.SetDirty(go);
 			}
 			Undo.CollapseUndoOperations(group);
+		}
+
+		[MenuItem("CONTEXT/Button/Migrate to aButton", true)]
+		private static bool ValidateMigrateButton(MenuCommand command) {
+			return command.context is Button and not aButton;
+		}
+
+		/// <summary> aButton を Button に戻す </summary>
+		[MenuItem("CONTEXT/Button/Revert to Button")]
+		private static void RevertButton(MenuCommand command) {
+			if(command.context is not aButton src) return;
+			var go = src.gameObject;
+			if(PrefabUtility.IsPartOfAnyPrefab(go)) {
+				Debug.LogWarning("Prefab 上の aButton は戻せません。プレハブエディタを使用するか、シーン上のインスタンスに対して実行してください。", src);
+				EditorUtility.DisplayDialog("Revert to Button",
+					"Prefab 上の aButton は戻せません。プレハブエディタを使用するか、シーン上のインスタンスに対して実行してください。",
+					"OK");
+				return;
+			}
+			Undo.IncrementCurrentGroup();
+			int group = Undo.GetCurrentGroup();
+			Undo.SetCurrentGroupName("Revert to Button");
+
+			var script = GetScriptOf<Button>();
+			if(script == null) {
+				Debug.LogError("Failed to find Button script for revert.", src);
+				return;
+			}
+
+			Undo.RegisterCompleteObjectUndo(src, "Revert to Button");
+			var serializedObject = new SerializedObject(src);
+			var scriptProp = serializedObject.FindProperty("m_Script");
+			if(scriptProp == null) {
+				Debug.LogError("m_Script property not found; cannot revert aButton to Button.", src);
+				return;
+			}
+
+			scriptProp.objectReferenceValue = script;
+			serializedObject.ApplyModifiedProperties();
+
+			var dst = go.GetComponent<Button>();
+			if(dst != null) {
+				EditorUtility.SetDirty(dst);
+			} else {
+				EditorUtility.SetDirty(go);
+			}
+			Undo.CollapseUndoOperations(group);
+		}
+
+		[MenuItem("CONTEXT/Button/Revert to Button", true)]
+		private static bool ValidateRevertButton(MenuCommand command) {
+			return command.context is aButton;
 		}
 
 		private static void AssignTargetTextIfPossible(SerializedObject serializedObject, GameObject go) {

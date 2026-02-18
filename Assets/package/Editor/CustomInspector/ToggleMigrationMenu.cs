@@ -8,6 +8,7 @@ namespace ANest.UI.Editor {
 		/// <summary> Toggle を aToggle に変換 </summary>
 		[MenuItem("CONTEXT/Toggle/Migrate to aToggle")]
 		private static void MigrateToggle(MenuCommand command) {
+			if(command.context is ANest.UI.aToggle) return;
 			if(command.context is not Toggle src) return;
 			var go = src.gameObject;
 			if(PrefabUtility.IsPartOfAnyPrefab(go)) {
@@ -48,6 +49,58 @@ namespace ANest.UI.Editor {
 				EditorUtility.SetDirty(go);
 			}
 			Undo.CollapseUndoOperations(group);
+		}
+
+		[MenuItem("CONTEXT/Toggle/Migrate to aToggle", true)]
+		private static bool ValidateMigrateToggle(MenuCommand command) {
+			return command.context is Toggle and not ANest.UI.aToggle;
+		}
+
+		/// <summary> aToggle を Toggle に戻す </summary>
+		[MenuItem("CONTEXT/Toggle/Revert to Toggle")]
+		private static void RevertToggle(MenuCommand command) {
+			if(command.context is not ANest.UI.aToggle src) return;
+			var go = src.gameObject;
+			if(PrefabUtility.IsPartOfAnyPrefab(go)) {
+				Debug.LogWarning("Prefab 上の aToggle は戻せません。プレハブエディタを使用するか、シーン上のインスタンスに対して実行してください。", src);
+				EditorUtility.DisplayDialog("Revert to Toggle",
+					"Prefab 上の aToggle は戻せません。プレハブエディタを使用するか、シーン上のインスタンスに対して実行してください。",
+					"OK");
+				return;
+			}
+			Undo.IncrementCurrentGroup();
+			int group = Undo.GetCurrentGroup();
+			Undo.SetCurrentGroupName("Revert to Toggle");
+
+			var script = GetScriptOf<Toggle>();
+			if(script == null) {
+				Debug.LogError("Failed to find Toggle script for revert.", src);
+				return;
+			}
+
+			Undo.RegisterCompleteObjectUndo(src, "Revert to Toggle");
+			var serializedObject = new SerializedObject(src);
+			var scriptProp = serializedObject.FindProperty("m_Script");
+			if(scriptProp == null) {
+				Debug.LogError("m_Script property not found; cannot revert aToggle to Toggle.", src);
+				return;
+			}
+
+			scriptProp.objectReferenceValue = script;
+			serializedObject.ApplyModifiedProperties();
+
+			var dst = go.GetComponent<Toggle>();
+			if(dst != null) {
+				EditorUtility.SetDirty(dst);
+			} else {
+				EditorUtility.SetDirty(go);
+			}
+			Undo.CollapseUndoOperations(group);
+		}
+
+		[MenuItem("CONTEXT/Toggle/Revert to Toggle", true)]
+		private static bool ValidateRevertToggle(MenuCommand command) {
+			return command.context is ANest.UI.aToggle;
 		}
 
 		/// <summary> Toggle の graphic を TargetToggleGraphic に設定 </summary>

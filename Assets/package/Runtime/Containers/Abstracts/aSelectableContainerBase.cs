@@ -39,6 +39,9 @@ namespace ANest.UI {
 		[Tooltip("CurrentSelectableIndexに範囲外の値を設定した時の挙動")]
 		[SerializeField]
 		private SelectableIndexMode m_indexMode = SelectableIndexMode.Loop; // CurrentSelectableIndexに範囲外の値を設定した時の挙動
+		[Tooltip("非Interactableをスキップして次のSelectableに移動するかどうか")]
+		[SerializeField]
+		private bool m_skipNonInteractableNavigation = true; // 非Interactableをスキップするか
 
 		[Header("Guard")]
 		[Tooltip("表示直後の操作をブロックするか？")]
@@ -128,6 +131,15 @@ namespace ANest.UI {
 			set => m_indexMode = value;
 		}
 
+		/// <summary>非Interactableをスキップして次のSelectableに移動するかどうか</summary>
+		public bool SkipNonInteractableNavigation {
+			get => m_skipNonInteractableNavigation;
+			set {
+				m_skipNonInteractableNavigation = value;
+				ApplySkipNavigationToChildren();
+			}
+		}
+
 		/// <summary>Show時、デフォルトで選択するSelectable</summary>
 		public T InitialSelectable {
 			get => m_initialSelectable;
@@ -202,6 +214,7 @@ namespace ANest.UI {
 
 			m_childSelectableList ??= new List<T>();
 			m_childSelectableList.Add(selectable);
+			ApplySkipNavigationToSelectable(selectable);
 			SetEvents();
 
 			if(m_currentSelectable == null) {
@@ -315,9 +328,26 @@ namespace ANest.UI {
 			}
 		}
 
+		/// <summary>子要素のSelectableにナビゲーションスキップ設定を反映する</summary>
+		protected void ApplySkipNavigationToChildren() {
+			if(ChildSelectableList == null) return;
+
+			foreach(var selectable in ChildSelectableList) {
+				ApplySkipNavigationToSelectable(selectable);
+			}
+		}
+
+		/// <summary>単一のSelectableにナビゲーションスキップ設定を反映する</summary>
+		private void ApplySkipNavigationToSelectable(T selectable) {
+			if(selectable is ISkipNavigationSelectable skipNav) {
+				skipNav.SkipNonInteractableNavigation = m_skipNonInteractableNavigation;
+			}
+		}
+
 		/// <summary>子要素のSelectableの選択イベントを監視する</summary>
 		protected virtual void SetEvents() {
 			m_eventDisposables.Clear();
+			ApplySkipNavigationToChildren();
 			if(ChildSelectableList == null || ChildSelectableList.Count == 0) return;
 
 			foreach (var selectable in ChildSelectableList) {

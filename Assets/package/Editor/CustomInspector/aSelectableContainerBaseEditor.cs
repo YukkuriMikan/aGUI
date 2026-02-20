@@ -16,6 +16,8 @@ namespace ANest.UI.Editor {
 		private SerializedProperty _initialGuardDurationProp;           // 初期ガード時間
 		private SerializedProperty _onSelectChangedProp;                // 選択変更イベント
 		private SerializedProperty _disallowNullSelectionProp;          // Null選択禁止
+		private SerializedProperty _selectOnHoverProp;                  // ホバー選択
+		private SerializedProperty _skipNonInteractableNavigationProp;  // 非Interactableスキップ
 		#endregion
 
 		#region Unity Methods
@@ -31,6 +33,8 @@ namespace ANest.UI.Editor {
 			_initialGuardDurationProp = serializedObject.FindProperty("m_initialGuardDuration");
 			_onSelectChangedProp = serializedObject.FindProperty("m_onSelectChanged");
 			_disallowNullSelectionProp = serializedObject.FindProperty("m_disallowNullSelection");
+			_selectOnHoverProp = serializedObject.FindProperty("m_selectOnHover");
+			_skipNonInteractableNavigationProp = serializedObject.FindProperty("m_skipNonInteractableNavigation");
 		}
 		#endregion
 
@@ -46,7 +50,9 @@ namespace ANest.UI.Editor {
 				"m_initialGuard",
 				"m_initialGuardDuration",
 				"m_onSelectChanged",
-				"m_disallowNullSelection"
+				"m_disallowNullSelection",
+				"m_selectOnHover",
+				"m_skipNonInteractableNavigation"
 			};
 			return excluded.ToArray();
 		}
@@ -67,6 +73,12 @@ namespace ANest.UI.Editor {
 			}
 			if(_indexModeProp != null) {
 				EditorGUILayout.PropertyField(_indexModeProp);
+			}
+			if(_selectOnHoverProp != null) {
+				EditorGUILayout.PropertyField(_selectOnHoverProp);
+			}
+			if(_skipNonInteractableNavigationProp != null) {
+				EditorGUILayout.PropertyField(_skipNonInteractableNavigationProp);
 			}
 			if(_disallowNullSelectionProp != null) {
 				EditorGUILayout.PropertyField(_disallowNullSelectionProp);

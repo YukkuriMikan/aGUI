@@ -10,7 +10,7 @@ using System.Reflection;
 
 namespace ANest.UI.Tests {
 	/// <summary> aSelectableContainer の機能を検証するテストクラス </summary>
-	public class aSelectableContainerTests {
+	public class aNormalSelectableContainerTests {
 		#region Test Helper Classes
 		/// <summary> テスト用に aSelectableContainer の内部メソッドを公開する継承クラス </summary>
 		private class TestSelectableContainer : aNormalSelectableContainerBase<Selectable> {

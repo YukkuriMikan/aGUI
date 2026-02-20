@@ -16,7 +16,7 @@ namespace ANest.UI.Tests {
 		/// テスト用に aSelectableCursor の内部メンバを公開する継承クラス
 		/// </summary>
 		private class TestSelectableCursor : aSelectableCursor {
-			public void SetContainer(aSelectableContainer container) {
+			public void SetContainer(aNormalSelectableContainer container) {
 				var field = typeof(aNormalCursorBase<aSelectableContainerBase<Selectable>, Selectable>)
 					.GetField("m_container", BindingFlags.NonPublic | BindingFlags.Instance);
 				field.SetValue(this, container);
@@ -53,7 +53,7 @@ namespace ANest.UI.Tests {
 			}
 		}
 
-		private class TestSelectableContainer : aSelectableContainer {
+		private class TestNormalSelectableContainer : aNormalSelectableContainer {
 			public void SetCurrentSelectable(Selectable selectable) {
 				CurrentSelectable = selectable;
 				OnSelectChanged.Invoke(selectable);
@@ -64,7 +64,7 @@ namespace ANest.UI.Tests {
 		#region Fields
 		private GameObject m_rootObject;
 		private GameObject m_containerObject;
-		private TestSelectableContainer m_container;
+		private TestNormalSelectableContainer m_container;
 		private GameObject m_cursorObject;
 		private Image m_cursorImage;
 		private TestSelectableCursor m_cursor;
@@ -79,7 +79,7 @@ namespace ANest.UI.Tests {
 
 			m_containerObject = new GameObject("Container", typeof(RectTransform), typeof(CanvasGroup), typeof(aGuiInfo));
 			m_containerObject.transform.SetParent(m_rootObject.transform);
-			m_container = m_containerObject.AddComponent<TestSelectableContainer>();
+			m_container = m_containerObject.AddComponent<TestNormalSelectableContainer>();
 
 			m_selectableObject1 = new GameObject("Selectable1", typeof(RectTransform), typeof(Image), typeof(Button));
 			m_selectableObject1.transform.SetParent(m_containerObject.transform);

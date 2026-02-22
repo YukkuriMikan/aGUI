@@ -29,7 +29,6 @@ namespace ANest.UI.Editor {
 
 		private SerializedProperty useMultipleInputGuardProp;          // 連打ガード使用フラグへの参照
 		private SerializedProperty multipleInputGuardIntervalProp;     // 連打ガード間隔への参照
-		private SerializedProperty skipNonInteractableNavigationProp;  // 非Interactableナビゲーションスキップ設定への参照
 		private SerializedProperty shortCutProp;                      // ショートカット入力への参照
 
 		private SerializedProperty targetTextProp;                    // テキスト対象への参照
@@ -76,7 +75,6 @@ namespace ANest.UI.Editor {
 
 			useMultipleInputGuardProp = serializedObject.FindProperty("useMultipleInputGuard");
 			multipleInputGuardIntervalProp = serializedObject.FindProperty("multipleInputGuardInterval");
-			skipNonInteractableNavigationProp = serializedObject.FindProperty("skipNonInteractableNavigation");
 			shortCutProp = serializedObject.FindProperty("shortCut");
 
 			targetTextProp = serializedObject.FindProperty("targetText");
@@ -115,7 +113,6 @@ namespace ANest.UI.Editor {
 				"onValueChanged",
 				"useMultipleInputGuard",
 				"multipleInputGuardInterval",
-				"skipNonInteractableNavigation",
 				"shortCut",
 				"targetText",
 				"textTransition",
@@ -193,7 +190,6 @@ namespace ANest.UI.Editor {
 						EditorGUILayout.PropertyField(guardIntervalToShow, new GUIContent("Guard Interval"));
 					}
 				}
-				EditorGUILayout.PropertyField(skipNonInteractableNavigationProp);
 			}
 
 			EditorGUILayout.Space();

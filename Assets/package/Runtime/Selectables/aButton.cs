@@ -225,7 +225,13 @@ namespace ANest.UI {
 		}
 		#endregion
 
-		#region Input Events
+ 	#region Input Events
+		/// <summary> 選択時に履歴へ登録する </summary>
+		public override void OnSelect(BaseEventData eventData) {
+			base.OnSelect(eventData);
+			aGuiManager.SetSelectedSelectable(this);
+		}
+
 		/// <summary> Submit入力時にガードを適用 </summary>
 		public override void OnSubmit(BaseEventData eventData) {
 			if(!IsActive() || !IsInteractable()) return;

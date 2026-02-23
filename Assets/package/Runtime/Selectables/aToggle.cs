@@ -98,6 +98,12 @@ namespace ANest.UI {
 			UpdateShortCutState();
 		}
 
+		/// <summary> 選択時に履歴へ登録する </summary>
+		public override void OnSelect(BaseEventData eventData) {
+			base.OnSelect(eventData);
+			aGuiManager.SetSelectedSelectable(this);
+		}
+
 		/// <summary>クリック入力時のガード判定とアニメーション再生を処理する</summary>
 		public override void OnPointerClick(PointerEventData eventData) {
 			if(eventData.button != PointerEventData.InputButton.Left) return;

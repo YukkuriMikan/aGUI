@@ -208,6 +208,25 @@ namespace ANest.UI {
 
 			HideInternal();
 		}
+
+		/// <summary>表示/非表示を切り替える</summary>
+		public void Toggle() {
+			if(IsVisible) {
+				Hide();
+			} else {
+				Show();
+			}
+		}
+
+		/// <summary>指定した状態に応じて表示/非表示を切り替える</summary>
+		/// <param name="show">trueで表示、falseで非表示</param>
+		public void Toggle(bool show) {
+			if(show) {
+				Show();
+			} else {
+				Hide();
+			}
+		}
 		#endregion
 
 		#region Protected Method

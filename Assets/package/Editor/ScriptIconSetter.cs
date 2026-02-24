@@ -15,9 +15,13 @@ namespace ANest.UI.Editor {
 		#region Constructor
 		/// <summary>アイコンの登録とHierarchyコールバックの設定を行う。</summary>
 		static ScriptIconSetter() {
+			RegisterIconByGuid<aContainerBase>("429a97a9e532b3a45a079b775dc39ed3", true);
 			RegisterIcon<aButton>("d_Button Icon");
 			RegisterIcon<aToggle>("d_Toggle Icon");
-			RegisterIconByGuid<aContainerBase>("429a97a9e532b3a45a079b775dc39ed3", true);
+			RegisterIcon<aLayoutGroupVertical>("d_VerticalLayoutGroup Icon");
+			RegisterIcon<aLayoutGroupHorizontal>("d_HorizontalLayoutGroup Icon");
+			RegisterIcon<aLayoutGroupGrid>("d_GridLayoutGroup Icon");
+			RegisterIconByGuid<aLayoutGroupCircular>("d66d360f8ee5409489c4eb4c449951bc");
 
 			EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyGUI;
 			EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;

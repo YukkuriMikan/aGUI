@@ -10,6 +10,7 @@ namespace ANest.UI.Editor {
 	internal static class ScriptIconSetter {
 		#region Fields
 		private static readonly Dictionary<Type, Texture2D> s_iconMap = new(); // 型とアイコンの対応マップ
+		private static Texture2D s_cursorIcon; // aCursorBase用アイコン
 		#endregion
 
 		#region Constructor
@@ -22,6 +23,8 @@ namespace ANest.UI.Editor {
 			RegisterIcon<aLayoutGroupHorizontal>("d_HorizontalLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupGrid>("d_GridLayoutGroup Icon");
 			RegisterIconByGuid<aLayoutGroupCircular>("d66d360f8ee5409489c4eb4c449951bc");
+
+			LoadCursorIcon("1f4e28ed76cb8b040aeef8ee98d3420d");
 
 			EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyGUI;
 			EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;
@@ -88,6 +91,14 @@ namespace ANest.UI.Editor {
 			}
 		}
 
+		/// <summary>aCursorBase用アイコンをGUIDから読み込む。</summary>
+		/// <param name="guid">aCursor.pngアセットのGUID</param>
+		private static void LoadCursorIcon(string guid) {
+			var path = AssetDatabase.GUIDToAssetPath(guid);
+			if(string.IsNullOrEmpty(path)) return;
+			s_cursorIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+		}
+
 		/// <summary>Hierarchyウィンドウの各行にアイコンを描画する。</summary>
 		/// <param name="instanceID">対象オブジェクトのインスタンスID</param>
 		/// <param name="selectionRect">Hierarchy行の描画領域</param>
@@ -95,15 +106,40 @@ namespace ANest.UI.Editor {
 			var go = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
 			if(go == null) return;
 
+			Texture2D icon = null;
+
 			foreach(var pair in s_iconMap) {
 				if(go.TryGetComponent(pair.Key, out _)) {
-					var iconRect = new Rect(selectionRect.x - 2, selectionRect.y, selectionRect.height, selectionRect.height);
-					var bgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
-					EditorGUI.DrawRect(iconRect, bgColor);
-					GUI.DrawTexture(iconRect, pair.Value);
-					return;
+					icon = pair.Value;
+					break;
 				}
 			}
+
+			if(icon == null && s_cursorIcon != null) {
+				if(IsCursorRectTarget(go)) {
+					icon = s_cursorIcon;
+				}
+			}
+
+			if(icon != null) {
+				var iconRect = new Rect(selectionRect.x - 2, selectionRect.y, selectionRect.height, selectionRect.height);
+				var bgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
+				EditorGUI.DrawRect(iconRect, bgColor);
+				GUI.DrawTexture(iconRect, icon);
+			}
+		}
+		/// <summary>指定GameObjectがいずれかのaCursorBase派生コンポーネントのCursorRectの対象かどうかを判定する。</summary>
+		/// <param name="go">判定対象のGameObject</param>
+		private static bool IsCursorRectTarget(GameObject go) {
+			var cursors = UnityEngine.Object.FindObjectsByType<aCursorBase>(FindObjectsSortMode.None);
+			foreach(var cursor in cursors) {
+				var so = new SerializedObject((UnityEngine.Object)cursor);
+				var prop = so.FindProperty("m_cursorRect");
+				if(prop != null && prop.objectReferenceValue is RectTransform rt && rt.gameObject == go) {
+					return true;
+				}
+			}
+			return false;
 		}
 		#endregion
 	}

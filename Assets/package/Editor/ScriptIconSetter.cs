@@ -8,9 +8,12 @@ namespace ANest.UI.Editor {
 	/// <summary>スクリプトアイコンをビルトインアイコンやアセットGUIDで設定し、Hierarchyにも反映する。</summary>
 	[InitializeOnLoad]
 	internal static class ScriptIconSetter {
+		private const int ICON_PADDING_X = 2;
+		private const int ICON_PADDING_Y = 2;
+
 		#region Fields
 		private static readonly Dictionary<Type, Texture2D> s_iconMap = new(); // 型とアイコンの対応マップ
-		private static Texture2D s_cursorIcon; // aCursorBase用アイコン
+		private static Texture2D s_cursorIcon;                                 // aCursorBase用アイコン
 		#endregion
 
 		#region Constructor
@@ -66,7 +69,7 @@ namespace ANest.UI.Editor {
 		private static void SetMonoScriptIcon(Type targetType, Texture2D icon) {
 			var scripts = MonoImporter.GetAllRuntimeMonoScripts()
 				.Where(s => s.GetClass() == targetType);
-			foreach(var script in scripts) {
+			foreach (var script in scripts) {
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
 				EditorGUIUtility.SetIconForObject(script, icon);
@@ -83,7 +86,7 @@ namespace ANest.UI.Editor {
 					var c = s.GetClass();
 					return c != null && baseType.IsAssignableFrom(c);
 				});
-			foreach(var script in scripts) {
+			foreach (var script in scripts) {
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
 				EditorGUIUtility.SetIconForObject(script, icon);
@@ -110,7 +113,7 @@ namespace ANest.UI.Editor {
 
 			Texture2D icon = null;
 
-			foreach(var pair in s_iconMap) {
+			foreach (var pair in s_iconMap) {
 				if(go.TryGetComponent(pair.Key, out _)) {
 					icon = pair.Value;
 					break;
@@ -124,7 +127,8 @@ namespace ANest.UI.Editor {
 			}
 
 			if(icon != null) {
-				var iconRect = new Rect(selectionRect.x - 2, selectionRect.y, selectionRect.height, selectionRect.height);
+				//PADDINGに合わせて位置を自分で微調整する
+				var iconRect = new Rect(selectionRect.x, selectionRect.y + 1, selectionRect.height - ICON_PADDING_X, selectionRect.height - ICON_PADDING_Y);
 				var bgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
 				EditorGUI.DrawRect(iconRect, bgColor);
 				GUI.DrawTexture(iconRect, icon);
@@ -134,7 +138,7 @@ namespace ANest.UI.Editor {
 		/// <param name="go">判定対象のGameObject</param>
 		private static bool IsCursorRectTarget(GameObject go) {
 			var cursors = UnityEngine.Object.FindObjectsByType<aCursorBase>(FindObjectsSortMode.None);
-			foreach(var cursor in cursors) {
+			foreach (var cursor in cursors) {
 				var so = new SerializedObject((UnityEngine.Object)cursor);
 				var prop = so.FindProperty("m_cursorRect");
 				if(prop != null && prop.objectReferenceValue is RectTransform rt && rt.gameObject == go) {

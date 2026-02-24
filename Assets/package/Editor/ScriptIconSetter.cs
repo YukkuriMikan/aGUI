@@ -8,8 +8,8 @@ namespace ANest.UI.Editor {
 	/// <summary>スクリプトアイコンをビルトインアイコンやアセットGUIDで設定し、Hierarchyにも反映する。</summary>
 	[InitializeOnLoad]
 	internal static class ScriptIconSetter {
-		private const int ICON_PADDING_X = 2;
-		private const int ICON_PADDING_Y = 2;
+		private const int ICON_PADDING_X = 0;
+		private const int ICON_PADDING_Y = 0;
 
 		#region Fields
 		private static readonly Dictionary<Type, Texture2D> s_iconMap = new(); // 型とアイコンの対応マップ
@@ -19,15 +19,16 @@ namespace ANest.UI.Editor {
 		#region Constructor
 		/// <summary>アイコンの登録とHierarchyコールバックの設定を行う。</summary>
 		static ScriptIconSetter() {
-			RegisterIconByGuid<aContainerBase>("429a97a9e532b3a45a079b775dc39ed3", true);
+			RegisterIcon<aContainerBase>("d_LODGroup Icon", true);
 			RegisterIcon<aButton>("d_Button Icon");
 			RegisterIcon<aToggle>("d_Toggle Icon");
 			RegisterIcon<aLayoutGroupVertical>("d_VerticalLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupHorizontal>("d_HorizontalLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupGrid>("d_GridLayoutGroup Icon");
-			RegisterIconByGuid<aLayoutGroupCircular>("d66d360f8ee5409489c4eb4c449951bc");
+			RegisterIcon<aLayoutGroupCircular>("d_Refresh");
+			RegisterIcon<aCursorBase>("d_scenepicking_pickable_hover", true);
 
-			LoadCursorIcon("1f4e28ed76cb8b040aeef8ee98d3420d");
+			LoadCursorIcon();
 
 			EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyGUI;
 			EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;
@@ -94,12 +95,9 @@ namespace ANest.UI.Editor {
 			}
 		}
 
-		/// <summary>aCursorBase用アイコンをGUIDから読み込む。</summary>
-		/// <param name="guid">aCursor.pngアセットのGUID</param>
-		private static void LoadCursorIcon(string guid) {
-			var path = AssetDatabase.GUIDToAssetPath(guid);
-			if(string.IsNullOrEmpty(path)) return;
-			s_cursorIcon = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+		/// <summary>aCursorBase用アイコン（CursorRect対象のHierarchy描画用）を読み込む。</summary>
+		private static void LoadCursorIcon() {
+			s_cursorIcon = EditorGUIUtility.IconContent("d_scenepicking_pickable_hover")?.image as Texture2D;
 		}
 
 		/// <summary>Hierarchyウィンドウの各行にアイコンを描画する。</summary>
@@ -128,7 +126,7 @@ namespace ANest.UI.Editor {
 
 			if(icon != null) {
 				//PADDINGに合わせて位置を自分で微調整する
-				var iconRect = new Rect(selectionRect.x, selectionRect.y + 1, selectionRect.height - ICON_PADDING_X, selectionRect.height - ICON_PADDING_Y);
+				var iconRect = new Rect(selectionRect.x, selectionRect.y, selectionRect.height - ICON_PADDING_X, selectionRect.height - ICON_PADDING_Y);
 				var bgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
 				EditorGUI.DrawRect(iconRect, bgColor);
 				GUI.DrawTexture(iconRect, icon);

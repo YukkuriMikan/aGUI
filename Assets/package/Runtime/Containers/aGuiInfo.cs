@@ -36,7 +36,9 @@ namespace ANest.UI {
 		/// <summary>コンポーネント追加・リセット時に参照を取得</summary>
 		private void Reset() {
 			m_rectTransform = transform as RectTransform;
-			m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
+			if(m_rectTransform != null) {
+				m_originalRectTransformValues = RectTransformValues.CreateValues(m_rectTransform);
+			}
 			m_targetGraphic = GetComponent<Graphic>();
 		}
 

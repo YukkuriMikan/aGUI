@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>グリッド状に子要素を配置するカスタムレイアウトグループ</summary>
+	[Icon("d_GridLayoutGroup Icon")]
 	public class aLayoutGroupGrid : aLayoutGroupBase {
 		/// <summary>グリッド配置の開始コーナー</summary>
 		public enum Corner {

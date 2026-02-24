@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace ANest.UI {
 	/// <summary> 子要素を水平方向に配置するレイアウトグループ </summary>
+	[Icon("d_HorizontalLayoutGroup Icon")]
 	public class aLayoutGroupHorizontal : aLayoutGroupLinear {
 		#region Methods
 		/// <summary>子要素を横方向に並べ、スケールやパディング、揃え、強制拡張設定を踏まえて重みに応じた幅配分とNavigation再設定を行うレイアウト計算。</summary>

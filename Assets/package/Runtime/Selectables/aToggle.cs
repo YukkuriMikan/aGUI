@@ -6,6 +6,7 @@ using TMPro;
 
 namespace ANest.UI {
 	/// <summary>各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle</summary>
+	[Icon("d_Toggle Icon")]
 	[RequireComponent(typeof(aGuiInfo))]
 	public class aToggle : Toggle, ISkipNavigationSelectable {
 		#region SerializeField

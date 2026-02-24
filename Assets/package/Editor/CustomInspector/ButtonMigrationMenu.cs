@@ -38,8 +38,12 @@ namespace ANest.UI.Editor {
 				return;
 			}
 
-			scriptProp.objectReferenceValue = script;
+ 		scriptProp.objectReferenceValue = script;
 			serializedObject.ApplyModifiedProperties();
+
+			if(go.GetComponent<aGuiInfo>() == null) {
+				Undo.AddComponent<aGuiInfo>(go);
+			}
 
 			AssignTargetTextIfPossible(serializedObject, go);
 

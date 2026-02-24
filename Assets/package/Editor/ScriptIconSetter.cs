@@ -106,6 +106,8 @@ namespace ANest.UI.Editor {
 			var go = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
 			if(go == null) return;
 
+			if(PrefabUtility.IsAnyPrefabInstanceRoot(go)) return;
+
 			Texture2D icon = null;
 
 			foreach(var pair in s_iconMap) {

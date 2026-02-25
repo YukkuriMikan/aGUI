@@ -5,23 +5,24 @@ using UnityEditor;
 using UnityEngine;
 
 namespace ANest.UI.Editor {
-	/// <summary>スクリプトアイコンをビルトインアイコンやアセットGUIDで設定し、Hierarchyにも反映する。</summary>
+	/// <summary>スクリプトアイコンをビルトインアイコンやアセットGUIDで設定し、HierarchyとProjectビューにも反映する。</summary>
 	[InitializeOnLoad]
 	internal static class ScriptIconSetter {
 		private const int ICON_PADDING_X = 0;
 		private const int ICON_PADDING_Y = 0;
 
 		#region Fields
-		private static readonly Dictionary<Type, Texture2D> s_iconMap = new(); // 型とアイコンの対応マップ
-		private static Texture2D s_cursorIcon;                                 // aCursorBase用アイコン
+		private static readonly Dictionary<Type, Texture2D> s_iconMap = new();         // 型とアイコンの対応マップ
+		private static readonly Dictionary<string, Texture2D> s_scriptIconMap = new(); // MonoScriptのGUIDとアイコンの対応マップ
+		private static Texture2D s_cursorIcon;                                         // aCursorBase用アイコン
 		#endregion
 
 		#region Constructor
-		/// <summary>アイコンの登録とHierarchyコールバックの設定を行う。</summary>
+		/// <summary>アイコンの登録とHierarchy・Projectビューコールバックの設定を行う。</summary>
 		static ScriptIconSetter() {
 			RegisterIcon<aContainerBase>("d_LODGroup Icon", true);
-			RegisterIcon<aButton>("d_Button Icon");
-			RegisterIcon<aToggle>("d_Toggle Icon");
+			RegisterIcon<aButton>("d_Button Icon", true);
+			RegisterIcon<aToggle>("d_Toggle Icon", true);
 			RegisterIcon<aLayoutGroupVertical>("d_VerticalLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupHorizontal>("d_HorizontalLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupGrid>("d_GridLayoutGroup Icon");
@@ -32,6 +33,8 @@ namespace ANest.UI.Editor {
 
 			EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyGUI;
 			EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;
+			EditorApplication.projectWindowItemOnGUI -= OnProjectGUI;
+			EditorApplication.projectWindowItemOnGUI += OnProjectGUI;
 		}
 		#endregion
 
@@ -71,6 +74,7 @@ namespace ANest.UI.Editor {
 			var scripts = MonoImporter.GetAllRuntimeMonoScripts()
 				.Where(s => s.GetClass() == targetType);
 			foreach (var script in scripts) {
+				RegisterScriptGuid(script, icon);
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
 				EditorGUIUtility.SetIconForObject(script, icon);
@@ -88,10 +92,23 @@ namespace ANest.UI.Editor {
 					return c != null && baseType.IsAssignableFrom(c);
 				});
 			foreach (var script in scripts) {
+				RegisterScriptGuid(script, icon);
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
 				EditorGUIUtility.SetIconForObject(script, icon);
 				EditorUtility.SetDirty(script);
+			}
+		}
+
+		/// <summary>MonoScriptのGUIDをs_scriptIconMapに登録する。</summary>
+		/// <param name="script">対象のMonoScript</param>
+		/// <param name="icon">設定するアイコン</param>
+		private static void RegisterScriptGuid(MonoScript script, Texture2D icon) {
+			var path = AssetDatabase.GetAssetPath(script);
+			if(string.IsNullOrEmpty(path)) return;
+			var guid = AssetDatabase.AssetPathToGUID(path);
+			if(!string.IsNullOrEmpty(guid)) {
+				s_scriptIconMap[guid] = icon;
 			}
 		}
 
@@ -132,6 +149,19 @@ namespace ANest.UI.Editor {
 				GUI.DrawTexture(iconRect, icon);
 			}
 		}
+		/// <summary>Projectウィンドウの各行にアイコンを描画する。</summary>
+		/// <param name="guid">対象アセットのGUID</param>
+		/// <param name="selectionRect">Project行の描画領域</param>
+		private static void OnProjectGUI(string guid, Rect selectionRect) {
+			if(!s_scriptIconMap.TryGetValue(guid, out var icon)) return;
+			if(icon == null) return;
+
+			var iconRect = new Rect(selectionRect.x + 2, selectionRect.y, selectionRect.height, selectionRect.height);
+			var bgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
+			EditorGUI.DrawRect(iconRect, bgColor);
+			GUI.DrawTexture(iconRect, icon);
+		}
+
 		/// <summary>指定GameObjectがいずれかのaCursorBase派生コンポーネントのCursorRectの対象かどうかを判定する。</summary>
 		/// <param name="go">判定対象のGameObject</param>
 		private static bool IsCursorRectTarget(GameObject go) {

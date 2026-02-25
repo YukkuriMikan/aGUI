@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace ANest.UI.Editor {
@@ -87,10 +88,31 @@ namespace ANest.UI.Editor {
 		/// <param name="icon">設定するアイコン</param>
 		private static void SetMonoScriptIconWithDescendants<T>(Texture2D icon) where T : MonoBehaviour {
 			var baseType = typeof(T);
+			// GetClass()がnullを返すジェネリック型定義も含めて検索するため、全アセンブリから派生型を収集する
+			var descendantTypeNames = new HashSet<string>();
+			foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
+				try {
+					foreach (var type in asm.GetTypes()) {
+						if(baseType.IsAssignableFrom(type)) {
+							descendantTypeNames.Add(type.Name);
+							// ジェネリック型定義の場合、バッククォート以前の名前も登録する
+							int backtickIndex = type.Name.IndexOf('`');
+							if(backtickIndex > 0) {
+								descendantTypeNames.Add(type.Name.Substring(0, backtickIndex));
+							}
+						}
+					}
+				} catch {
+					// ReflectionTypeLoadException等を無視する
+				}
+			}
+
 			var scripts = MonoImporter.GetAllRuntimeMonoScripts()
 				.Where(s => {
 					var c = s.GetClass();
-					return c != null && baseType.IsAssignableFrom(c);
+					if(c != null) return baseType.IsAssignableFrom(c);
+					// GetClass()がnullの場合、スクリプト名で判定する（ジェネリック型定義等）
+					return descendantTypeNames.Contains(s.name);
 				});
 			foreach (var script in scripts) {
 				RegisterScriptGuid(script, icon);
@@ -166,7 +188,13 @@ namespace ANest.UI.Editor {
 		/// <summary>指定GameObjectがいずれかのaCursorBase派生コンポーネントのCursorRectの対象かどうかを判定する。</summary>
 		/// <param name="go">判定対象のGameObject</param>
 		private static bool IsCursorRectTarget(GameObject go) {
-			var cursors = UnityEngine.Object.FindObjectsByType<aCursorBase>(FindObjectsSortMode.None);
+			var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+			aCursorBase[] cursors;
+			if(prefabStage != null) {
+				cursors = prefabStage.prefabContentsRoot.GetComponentsInChildren<aCursorBase>(true);
+			} else {
+				cursors = UnityEngine.Object.FindObjectsByType<aCursorBase>(FindObjectsSortMode.None);
+			}
 			foreach (var cursor in cursors) {
 				var so = new SerializedObject((UnityEngine.Object)cursor);
 				var prop = so.FindProperty("m_cursorRect");

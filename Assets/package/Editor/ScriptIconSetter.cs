@@ -27,6 +27,7 @@ namespace ANest.UI.Editor {
 			RegisterIcon<aLayoutGroupHorizontal>("d_HorizontalLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupGrid>("d_GridLayoutGroup Icon");
 			RegisterIcon<aLayoutGroupCircular>("d_Refresh");
+			RegisterIcon<aUiLineRenderer>("d_LineRenderer Icon");
 			RegisterIcon<aCursorBase>("d_scenepicking_pickable_hover", true);
 
 			LoadCursorIcon();

@@ -113,7 +113,8 @@ namespace ANest.UI {
 		/// <summary> 子Transform変更時の処理 </summary>
 		protected virtual void OnTransformChildrenChanged() {
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
-				AlignWithFrameWaitAndCollectionAsync().Forget();
+				AlignWithCollection();
+				//AlignWithFrameWaitAndCollectionAsync().Forget();
 			}
 		}
 

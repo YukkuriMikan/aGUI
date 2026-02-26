@@ -123,6 +123,11 @@ namespace ANest.UI.Editor {
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
+			using (new EditorGUI.DisabledScope(true)) {
+				EditorGUILayout.PropertyField(serializedObject.FindProperty("m_Script"));
+			}
+			EditorGUILayout.Space();
+
 			bool hasSharedAsset = sharedParametersProp.objectReferenceValue != null;
 			bool isSharedEnabled = useSharedParametersProp.boolValue && hasSharedAsset;
 			SerializedObject sharedSerializedObject = null;

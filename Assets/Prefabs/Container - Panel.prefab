@@ -95,8 +95,8 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 1081137947709864406}
-    m_SelectOnDown: {fileID: 3495912264797872309}
+    m_SelectOnUp: {fileID: 8661072096240186566}
+    m_SelectOnDown: {fileID: 5465790206938853643}
     m_SelectOnLeft: {fileID: 5762165019745387089}
     m_SelectOnRight: {fileID: 8258987648318814210}
   m_Transition: 1
@@ -527,10 +527,10 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 8067609603200157435}
-    m_SelectOnDown: {fileID: 5762165019745387089}
-    m_SelectOnLeft: {fileID: 8661072096240186566}
-    m_SelectOnRight: {fileID: 1081137947709864406}
+    m_SelectOnUp: {fileID: 8258987648318814210}
+    m_SelectOnDown: {fileID: 8661072096240186566}
+    m_SelectOnLeft: {fileID: 5465790206938853643}
+    m_SelectOnRight: {fileID: 3495912264797872309}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -688,8 +688,8 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 3495912264797872309}
-    m_SelectOnDown: {fileID: 1683968837945828386}
-    m_SelectOnLeft: {fileID: 8449113140067320632}
+    m_SelectOnDown: {fileID: 8067609603200157435}
+    m_SelectOnLeft: {fileID: 8661072096240186566}
     m_SelectOnRight: {fileID: 6099031374490356107}
   m_Transition: 1
   m_Colors:
@@ -847,7 +847,7 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 8258987648318814210}
+    m_SelectOnUp: {fileID: 5762165019745387089}
     m_SelectOnDown: {fileID: 6099031374490356107}
     m_SelectOnLeft: {fileID: 3495912264797872309}
     m_SelectOnRight: {fileID: 5465790206938853643}
@@ -1008,9 +1008,9 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 5465790206938853643}
-    m_SelectOnDown: {fileID: 5465790206938853643}
+    m_SelectOnDown: {fileID: 1683968837945828386}
     m_SelectOnLeft: {fileID: 6099031374490356107}
-    m_SelectOnRight: {fileID: 8449113140067320632}
+    m_SelectOnRight: {fileID: 1081137947709864406}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -1439,10 +1439,10 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 8661072096240186566}
+    m_SelectOnUp: {fileID: 1683968837945828386}
     m_SelectOnDown: {fileID: 8661072096240186566}
     m_SelectOnLeft: {fileID: 1205682007169548903}
-    m_SelectOnRight: {fileID: 8067609603200157435}
+    m_SelectOnRight: {fileID: 8449113140067320632}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -1946,9 +1946,9 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 1683968837945828386}
+    m_SelectOnUp: {fileID: 8067609603200157435}
     m_SelectOnDown: {fileID: 1081137947709864406}
-    m_SelectOnLeft: {fileID: 8067609603200157435}
+    m_SelectOnLeft: {fileID: 8449113140067320632}
     m_SelectOnRight: {fileID: 1205682007169548903}
   m_Transition: 1
   m_Colors:
@@ -2106,10 +2106,10 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 6099031374490356107}
-    m_SelectOnDown: {fileID: 1205682007169548903}
+    m_SelectOnUp: {fileID: 8661072096240186566}
+    m_SelectOnDown: {fileID: 8449113140067320632}
     m_SelectOnLeft: {fileID: 1683968837945828386}
-    m_SelectOnRight: {fileID: 5762165019745387089}
+    m_SelectOnRight: {fileID: 8067609603200157435}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -2289,9 +2289,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 9053337510336287260}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 480, y: 540, z: 0}
+    m_worldPosition: {x: -480, y: 0, z: 0}
     m_localPosition: {x: -480, y: 0, z: 0}
-    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_worldRotation: {x: 0, y: 0, z: 0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
     m_localScale: {x: 1, y: 1, z: 1}
     m_anchoredPosition: {x: -480, y: 0}
@@ -2301,10 +2301,10 @@ MonoBehaviour:
     m_pivot: {x: 0.5, y: 0.5}
     m_rect:
       serializedVersion: 2
-      x: -480
-      y: -540
-      width: 960
-      height: 1080
+      x: 480
+      y: -0
+      width: -960
+      height: 0
   m_targetGraphic: {fileID: 305159901250934649}
 --- !u!114 &2934056420150401716
 MonoBehaviour:
@@ -2447,14 +2447,16 @@ MonoBehaviour:
   - {fileID: 8661072096240186566}
   m_initialSelectable: {fileID: 0}
   m_currentSelectable: {fileID: 0}
+  m_selectOnHover: 0
   m_defaultResumeSelectionOnShow: 1
+  m_indexMode: 2
+  m_skipNonInteractableNavigation: 1
   m_initialGuard: 1
   m_initialGuardDuration: 0.05
   m_onSelectChanged:
     m_PersistentCalls:
       m_Calls: []
   m_disallowNullSelection: 1
-  m_selectOnHover: 0
   references:
     version: 2
     RefIds: []
@@ -2473,6 +2475,7 @@ GameObject:
   - component: {fileID: 1488295757809668020}
   - component: {fileID: 8972178101634049095}
   - component: {fileID: 5660816736145063518}
+  - component: {fileID: 6766333236410079497}
   m_Layer: 5
   m_Name: Button
   m_TagString: Untagged
@@ -2547,16 +2550,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 6346146231363353845}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
+  m_Script: {fileID: 11500000, guid: c09093695c4ba4b44a41fe5ae06e1066, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 5762165019745387089}
-    m_SelectOnDown: {fileID: 8449113140067320632}
-    m_SelectOnLeft: {fileID: 5465790206938853643}
-    m_SelectOnRight: {fileID: 3495912264797872309}
+    m_SelectOnUp: {fileID: 1081137947709864406}
+    m_SelectOnDown: {fileID: 3495912264797872309}
+    m_SelectOnLeft: {fileID: 8258987648318814210}
+    m_SelectOnRight: {fileID: 5762165019745387089}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -2582,6 +2585,57 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+  useSharedParameters: 0
+  sharedParameters: {fileID: 0}
+  targetText: {fileID: 4533593379404184696}
+  textTransition: 0
+  textColors:
+    m_NormalColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 1}
+    m_HighlightedColor: {r: 0.3407843, g: 0.3407843, b: 0.3407843, a: 1}
+    m_PressedColor: {r: 0.42117646, g: 0.42117646, b: 0.42117646, a: 1}
+    m_SelectedColor: {r: 0.30862746, g: 0.30862746, b: 0.30862746, a: 1}
+    m_DisabledColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 0.5}
+    m_ColorMultiplier: 1
+    m_FadeDuration: 0.1
+  textSwapState:
+    normalText: 
+    highlightedText: 
+    pressedText: 
+    selectedText: 
+    disabledText: 
+  textAnimationTriggers:
+    m_NormalTrigger: Normal
+    m_HighlightedTrigger: Highlighted
+    m_PressedTrigger: Pressed
+    m_SelectedTrigger: Selected
+    m_DisabledTrigger: Disabled
+  textAnimator: {fileID: 0}
+  useMultipleInputGuard: 1
+  multipleInputGuardInterval: 0.5
+  shortCut:
+    rid: -2
+  enableLongPress: 0
+  longPressDuration: 0.5
+  onLongPress:
+    m_PersistentCalls:
+      m_Calls: []
+  onLongPressCancel:
+    m_PersistentCalls:
+      m_Calls: []
+  longPressImage: {fileID: 0}
+  m_useCustomAnimation: 0
+  m_useSharedAnimation: 0
+  m_sharedAnimation: {fileID: 0}
+  m_clickAnimations: []
+  onRightClick:
+    m_PersistentCalls:
+      m_Calls: []
+  m_guiInfo: {fileID: 6766333236410079497}
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
 --- !u!114 &1488295757809668020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2618,6 +2672,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3468b3db8d419c745b12124f6432696b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &6766333236410079497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6346146231363353845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 570d669aa92d95140898661638fa5e82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_rectTransform: {fileID: 3537203272554339950}
+  m_originalRectTransformValues:
+    m_worldPosition: {x: 150, y: 760, z: 0}
+    m_localPosition: {x: -330, y: 220, z: 0}
+    m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
+    m_localRotation: {x: 0, y: 0, z: 0, w: 1}
+    m_localScale: {x: 1, y: 1, z: 1}
+    m_anchoredPosition: {x: 150, y: -320}
+    m_anchorMin: {x: 0, y: 1}
+    m_anchorMax: {x: 0, y: 1}
+    m_sizeDelta: {x: 200, y: 200}
+    m_pivot: {x: 0.5, y: 0.5}
+    m_rect:
+      serializedVersion: 2
+      x: -100
+      y: -100
+      width: 200
+      height: 200
+  m_targetGraphic: {fileID: 7119033200818503907}
 --- !u!1 &6715776701967178389
 GameObject:
   m_ObjectHideFlags: 0
@@ -2714,7 +2799,7 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1205682007169548903}
-    m_SelectOnDown: {fileID: 8258987648318814210}
+    m_SelectOnDown: {fileID: 5762165019745387089}
     m_SelectOnLeft: {fileID: 1081137947709864406}
     m_SelectOnRight: {fileID: 8661072096240186566}
   m_Transition: 1
@@ -3181,9 +3266,9 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 8449113140067320632}
-    m_SelectOnDown: {fileID: 8067609603200157435}
-    m_SelectOnLeft: {fileID: 8258987648318814210}
+    m_SelectOnUp: {fileID: 6099031374490356107}
+    m_SelectOnDown: {fileID: 1205682007169548903}
+    m_SelectOnLeft: {fileID: 8067609603200157435}
     m_SelectOnRight: {fileID: 1683968837945828386}
   m_Transition: 1
   m_Colors:

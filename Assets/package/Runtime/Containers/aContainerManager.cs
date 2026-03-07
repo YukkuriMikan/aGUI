@@ -71,16 +71,23 @@ namespace ANest.UI {
 		/// <summary>コンテナ名から管理対象のコンテナを取得する</summary>
 		/// <param name="containerName">取得するコンテナ名</param>
 		/// <returns>該当するコンテナ。見つからない場合はnull</returns>
-		public static aContainerBase Get(string containerName) {
+		public static aContainerBase GetContainer(string containerName) {
 			if(string.IsNullOrEmpty(containerName)) return null;
 			m_containerNameDictionary.TryGetValue(containerName, out var container);
 			return container;
 		}
 
+		/// <summary>型引数に合ったコンテナを返す</summary>
+		/// <typeparam name="T">取得するコンテナの型</typeparam>
+		/// <returns>型引数に一致するコンテナ</returns>
+		/// <remarks>複数の該当があった場合は順不定</remarks>
+		public static T GetContainer<T>() where T : aContainerBase
+			=> m_containers.OfType<T>().First();
+
 		/// <summary>型引数に合うコンテナを列挙で返す</summary>
 		/// <typeparam name="T">取得するコンテナの型</typeparam>
 		/// <returns>型引数に一致するコンテナの列挙</returns>
-		public static IEnumerable<T> Get<T>() where T : aContainerBase
+		public static IEnumerable<T> GetContainers<T>() where T : aContainerBase
 			=> m_containers.OfType<T>();
 
 		/// <summary>全てのコンテナを管理対象から除外する</summary>

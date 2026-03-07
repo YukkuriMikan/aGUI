@@ -61,8 +61,6 @@ namespace ANest.UI {
 						es.SetSelectedGameObject(null);
 				}
 
-				if(m_currentSelectable == value) return;
-
 				if(value == null) {
 					TrySetNull();
 

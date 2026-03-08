@@ -49,8 +49,8 @@ using UnityEngine;
 public class MenuController : MonoBehaviour {
     [SerializeField] private aNormalSelectableContainer menu;
 
-    public void Open() => menu.Show();
-    public void Close() => menu.Hide();
+    public void Show() => menu.Show();
+    public void Hide() => menu.Hide();
     public void Toggle() => menu.Toggle();
 }
 ```

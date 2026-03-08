@@ -12,9 +12,10 @@ namespace ANest.UI {
 	public abstract class aLayoutGroupBase : MonoBehaviour {
 		/// <summary> レイアウトを更新するタイミングの種類 </summary>
 		public enum UpdateMode {
-			Manual,                    // 手動でのみ更新
-			InitializeOnly,            // 初期化時のみ更新
-			OnTransformChildrenChanged // 子Transform変更時に更新
+			Manual,                             // 手動でのみ更新
+			InitializeOnly,                     // 初期化時のみ更新
+			OnTransformChildrenChanged,         // 子Transform変更時に更新
+			OnTransformChildrenChangedWaitFrame // 子Transform変更時に1フレーム待って更新
 		}
 
 		#region SerializeField
@@ -114,7 +115,12 @@ namespace ANest.UI {
 		protected virtual void OnTransformChildrenChanged() {
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
 				AlignWithCollection();
-				//AlignWithFrameWaitAndCollectionAsync().Forget();
+				
+				return;
+			}
+			
+			if(updateMode == UpdateMode.OnTransformChildrenChangedWaitFrame) {
+				AlignWithFrameWaitAndCollectionAsync().Forget();
 			}
 		}
 

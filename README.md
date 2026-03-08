@@ -61,7 +61,7 @@ public class MenuController : MonoBehaviour {
 
 - `aContainerBase`: `Show/Hide/Toggle`、表示イベント、表示アニメーション
 - `aSelectableContainerBase<T>`: 子Selectable管理、選択状態管理
-- `aNormalSelectableContainer`: Null選択禁止に対応した通常コンテナ
+- `aNormalSelectableContainer`: EventSysteの制御を含んだコンテナ
 - `aNormalScrollContainer`: 選択変更時に ScrollRect を自動追従
 - `aSubContainer`: 親コンテナの表示状態に追従
 
@@ -74,7 +74,6 @@ public class MenuController : MonoBehaviour {
 - テキスト遷移（色/文言/アニメーション）
 - `aToggle`:
 - ON/OFF 切り替えアニメーション
-- テキスト遷移
 - `aSelectablesSharedParameters`: Selectable 設定を ScriptableObject で共有
 
 ### Cursor

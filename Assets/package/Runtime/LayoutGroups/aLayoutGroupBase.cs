@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 using UniRx;
+using UniRx.Triggers;
 
 namespace ANest.UI {
 	/// <summary>LayoutGroupを継承せず子RectTransformを直接制御し、uGUI LayoutGroup相当の配置・アニメーション・Navigation設定を提供する基底クラス。</summary>
@@ -12,10 +13,16 @@ namespace ANest.UI {
 	public abstract class aLayoutGroupBase : MonoBehaviour {
 		/// <summary> レイアウトを更新するタイミングの種類 </summary>
 		public enum UpdateMode {
-			Manual,                             // 手動でのみ更新
-			InitializeOnly,                     // 初期化時のみ更新
-			OnTransformChildrenChanged,         // 子Transform変更時に更新
-			OnTransformChildrenChangedWaitFrame // 子Transform変更時に1フレーム待って更新
+			Manual,                     // 手動でのみ更新
+			InitializeOnly,             // 初期化時のみ更新
+			OnTransformChildrenChanged, // 子Transform変更時に更新
+		}
+
+		/// <summary> レイアウトを更新するタイミング </summary>
+		public enum UpdateTiming {
+			Immediate,  // 即時実行
+			Update,     // 次のUpdateで実行
+			LateUpdate, // 次のLateUpdateで実行
 		}
 
 		#region SerializeField
@@ -29,6 +36,8 @@ namespace ANest.UI {
 		[SerializeField] protected bool reverseArrangement; // 並び順を反転するか
 		[Tooltip("レイアウトを更新するタイミング")]
 		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual; // レイアウト更新モード
+		[Tooltip("レイアウト更新の実行タイミング")]
+		[SerializeField] protected UpdateTiming updateTiming = UpdateTiming.Immediate; // レイアウト実行タイミング
 		[Tooltip("子の幅を制御するか")]
 		[SerializeField] protected bool childControlWidth = false; // 子幅を制御するか
 		[Tooltip("子の高さを制御するか")]
@@ -68,6 +77,8 @@ namespace ANest.UI {
 		private RectTransform m_rectTransform;                                                               // 自身のRectTransformキャッシュ
 		private bool m_initialized;                                                                          // 初期化済みか
 		private bool m_dirty;                                                                                // 再計算が必要か
+		private bool m_isScheduled = false;
+		private IDisposable m_scheduledLayoutProcess;
 
 		private Subject<Rect> m_completeLayoutSubject = new(); // レイアウト完了通知Subject
 		#endregion
@@ -103,24 +114,40 @@ namespace ANest.UI {
 		protected virtual void OnDisable() {
 			m_initialized = false;
 			m_dirty = false;
+			m_isScheduled = false;
+			
+			m_scheduledLayoutProcess?.Dispose();
+			m_scheduledLayoutProcess = null;
 			KillAllTweens();
 		}
 
 		/// <summary> 破棄時にTweenを停止 </summary>
 		protected virtual void OnDestroy() {
+			m_scheduledLayoutProcess?.Dispose();
+			m_scheduledLayoutProcess = null;
 			KillAllTweens();
 		}
 
 		/// <summary> 子Transform変更時の処理 </summary>
 		protected virtual void OnTransformChildrenChanged() {
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
-				AlignWithCollection();
-				
-				return;
-			}
-			
-			if(updateMode == UpdateMode.OnTransformChildrenChangedWaitFrame) {
-				AlignWithFrameWaitAndCollectionAsync().Forget();
+				if(updateTiming == UpdateTiming.Immediate) {
+					AlignWithCollection();
+				} else if(updateTiming == UpdateTiming.Update) {
+					if(m_isScheduled) return;
+					m_isScheduled = true;
+					
+					m_scheduledLayoutProcess = this.UpdateAsObservable()
+						.First()
+						.Subscribe(_ => AlignWithCollection());
+				} else if(updateTiming == UpdateTiming.LateUpdate) {
+					if(m_isScheduled) return;
+					m_isScheduled = true;
+
+					m_scheduledLayoutProcess = this.LateUpdateAsObservable()
+						.First()
+						.Subscribe(_ => AlignWithCollection());
+				}
 			}
 		}
 
@@ -143,8 +170,9 @@ namespace ANest.UI {
 		#region Methods
 		/// <summary> アニメーションを強制無効化してレイアウトを適用 </summary>
 		[ContextMenu("Rebuild Layout")]
-		public void AlignEditor() {
+		public void AlignWithCollectionNonAnimate() {
 			if(!gameObject.activeSelf) return; // 無効時は処理しない
+			m_isScheduled = false;
 
 			bool previousSuppress = useAnimation; // 元の抑制状態を保存
 			useAnimation = false;
@@ -156,6 +184,7 @@ namespace ANest.UI {
 		/// <summary> 子要素を収集して整列 </summary>
 		public void AlignWithCollection() {
 			if(!gameObject.activeSelf) return; // 無効時は処理しない
+			m_isScheduled = false;
 
 			m_lastTargetPositions.Clear();
 			CollectRectChildren();
@@ -166,6 +195,7 @@ namespace ANest.UI {
 		/// <summary> 子要素を整列 </summary>
 		public void Align() {
 			if(!gameObject.activeSelf) return; // 無効時は処理しない
+			m_isScheduled = false;
 
 			m_lastTargetPositions.Clear();
 			if(rectChildren.Count == 0) {
@@ -229,7 +259,7 @@ namespace ANest.UI {
 			var size = RectTransform.rect.size;
 			if(size.x <= 1f || size.y <= 1f) return;
 			m_initialized = true;
-			AlignEditor();
+			AlignWithCollectionNonAnimate();
 		}
 
 		/// <summary> レイアウト対象となる子RectTransformを収集 </summary>

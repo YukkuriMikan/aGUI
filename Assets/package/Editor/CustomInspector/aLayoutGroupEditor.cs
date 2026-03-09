@@ -738,7 +738,7 @@ namespace ANest.UI.Editor {
 				if(Application.isPlaying) {
 					group.AlignWithCollection();
 				} else {
-					group.AlignEditor();
+					group.AlignWithCollectionNonAnimate();
 				}
 
 				foreach (var obj in undoTargets) {

@@ -689,6 +689,7 @@ namespace ANest.UI.Editor {
 				case "rectChildren":
 				case "padding":
 				case "updateMode":
+				case "updateTiming":
 				case "excludedChildren":
 				case "childAlignment":
 				case "reverseArrangement":

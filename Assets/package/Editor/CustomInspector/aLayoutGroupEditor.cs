@@ -15,6 +15,7 @@ namespace ANest.UI.Editor {
 		private SerializedProperty childAlignmentProp;             // childAlignment プロパティへの参照
 		private SerializedProperty reverseArrangementProp;         // reverseArrangement プロパティへの参照
 		private SerializedProperty updateModeProp;                 // updateMode プロパティへの参照
+		private SerializedProperty updateTimingProp;               // updateTiming プロパティへの参照
 		private SerializedProperty rectChildrenProp;               // rectChildren プロパティへの参照
 		private SerializedProperty excludedChildrenProp;           // excludedChildren プロパティへの参照
 		private SerializedProperty spacingProp;                    // spacing プロパティ（HV用）への参照
@@ -61,6 +62,7 @@ namespace ANest.UI.Editor {
 			childAlignmentProp = serializedObject.FindProperty("childAlignment");
 			reverseArrangementProp = serializedObject.FindProperty("reverseArrangement");
 			updateModeProp = serializedObject.FindProperty("updateMode");
+			updateTimingProp = serializedObject.FindProperty("updateTiming");
 			rectChildrenProp = serializedObject.FindProperty("rectChildren");
 			excludedChildrenProp = serializedObject.FindProperty("excludedChildren");
 			spacingProp = serializedObject.FindProperty("spacing");
@@ -508,6 +510,7 @@ namespace ANest.UI.Editor {
 		private void DrawLayoutBaseProperties() {
 			DrawScriptField();
 			PropertyFieldSafe(updateModeProp);
+			PropertyFieldSafe(updateTimingProp);
 			PropertyFieldSafe(rectChildrenProp, true);
 			PropertyFieldSafe(excludedChildrenProp, true);
 			PropertyFieldSafe(paddingProp, true);

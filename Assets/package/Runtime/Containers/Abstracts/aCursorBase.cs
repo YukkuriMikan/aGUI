@@ -1,4 +1,6 @@
 using DG.Tweening;
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,8 +16,9 @@ namespace ANest.UI {
 
 		/// <summary>サイズ変更モード</summary>
 		public enum SizeMode {
-			Fixed,          // 固定サイズ
-			MatchSelectable // 選択対象のサイズに合わせる
+			Fixed,           // 固定サイズ
+			MatchSelectable, // 選択対象のサイズに合わせる
+			MatchText,       // 選択対象のテキストサイズに合わせる
 		}
 
 		/// <summary>更新モード</summary>
@@ -55,10 +58,11 @@ namespace ANest.UI {
 		#endregion
 
 	    #region Private Fields
-		private RectTransform m_currentTargetRect; // 現在のターゲットRectTransform
-		private Tweener m_moveTween;               // 移動アニメーション用Tween
-		private Tweener m_sizeTween;               // サイズ変更アニメーション用Tween
-		protected bool m_wasHidden = true;         // 前フレームで非表示だったかどうか（瞬間移動判定用）
+		private RectTransform m_currentTargetRect;                                             // 現在のターゲットRectTransform
+		private Tweener m_moveTween;                                                           // 移動アニメーション用Tween
+		private Tweener m_sizeTween;                                                           // サイズ変更アニメーション用Tween
+		private readonly Dictionary<RectTransform, TextMeshProUGUI> m_targetTextCache = new(); // ターゲット配下テキストのキャッシュ
+		protected bool m_wasHidden = true;                                                     // 前フレームで非表示だったかどうか（瞬間移動判定用）
 		#endregion
 
 	    #region Lifecycle Methods
@@ -73,6 +77,7 @@ namespace ANest.UI {
 		protected virtual void OnDestroy() {
 			m_moveTween?.Kill();
 			m_sizeTween?.Kill();
+			m_targetTextCache.Clear();
 		}
 		#endregion
 
@@ -157,8 +162,18 @@ namespace ANest.UI {
 			}
 
 			// サイズ変更
-			if(m_sizeMode == SizeMode.MatchSelectable) {
+			if(m_sizeMode == SizeMode.MatchSelectable || m_sizeMode == SizeMode.MatchText) {
 				Vector2 targetSize = targetRect.rect.size + m_padding;
+
+				if(m_sizeMode == SizeMode.MatchText) {
+					var textComponent = GetCachedTextComponent(targetRect);
+					if(textComponent != null) {
+						textComponent.ForceMeshUpdate();
+						Vector3 textBoundsSize = textComponent.textBounds.size;
+						targetSize = new Vector2(textBoundsSize.x, textBoundsSize.y) + m_padding;
+					}
+				}
+
 				if(shouldInstantMove) {
 					m_sizeTween?.Kill();
 					m_cursorRect.sizeDelta = targetSize;
@@ -174,6 +189,21 @@ namespace ANest.UI {
 					}
 				}
 			}
+		}
+
+		/// <summary>ターゲット配下のテキストコンポーネントをキャッシュ付きで取得する</summary>
+		/// <param name="targetRect">検索対象のRectTransform</param>
+		/// <returns>キャッシュ済みまたは新規取得した aTextMeshProUgui</returns>
+		private TextMeshProUGUI GetCachedTextComponent(RectTransform targetRect) {
+			if(targetRect == null) return null;
+
+			if(m_targetTextCache.TryGetValue(targetRect, out TextMeshProUGUI cachedText)) {
+				return cachedText;
+			}
+
+			TextMeshProUGUI textComponent = targetRect.GetComponentInChildren<TextMeshProUGUI>(true);
+			m_targetTextCache[targetRect] = textComponent;
+			return textComponent;
 		}
 		#endregion
 

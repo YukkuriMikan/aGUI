@@ -80,7 +80,8 @@ namespace ANest.UI.Editor {
 			if(_sizeModeProp.hasMultipleDifferentValues) {
 				return true;
 			}
-			return _sizeModeProp.enumValueIndex == (int)aCursorBase.SizeMode.MatchSelectable;
+			return _sizeModeProp.enumValueIndex == (int)aCursorBase.SizeMode.MatchSelectable
+				|| _sizeModeProp.enumValueIndex == (int)aCursorBase.SizeMode.MatchText;
 		}
 
 		/// <summary>派生プロパティ表示時に除外するプロパティ名を返す。</summary>

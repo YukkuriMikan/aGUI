@@ -4898,6 +4898,7 @@ MonoBehaviour:
   childAlignment: 4
   reverseArrangement: 0
   updateMode: 1
+  updateTiming: 0
   childControlWidth: 0
   childControlHeight: 0
   childScaleWidth: 0
@@ -16519,6 +16520,7 @@ MonoBehaviour:
   m_selectOnHover: 0
   m_defaultResumeSelectionOnShow: 1
   m_indexMode: 2
+  m_skipNonInteractableNavigation: 1
   m_initialGuard: 0
   m_initialGuardDuration: 0
   m_onSelectChanged:
@@ -17191,6 +17193,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: -540
       objectReference: {fileID: 0}
+    - target: {fileID: 1581471864800479404, guid: ab09620fac527b7458600f996d544adc, type: 3}
+      propertyPath: m_text
+      value: ButtonButton
+      objectReference: {fileID: 0}
     - target: {fileID: 2107838628609376640, guid: ab09620fac527b7458600f996d544adc, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 810
@@ -17342,6 +17348,10 @@ PrefabInstance:
     - target: {fileID: 9053337510336287260, guid: ab09620fac527b7458600f996d544adc, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9089497905918502574, guid: ab09620fac527b7458600f996d544adc, type: 3}
+      propertyPath: m_text
+      value: ButtonButtonButtonButton
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

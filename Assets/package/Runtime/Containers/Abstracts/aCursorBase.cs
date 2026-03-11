@@ -138,9 +138,18 @@ namespace ANest.UI {
 		protected virtual void UpdateCursor(RectTransform targetRect) {
 			if(targetRect == null || m_cursorRect == null) return;
 
+			TextMeshProUGUI textComponent = null;
+			if(m_sizeMode == SizeMode.MatchText) {
+				textComponent = GetCachedTextComponent(targetRect);
+				textComponent?.ForceMeshUpdate();
+			}
+
 			// カーソルの位置は CurrentSelectable の位置に移動する
 			// Canvas内での絶対座標を合わせるために、ワールド座標を使用する
 			Vector3 targetWorldPos = targetRect.position;
+			if(textComponent != null) {
+				targetWorldPos = textComponent.transform.TransformPoint(textComponent.textBounds.center);
+			}
 
 			// 非表示状態から表示状態に遷移した場合は瞬間移動する
 			bool shouldInstantMove = m_wasHidden || m_moveMode == MoveMode.Instant;
@@ -166,9 +175,7 @@ namespace ANest.UI {
 				Vector2 targetSize = targetRect.rect.size + m_padding;
 
 				if(m_sizeMode == SizeMode.MatchText) {
-					var textComponent = GetCachedTextComponent(targetRect);
 					if(textComponent != null) {
-						textComponent.ForceMeshUpdate();
 						Vector3 textBoundsSize = textComponent.textBounds.size;
 						targetSize = new Vector2(textBoundsSize.x, textBoundsSize.y) + m_padding;
 					}

@@ -14,12 +14,12 @@ Namespace は `ANest.UI` です。
 
 - Unity: `6000.x`
 - 依存ライブラリ/パッケージ:
-- DOTween
-- UniRx
-- UniTask
-- TextMeshPro
-- Unity Input System
-- Unity Localization（`aTextMeshProUgui` 利用時）
+  - DOTween
+  - UniRx
+  - UniTask
+  - TextMeshPro
+  - Unity Input System
+  - Unity Localization（`aTextMeshProUgui` 利用時）
 
 ## インストール
 

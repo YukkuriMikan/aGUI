@@ -83,7 +83,7 @@ https://github.com/YukkuriMikan/aGUI.git?path=/Assets/package
 - `aLayoutGroupGrid`
 - `aLayoutGroupCircular`
 - `aContentSizeFitter`: レイアウト結果に合わせて親Rectサイズ調整
-- `aTextMeshSizeFitter`: TMPの内容に合わせてRectサイズ調整
+- `aTextMeshSizeFitter`: TMPの文字に合わせてRectサイズ調整
 
 ### Animation
 

@@ -8,6 +8,7 @@ aGUIのコンテナとSelectableコンポーネントは基本的にaGuiInfoを�
 
 ## Containers
 型引数は全てSelectable継承の制約有り。
+継承クラスを作成する際は、基底クラスのメソッドを最初に呼ぶ事。
 
 | 型 | 概要 | 主な API | Source |
 | --- | --- | --- | --- |

@@ -302,14 +302,16 @@ namespace ANest.UI {
 		protected void SetChildAlongBothAxes(RectTransform rect, float posX, float posY, float sizeX, float sizeY, float scaleX = 1f, float scaleY = 1f) {
 			if(rect == null) return;
 
-			Vector2 anchorMin = rect.anchorMin;
-			Vector2 anchorMax = rect.anchorMax;
+			var anchorMin = rect.anchorMin;
+			var anchorMax = rect.anchorMax;
+			
 			anchorMin.x = anchorMax.x = 0f;
 			anchorMin.y = anchorMax.y = 1f;
 			rect.anchorMin = anchorMin;
 			rect.anchorMax = anchorMax;
 
-			Vector2 sizeDelta = rect.sizeDelta;
+			var sizeDelta = rect.sizeDelta;
+			
 			sizeDelta.x = sizeX;
 			sizeDelta.y = sizeY;
 			rect.sizeDelta = sizeDelta;
@@ -327,14 +329,20 @@ namespace ANest.UI {
 			if(rect == null) return;
 			m_lastTargetPositions[rect] = targetPos;
 
-			Vector2 delta = rect.anchoredPosition - targetPos;
-			float distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
-			bool shouldAnimate = useAnimation && !m_suppressAnimation && distance <= animationDistanceThreshold && animationDuration > 0f;
+			var delta = rect.anchoredPosition - targetPos;
+			var distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
+			var shouldAnimate = useAnimation && !m_suppressAnimation && distance <= animationDistanceThreshold && animationDuration > 0f;
 
 			KillTween(rect);
 
 			if(shouldAnimate) {
-				Tween tween = DOTween.To(() => rect.anchoredPosition, v => rect.anchoredPosition = v, targetPos, animationDuration);
+				var tween =
+					DOTween.To(() =>
+						rect.anchoredPosition,
+						v => rect.anchoredPosition = v,
+						targetPos,
+						animationDuration);
+				
 				if(useAnimationCurve && animationCurve != null) {
 					tween.SetEase(animationCurve);
 				} else {
@@ -350,6 +358,7 @@ namespace ANest.UI {
 		/// <summary> 指定RectTransformに紐づくTweenを停止 </summary>
 		protected void KillTween(RectTransform rect) {
 			if(rect == null) return;
+			
 			if(m_positionTweens.TryGetValue(rect, out Tween tween)) {
 				if(tween.IsActive()) tween.Kill();
 				m_positionTweens.Remove(rect);
@@ -359,7 +368,7 @@ namespace ANest.UI {
 		/// <summary> 管理中の全Tweenを停止 </summary>
 		private void KillAllTweens() {
 			foreach (var kvp in m_positionTweens) {
-				Tween tween = kvp.Value;
+				var tween = kvp.Value;
 				if(tween != null && tween.IsActive()) tween.Kill();
 			}
 			m_positionTweens.Clear();
@@ -372,10 +381,10 @@ namespace ANest.UI {
 				return new Rect();
 			}
 
-			float minX = float.PositiveInfinity;
-			float minY = float.PositiveInfinity;
-			float maxX = float.NegativeInfinity;
-			float maxY = float.NegativeInfinity;
+			var minX = float.PositiveInfinity;
+			var minY = float.PositiveInfinity;
+			var maxX = float.NegativeInfinity;
+			var maxY = float.NegativeInfinity;
 
 			for (int i = 0; i < rectChildren.Count; i++) {
 				var child = rectChildren[i];
@@ -386,12 +395,12 @@ namespace ANest.UI {
 					pos = child.anchoredPosition;
 				}
 
-				float width = child.sizeDelta.x * Mathf.Abs(child.localScale.x);
-				float height = child.sizeDelta.y * Mathf.Abs(child.localScale.y);
-				float left = pos.x - width * child.pivot.x;
-				float right = left + width;
-				float bottom = pos.y - height * child.pivot.y;
-				float top = bottom + height;
+				var width = child.sizeDelta.x * Mathf.Abs(child.localScale.x);
+				var height = child.sizeDelta.y * Mathf.Abs(child.localScale.y);
+				var left = pos.x - width * child.pivot.x;
+				var right = left + width;
+				var bottom = pos.y - height * child.pivot.y;
+				var top = bottom + height;
 
 				if(left < minX) minX = left;
 				if(bottom < minY) minY = bottom;
@@ -404,15 +413,15 @@ namespace ANest.UI {
 			}
 
 			// パディングを含めた親内側の境界も考慮したRectを作成
-			float paddingLeft = padding != null ? padding.left : 0f;
-			float paddingRight = padding != null ? padding.right : 0f;
-			float paddingTop = padding != null ? padding.top : 0f;
-			float paddingBottom = padding != null ? padding.bottom : 0f;
+			var paddingLeft = padding != null ? padding.left : 0f;
+			var paddingRight = padding != null ? padding.right : 0f;
+			var paddingTop = padding != null ? padding.top : 0f;
+			var paddingBottom = padding != null ? padding.bottom : 0f;
 
-			float paddedMinX = minX - paddingLeft;
-			float paddedMaxX = maxX + paddingRight;
-			float paddedMinY = minY - paddingTop;
-			float paddedMaxY = maxY + paddingBottom;
+			var paddedMinX = minX - paddingLeft;
+			var paddedMaxX = maxX + paddingRight;
+			var paddedMinY = minY - paddingTop;
+			var paddedMaxY = maxY + paddingBottom;
 
 			var rect = Rect.MinMaxRect(paddedMinX, paddedMinY, paddedMaxX, paddedMaxY);
 			return rect;

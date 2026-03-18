@@ -179,7 +179,26 @@ namespace ANest.UI.Editor {
 			if(!s_scriptIconMap.TryGetValue(guid, out var icon)) return;
 			if(icon == null) return;
 
-			var iconRect = new Rect(selectionRect.x + 2, selectionRect.y, selectionRect.height, selectionRect.height);
+			// List表示時のみ左側に追加描画する。
+			// Grid(アイコン)表示では既定のアイコン描画に任せないと、ラベル領域に重なってファイル名が隠れる。
+			bool isListMode = selectionRect.width > selectionRect.height * 2f;
+			Rect iconRect;
+			if(isListMode) {
+				iconRect = new Rect(selectionRect.x + 2, selectionRect.y, selectionRect.height, selectionRect.height);
+			} else {
+				// Grid表示時は下部ラベル領域を避けて、可能な範囲で拡大表示する
+				const float labelReservedHeight = 18f;
+				const float margin = 2f;
+				float maxWidth = Mathf.Max(0f, selectionRect.width - margin * 2f);
+				float maxHeight = Mathf.Max(0f, selectionRect.height - labelReservedHeight - margin);
+				float size = Mathf.Min(maxWidth, maxHeight);
+				if(size <= 0f) return;
+
+				float x = selectionRect.x + (selectionRect.width - size) * 0.5f;
+				float y = selectionRect.y + margin;
+				iconRect = new Rect(x, y, size, size);
+			}
+
 			var bgColor = EditorGUIUtility.isProSkin ? new Color(0.22f, 0.22f, 0.22f) : new Color(0.76f, 0.76f, 0.76f);
 			EditorGUI.DrawRect(iconRect, bgColor);
 			GUI.DrawTexture(iconRect, icon);

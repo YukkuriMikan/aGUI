@@ -15,8 +15,10 @@ namespace ANest.UI {
 		/// <summary> 線形方向のNavigationを設定 </summary>
 		protected void ApplyNavigationLinear(List<RectTransform> order, bool isHorizontal) {
 			if(!setNavigation) return;
-			int n = order.Count;
+			
+			var n = order.Count;
 			RectTransform prevSelectable = null;
+			
 			for (int i = 0; i < n; i++) {
 				var current = order[i];
 				if(current == null) continue;
@@ -30,6 +32,7 @@ namespace ANest.UI {
 
 				// Find next selectable
 				Selectable nextSelectable = null;
+				
 				for (int j = i + 1; j < n; j++) {
 					var next = order[j];
 					if(next == null) continue;
@@ -40,7 +43,7 @@ namespace ANest.UI {
 					}
 				}
 
-				Selectable prev = prevSelectable != null ? prevSelectable.GetComponent<Selectable>() : null;
+				var prev = prevSelectable != null ? prevSelectable.GetComponent<Selectable>() : null;
 
 				if(isHorizontal) {
 					nav.selectOnLeft = prev;
@@ -61,6 +64,7 @@ namespace ANest.UI {
 			if(navigationLoop) {
 				Selectable first = null;
 				Selectable last = null;
+				
 				for (int i = 0; i < n; i++) {
 					var s = order[i] != null ? order[i].GetComponent<Selectable>() : null;
 					if(s != null) {
@@ -68,6 +72,7 @@ namespace ANest.UI {
 						break;
 					}
 				}
+				
 				for (int i = n - 1; i >= 0; i--) {
 					var s = order[i] != null ? order[i].GetComponent<Selectable>() : null;
 					if(s != null) {
@@ -75,9 +80,10 @@ namespace ANest.UI {
 						break;
 					}
 				}
+				
 				if(first != null && last != null && first != last) {
-					Navigation navFirst = first.navigation;
-					Navigation navLast = last.navigation;
+					var navFirst = first.navigation;
+					var navLast = last.navigation;
 					if(isHorizontal) {
 						navFirst.selectOnLeft = last;
 						navLast.selectOnRight = first;

@@ -45,6 +45,9 @@ namespace ANest.UI {
 		protected override void CalculateLayout() {
 			if(RectTransform == null) return;
 
+			bool ignoreCellSizeWidth = childForceExpandWidth;
+			bool ignoreCellSizeHeight = childForceExpandHeight;
+
 			int count = rectChildren.Count;
 			if(count == 0) return;
 
@@ -97,10 +100,11 @@ namespace ANest.UI {
 				float scaleY = childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f;
 
 				bool controlMain = startAxis == Axis.Horizontal ? childControlWidth : childControlHeight;
+				bool ignoreCellSizeMain = startAxis == Axis.Horizontal ? ignoreCellSizeWidth : ignoreCellSizeHeight;
 				float mainSize = startAxis == Axis.Horizontal ? sizeX.preferred : sizeY.preferred;
 				float mainScale = startAxis == Axis.Horizontal ? scaleX : scaleY;
 				int slotNeeded = 1;
-				if(!controlMain) {
+				if(!controlMain && !ignoreCellSizeMain) {
 					float scaledMain = mainSize * mainScale;
 					float baseSize = startAxis == Axis.Horizontal ? cellSize.x : cellSize.y;
 					float denom = Mathf.Max(0.0001f, baseSize);
@@ -144,13 +148,25 @@ namespace ANest.UI {
 			// 実際に必要となるセル数を算出
 			int actualCellCountX = Mathf.Max(1, maxX + 1);
 			int actualCellCountY = Mathf.Max(1, maxY + 1);
+			float availableWidth = Mathf.Max(0f, width - padding.horizontal);
+			float availableHeight = Mathf.Max(0f, height - padding.vertical);
+			float cellWidth = cellSize.x;
+			float cellHeight = cellSize.y;
+			if(ignoreCellSizeWidth) {
+				int spacingX = Mathf.Max(0, actualCellCountX - 1);
+				cellWidth = Mathf.Max(0f, (availableWidth - spacingXY.x * spacingX) / Mathf.Max(1, actualCellCountX));
+			}
+			if(ignoreCellSizeHeight) {
+				int spacingY = Mathf.Max(0, actualCellCountY - 1);
+				cellHeight = Mathf.Max(0f, (availableHeight - spacingXY.y * spacingY) / Mathf.Max(1, actualCellCountY));
+			}
 
 			// Spacing を考慮した必要領域を計算
 			int spacingCountX = startAxis == Axis.Horizontal ? Mathf.Max(0, maxChildrenInRow - 1) : Mathf.Max(0, actualCellCountX - 1);
 			int spacingCountY = startAxis == Axis.Vertical ? Mathf.Max(0, maxChildrenInColumn - 1) : Mathf.Max(0, actualCellCountY - 1);
 			Vector2 requiredSpace = new Vector2(
-				actualCellCountX * cellSize.x + spacingCountX * spacingXY.x,
-				actualCellCountY * cellSize.y + spacingCountY * spacingXY.y
+				ignoreCellSizeWidth ? availableWidth : actualCellCountX * cellWidth + spacingCountX * spacingXY.x,
+				ignoreCellSizeHeight ? availableHeight : actualCellCountY * cellHeight + spacingCountY * spacingXY.y
 				);
 			Vector2 startOffset = new Vector2(
 				GetStartOffset(0, requiredSpace.x),
@@ -168,33 +184,15 @@ namespace ANest.UI {
 				var pos = positions[i];
 				int childLineIndex = childIndexInLine[i];
 
-				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);
-				GetChildSizes(child, 1, childControlHeight, childForceExpandHeight, out var sizeY);
 				float scaleX = childScaleWidth ? child.localScale.x : 1f;
 				float scaleY = childScaleHeight ? child.localScale.y : 1f;
 
-				bool controlWidth = childControlWidth;
-				bool controlHeight = childControlHeight;
-				float childWidth = controlWidth ? cellSize.x : sizeX.preferred;
-				float childHeight = controlHeight ? cellSize.y : sizeY.preferred;
+				float childWidth = cellWidth;
+				float childHeight = cellHeight;
 
 				// 主軸方向で必要なスロット数を算出（制御しない場合はサイズに応じて複数スロット消費）
-				int slotNeededMain = 1;
-				float slotWidth = cellSize.x;
-				float slotHeight = cellSize.y;
-				if(startAxis == Axis.Horizontal) {
-					if(!controlWidth) {
-						float scaledW = childWidth * (childScaleWidth ? Mathf.Abs(scaleX) : 1f);
-						slotNeededMain = Mathf.Max(1, Mathf.CeilToInt(scaledW / Mathf.Max(0.0001f, cellSize.x)));
-					}
-					slotWidth = cellSize.x * slotNeededMain;
-				} else {
-					if(!controlHeight) {
-						float scaledH = childHeight * (childScaleHeight ? Mathf.Abs(scaleY) : 1f);
-						slotNeededMain = Mathf.Max(1, Mathf.CeilToInt(scaledH / Mathf.Max(0.0001f, cellSize.y)));
-					}
-					slotHeight = cellSize.y * slotNeededMain;
-				}
+				float slotWidth = cellWidth;
+				float slotHeight = cellHeight;
 
 				int px = pos.x;
 				int py = pos.y;
@@ -218,8 +216,8 @@ namespace ANest.UI {
 					spacingIndexY = cornerY == 0 ? childLineIndex : (columnCount - 1 - childLineIndex);
 				}
 
-				float baseX = startOffset.x + px * cellSize.x + spacingXY.x * spacingIndexX;
-				float baseY = startOffset.y + py * cellSize.y + spacingXY.y * spacingIndexY;
+				float baseX = startOffset.x + px * cellWidth + spacingXY.x * spacingIndexX;
+				float baseY = startOffset.y + py * cellHeight + spacingXY.y * spacingIndexY;
 
 				float alignedX = baseX + (slotWidth - childWidth * scaleX) * alignX;
 				float alignedY = baseY + (slotHeight - childHeight * scaleY) * alignY;

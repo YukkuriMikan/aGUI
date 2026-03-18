@@ -1,7 +1,6 @@
 using System;
 using UniRx;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace ANest.UI {
 	/// <summary>aLayoutGroupBase のレイアウト結果に合わせて自身のサイズを調整するフィッター</summary>
@@ -40,17 +39,6 @@ namespace ANest.UI {
 		#endregion
 
 		#region Unity Methods
-		/// <summary>コンポーネントリセット時に参照を補完</summary>
-		private void Reset() {
-			AssignLayoutGroup();
-		}
-
-		/// <summary>インスペクタ変更時に参照を補完して購読を張り直す</summary>
-		private void OnValidate() {
-			AssignLayoutGroup();
-			Subscribe();
-		}
-
 		/// <summary>有効化時に購読を開始</summary>
 		private void OnEnable() {
 			AssignLayoutGroup();
@@ -123,7 +111,7 @@ namespace ANest.UI {
 				rectTransform.anchoredPosition += new Vector2(
 					(pivot.x - targetPivot.x) * deltaSize.x,
 					(pivot.y - targetPivot.y) * deltaSize.y
-				);
+					);
 			}
 		}
 
@@ -146,7 +134,18 @@ namespace ANest.UI {
 				default: return new Vector2(0.5f, 0.5f);
 			}
 		}
-
 		#endregion
+
+		#if UNITY_EDITOR
+		/// <summary>コンポーネントリセット時に参照を補完</summary>
+		private void Reset() {
+			AssignLayoutGroup();
+		}
+
+		/// <summary>インスペクタ変更時に参照を補完して購読を張り直す</summary>
+		private void OnValidate() {
+			AssignLayoutGroup();
+		}
+		#endif
 	}
 }

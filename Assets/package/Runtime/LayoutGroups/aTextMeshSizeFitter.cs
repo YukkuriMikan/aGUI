@@ -43,6 +43,7 @@ namespace ANest.UI {
 		private RectTransform m_rectTransform; // RectTransform キャッシュ
 		private Tween m_sizeTween;             // サイズ変更用Tween
 		private Tween m_posTween;              // 位置補正用Tween
+		private bool m_pendingFitting;         // defer fitting while rebuilding
 		#endregion
 
 		#region Properties
@@ -59,18 +60,29 @@ namespace ANest.UI {
 		/// <summary>有効化時にテキスト変更イベントを購読</summary>
 		private void OnEnable() {
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
-			ApplyFitting();
+			if(Application.isPlaying) {
+				m_pendingFitting = true;
+			} else {
+				ApplyFitting();
+			}
 		}
 
 		/// <summary>無効化時にテキスト変更イベントを解除</summary>
 		private void OnDisable() {
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
+			m_pendingFitting = false;
 			KillTweens();
 		}
 
 		/// <summary>破棄時にTweenを停止</summary>
 		private void OnDestroy() {
 			KillTweens();
+		}
+
+		private void LateUpdate() {
+			if(!m_pendingFitting) return;
+			m_pendingFitting = false;
+			ApplyFitting();
 		}
 		#endregion
 
@@ -79,7 +91,7 @@ namespace ANest.UI {
 		/// <param name="obj">変更されたテキストオブジェクト</param>
 		private void OnTextChanged(Object obj) {
 			if(obj != m_targetText) return;
-			ApplyFitting();
+			m_pendingFitting = true;
 		}
 
 		/// <summary>テキスト幅に合わせてサイズを更新する</summary>

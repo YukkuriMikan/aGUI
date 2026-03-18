@@ -115,7 +115,7 @@ namespace ANest.UI {
 			m_initialized = false;
 			m_dirty = false;
 			m_isScheduled = false;
-			
+
 			m_scheduledLayoutProcess?.Dispose();
 			m_scheduledLayoutProcess = null;
 			KillAllTweens();
@@ -136,7 +136,7 @@ namespace ANest.UI {
 				} else if(updateTiming == UpdateTiming.Update) {
 					if(m_isScheduled) return;
 					m_isScheduled = true;
-					
+
 					m_scheduledLayoutProcess = this.UpdateAsObservable()
 						.First()
 						.Subscribe(_ => AlignWithCollection());
@@ -259,6 +259,17 @@ namespace ANest.UI {
 			var size = RectTransform.rect.size;
 			if(size.x <= 1f || size.y <= 1f) return;
 			m_initialized = true;
+
+			if(!this || !gameObject.activeSelf) return;
+			if(updateMode != UpdateMode.InitializeOnly) return;
+
+			InitializeOnlyAlignWithDelayAsync().Forget();
+		}
+
+		/// <summary> InitializeOnly時の初回整列を1フレーム遅延して実行 </summary>
+		private async UniTask InitializeOnlyAlignWithDelayAsync() {
+			await UniTask.DelayFrame(1);
+
 			AlignWithCollectionNonAnimate();
 		}
 
@@ -304,14 +315,14 @@ namespace ANest.UI {
 
 			var anchorMin = rect.anchorMin;
 			var anchorMax = rect.anchorMax;
-			
+
 			anchorMin.x = anchorMax.x = 0f;
 			anchorMin.y = anchorMax.y = 1f;
 			rect.anchorMin = anchorMin;
 			rect.anchorMax = anchorMax;
 
 			var sizeDelta = rect.sizeDelta;
-			
+
 			sizeDelta.x = sizeX;
 			sizeDelta.y = sizeY;
 			rect.sizeDelta = sizeDelta;
@@ -338,11 +349,11 @@ namespace ANest.UI {
 			if(shouldAnimate) {
 				var tween =
 					DOTween.To(() =>
-						rect.anchoredPosition,
+							rect.anchoredPosition,
 						v => rect.anchoredPosition = v,
 						targetPos,
 						animationDuration);
-				
+
 				if(useAnimationCurve && animationCurve != null) {
 					tween.SetEase(animationCurve);
 				} else {
@@ -358,7 +369,7 @@ namespace ANest.UI {
 		/// <summary> 指定RectTransformに紐づくTweenを停止 </summary>
 		protected void KillTween(RectTransform rect) {
 			if(rect == null) return;
-			
+
 			if(m_positionTweens.TryGetValue(rect, out Tween tween)) {
 				if(tween.IsActive()) tween.Kill();
 				m_positionTweens.Remove(rect);

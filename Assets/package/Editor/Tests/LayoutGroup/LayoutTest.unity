@@ -305,7 +305,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 23280360}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1417.0834, y: 811.4584, z: 0}
+    m_worldPosition: {x: 1590, y: 912.5, z: 0}
     m_localPosition: {x: 385, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -476,7 +476,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 480, y: -490}
+  m_AnchoredPosition: {x: 549, y: -277}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &64315095
@@ -898,7 +898,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 280710711}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1330, y: 724.375, z: 0}
+    m_worldPosition: {x: 1480, y: 802.5, z: 0}
     m_localPosition: {x: 275, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1327,7 +1327,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 387174158}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1155.8334, y: 724.375, z: 0}
+    m_worldPosition: {x: 1260, y: 802.5, z: 0}
     m_localPosition: {x: 55, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2303,7 +2303,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 702850191}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 807.5, y: 637.2917, z: 0}
+    m_worldPosition: {x: 820, y: 692.5, z: 0}
     m_localPosition: {x: -385, y: -110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2506,7 +2506,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 710643252}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 981.6667, y: 811.4584, z: 0}
+    m_worldPosition: {x: 1040, y: 912.5, z: 0}
     m_localPosition: {x: -165, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2709,7 +2709,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 727869092}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 894.5834, y: 637.2917, z: 0}
+    m_worldPosition: {x: 930, y: 692.5, z: 0}
     m_localPosition: {x: -275, y: -110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2987,7 +2987,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 805102649}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1242.9167, y: 724.375, z: 0}
+    m_worldPosition: {x: 1370, y: 802.5, z: 0}
     m_localPosition: {x: 165, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -3571,7 +3571,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 918632258}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 981.6667, y: 724.375, z: 0}
+    m_worldPosition: {x: 1040, y: 802.5, z: 0}
     m_localPosition: {x: -165, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -3849,7 +3849,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1037800723}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 894.5834, y: 811.4584, z: 0}
+    m_worldPosition: {x: 930, y: 912.5, z: 0}
     m_localPosition: {x: -275, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -4172,7 +4172,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1075072568}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1330, y: 811.4584, z: 0}
+    m_worldPosition: {x: 1480, y: 912.5, z: 0}
     m_localPosition: {x: 275, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -4375,7 +4375,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1075544586}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1068.75, y: 811.4584, z: 0}
+    m_worldPosition: {x: 1150, y: 912.5, z: 0}
     m_localPosition: {x: -55, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -4677,7 +4677,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1150951251}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1112.2917, y: 724.375, z: 0}
+    m_worldPosition: {x: 1205, y: 802.5, z: 0}
     m_localPosition: {x: 445, y: 375, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: -0, y: -0, z: -0, w: 1}
@@ -5000,7 +5000,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1240900263}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1417.0834, y: 724.375, z: 0}
+    m_worldPosition: {x: 1590, y: 802.5, z: 0}
     m_localPosition: {x: 385, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -5323,7 +5323,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1273177649}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 807.5, y: 724.375, z: 0}
+    m_worldPosition: {x: 820, y: 802.5, z: 0}
     m_localPosition: {x: -385, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -5526,7 +5526,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1355810305}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1068.75, y: 724.375, z: 0}
+    m_worldPosition: {x: 1150, y: 802.5, z: 0}
     m_localPosition: {x: -55, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -5969,7 +5969,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1442576562}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 894.5834, y: 724.375, z: 0}
+    m_worldPosition: {x: 930, y: 802.5, z: 0}
     m_localPosition: {x: -275, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -6172,7 +6172,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1485690241}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 807.5, y: 811.4584, z: 0}
+    m_worldPosition: {x: 820, y: 912.5, z: 0}
     m_localPosition: {x: -385, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -7234,7 +7234,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1775344734}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1155.8334, y: 811.4584, z: 0}
+    m_worldPosition: {x: 1260, y: 912.5, z: 0}
     m_localPosition: {x: 55, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -8136,7 +8136,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 1931247988}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1242.9167, y: 811.4584, z: 0}
+    m_worldPosition: {x: 1370, y: 912.5, z: 0}
     m_localPosition: {x: 165, y: 110, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}

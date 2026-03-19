@@ -38,6 +38,8 @@ namespace ANest.UI {
 		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual; // レイアウト更新モード
 		[Tooltip("レイアウト更新の実行タイミング")]
 		[SerializeField] protected UpdateTiming updateTiming = UpdateTiming.Immediate; // レイアウト実行タイミング
+		[Tooltip("整列実行を1フレーム遅らせるか")]
+		[SerializeField] protected bool delayAlignByOneFrame; // 整列を1フレーム遅延するか
 		[Tooltip("子の幅を制御するか")]
 		[SerializeField] protected bool childControlWidth = false; // 子幅を制御するか
 		[Tooltip("子の高さを制御するか")]
@@ -78,6 +80,8 @@ namespace ANest.UI {
 		private bool m_initialized;                                                                          // 初期化済みか
 		private bool m_dirty;                                                                                // 再計算が必要か
 		private bool m_isScheduled = false;
+		private bool m_isFrameDelayScheduled;
+		private bool m_delayedAlignWithCollection;
 		private IDisposable m_scheduledLayoutProcess;
 
 		private Subject<Rect> m_completeLayoutSubject = new(); // レイアウト完了通知Subject
@@ -115,6 +119,7 @@ namespace ANest.UI {
 			m_initialized = false;
 			m_dirty = false;
 			m_isScheduled = false;
+			m_isFrameDelayScheduled = false;
 
 			m_scheduledLayoutProcess?.Dispose();
 			m_scheduledLayoutProcess = null;
@@ -123,6 +128,7 @@ namespace ANest.UI {
 
 		/// <summary> 破棄時にTweenを停止 </summary>
 		protected virtual void OnDestroy() {
+			m_isFrameDelayScheduled = false;
 			m_scheduledLayoutProcess?.Dispose();
 			m_scheduledLayoutProcess = null;
 			KillAllTweens();
@@ -177,13 +183,23 @@ namespace ANest.UI {
 			bool previousSuppress = useAnimation; // 元の抑制状態を保存
 			useAnimation = false;
 			KillAllTweens();
-			AlignWithCollection();
+			AlignWithCollectionCore();
 			useAnimation = previousSuppress;
 		}
 
 		/// <summary> 子要素を収集して整列 </summary>
 		public void AlignWithCollection() {
 			if(!gameObject.activeSelf) return; // 無効時は処理しない
+			if(delayAlignByOneFrame) {
+				ScheduleDelayedAlign(true);
+				return;
+			}
+
+			AlignWithCollectionCore();
+		}
+
+		/// <summary> 子要素を収集して整列（即時実行本体） </summary>
+		private void AlignWithCollectionCore() {
 			m_isScheduled = false;
 
 			m_lastTargetPositions.Clear();
@@ -195,6 +211,16 @@ namespace ANest.UI {
 		/// <summary> 子要素を整列 </summary>
 		public void Align() {
 			if(!gameObject.activeSelf) return; // 無効時は処理しない
+			if(delayAlignByOneFrame) {
+				ScheduleDelayedAlign(false);
+				return;
+			}
+
+			AlignCore();
+		}
+
+		/// <summary> 子要素を整列（即時実行本体） </summary>
+		private void AlignCore() {
 			m_isScheduled = false;
 
 			m_lastTargetPositions.Clear();
@@ -203,6 +229,29 @@ namespace ANest.UI {
 			}
 			CalculateLayout();
 			m_completeLayoutSubject.OnNext(CalculateContentRect());
+		}
+
+		/// <summary>1フレーム遅延の整列要求をスケジュールする</summary>
+		private void ScheduleDelayedAlign(bool withCollection) {
+			m_delayedAlignWithCollection = withCollection;
+			if(m_isFrameDelayScheduled) return;
+
+			m_isFrameDelayScheduled = true;
+			AlignDelayedByOneFrameAsync().Forget();
+		}
+
+		/// <summary>次フレームで整列を実行する</summary>
+		private async UniTaskVoid AlignDelayedByOneFrameAsync() {
+			await UniTask.DelayFrame(1);
+
+			m_isFrameDelayScheduled = false;
+			if(!this || !gameObject.activeSelf) return;
+
+			if(m_delayedAlignWithCollection) {
+				AlignWithCollectionCore();
+			} else {
+				AlignCore();
+			}
 		}
 
 		/// <summary> rectChildrenへ子要素を追加 </summary>

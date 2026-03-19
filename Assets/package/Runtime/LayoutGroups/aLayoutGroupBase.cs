@@ -471,6 +471,7 @@ namespace ANest.UI {
 		#endregion
 
 #if UNITY_EDITOR
+		/// <summary>エディタ上での値変更時に子要素一覧を再収集する</summary>
 		protected virtual void OnValidate() {
 			if(Application.isPlaying) return;
 			CollectRectChildren();

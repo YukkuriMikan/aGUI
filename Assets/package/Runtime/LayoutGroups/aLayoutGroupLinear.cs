@@ -11,6 +11,10 @@ namespace ANest.UI {
 		[SerializeField] protected float spacing; // 要素間スペース
 		#endregion
 
+		#region Fields
+		protected readonly List<RectTransform> m_orderBuffer = new(); // 子の並び順を都度newせず再利用するバッファ
+		#endregion
+
 		#region Methods
 		/// <summary> 線形方向のNavigationを設定 </summary>
 		protected void ApplyNavigationLinear(List<RectTransform> order, bool isHorizontal) {
@@ -95,6 +99,17 @@ namespace ANest.UI {
 					last.navigation = navLast;
 				}
 			}
+		}
+
+		/// <summary>現在の並び設定（reverseArrangement含む）で order バッファを再構築して返す</summary>
+		protected List<RectTransform> BuildOrderBuffer(int count) {
+			m_orderBuffer.Clear();
+			if(m_orderBuffer.Capacity < count) m_orderBuffer.Capacity = count;
+			for (int i = 0; i < count; i++) {
+				int idx = reverseArrangement ? (count - 1 - i) : i;
+				m_orderBuffer.Add(rectChildren[idx]); // 表示順でバッファへ詰める
+			}
+			return m_orderBuffer;
 		}
 		#endregion
 	}

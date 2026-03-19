@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -38,6 +39,17 @@ namespace ANest.UI {
 		[SerializeField] private Constraint constraint = Constraint.Flexible;      // グリッド制約設定
 		[Tooltip("制約値（列・行固定時の数）")]
 		[SerializeField] private int constraintCount = 2;                         // 制約値（列・行固定時の数）
+		#endregion
+
+		#region Fields
+		private readonly List<Vector2Int> m_positions = new();       // 各子要素の配置セル座標を再利用保持
+		private readonly List<int> m_childIndexInLine = new();       // 行/列内での子インデックスを再利用保持
+		private readonly List<int> m_rowChildCounts = new();         // 各行の子要素数キャッシュ
+		private readonly List<int> m_columnChildCounts = new();      // 各列の子要素数キャッシュ
+		private readonly List<Vector2Int> m_filledGridCells = new(); // 前回ナビゲーショングリッドで使用したセル一覧
+		private readonly List<RectTransform> m_navigationGrid = new(); // Navigation探索用の再利用グリッド（1次元バッファ）
+		private int m_navigationGridCols;
+		private int m_navigationGridRows;
 		#endregion
 
 		#region Methods
@@ -84,10 +96,12 @@ namespace ANest.UI {
 			int cornerY = (int)startCorner / 2;
 
 			// 1st pass: サイズとスケールに応じて必要スロットを算出し、配置候補を決める
-			var positions = new System.Collections.Generic.List<Vector2Int>(count);
-			var childIndexInLine = new System.Collections.Generic.List<int>(count);
-			var rowChildCounts = new System.Collections.Generic.List<int>();
-			var columnChildCounts = new System.Collections.Generic.List<int>();
+			m_positions.Clear();
+			m_childIndexInLine.Clear();
+			m_rowChildCounts.Clear();
+			m_columnChildCounts.Clear();
+			if(m_positions.Capacity < count) m_positions.Capacity = count;
+			if(m_childIndexInLine.Capacity < count) m_childIndexInLine.Capacity = count;
 			int currentX = 0;
 			int currentY = 0;
 			int maxX = 0;
@@ -122,10 +136,10 @@ namespace ANest.UI {
 						currentY++;
 						currentChildInLine = 0;
 					}
-					positions.Add(new Vector2Int(currentX, currentY));
-					childIndexInLine.Add(currentChildInLine);
-					while(rowChildCounts.Count <= currentY) rowChildCounts.Add(0);
-					rowChildCounts[currentY]++;
+					m_positions.Add(new Vector2Int(currentX, currentY));
+					m_childIndexInLine.Add(currentChildInLine);
+					while(m_rowChildCounts.Count <= currentY) m_rowChildCounts.Add(0);
+					m_rowChildCounts[currentY]++;
 					currentChildInLine++;
 					maxChildrenInRow = Mathf.Max(maxChildrenInRow, currentChildInLine);
 					maxX = Mathf.Max(maxX, currentX + slotNeeded - 1);
@@ -137,10 +151,10 @@ namespace ANest.UI {
 						currentX++;
 						currentChildInLine = 0;
 					}
-					positions.Add(new Vector2Int(currentX, currentY));
-					childIndexInLine.Add(currentChildInLine);
-					while(columnChildCounts.Count <= currentX) columnChildCounts.Add(0);
-					columnChildCounts[currentX]++;
+					m_positions.Add(new Vector2Int(currentX, currentY));
+					m_childIndexInLine.Add(currentChildInLine);
+					while(m_columnChildCounts.Count <= currentX) m_columnChildCounts.Add(0);
+					m_columnChildCounts[currentX]++;
 					currentChildInLine++;
 					maxChildrenInColumn = Mathf.Max(maxChildrenInColumn, currentChildInLine);
 					maxY = Mathf.Max(maxY, currentY + slotNeeded - 1);
@@ -175,7 +189,13 @@ namespace ANest.UI {
 				GetStartOffset(1, requiredSpace.y)
 				);
 
-			var grid = new RectTransform[actualCellCountY, actualCellCountX];
+			EnsureNavigationGridCapacity(actualCellCountX, actualCellCountY);
+			for (int i = 0; i < m_filledGridCells.Count; i++) {
+				var filled = m_filledGridCells[i];
+				int clearIndex = GetGridIndex(filled.x, filled.y, m_navigationGridCols);
+				m_navigationGrid[clearIndex] = null;
+			}
+			m_filledGridCells.Clear();
 			float alignX = GetAlignmentOnAxis(0);
 			float alignY = GetAlignmentOnAxis(1);
 
@@ -183,8 +203,8 @@ namespace ANest.UI {
 			for (int i = 0; i < count; i++) {
 				int childIndex = reverseArrangement ? (count - 1 - i) : i;
 				var child = rectChildren[childIndex];
-				var pos = positions[i];
-				int childLineIndex = childIndexInLine[i];
+				var pos = m_positions[i];
+				int childLineIndex = m_childIndexInLine[i];
 				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);
 				GetChildSizes(child, 1, childControlHeight, childForceExpandHeight, out var sizeY);
 
@@ -207,7 +227,7 @@ namespace ANest.UI {
 				int spacingIndexY;
 				if(startAxis == Axis.Horizontal) {
 					// Spacing は子の並び順ベースでカウントするが、右開始の場合は行内のインデックスを反転して距離が正方向に保たれるようにする。
-					int rowCount = rowChildCounts.Count > pos.y ? rowChildCounts[pos.y] : maxChildrenInRow;
+					int rowCount = m_rowChildCounts.Count > pos.y ? m_rowChildCounts[pos.y] : maxChildrenInRow;
 					if(cornerX == 1) {
 						spacingIndexX = Mathf.Max(0, rowCount - 1 - childLineIndex);
 					} else {
@@ -215,7 +235,7 @@ namespace ANest.UI {
 					}
 					spacingIndexY = py;
 				} else {
-					int columnCount = columnChildCounts.Count > pos.x ? columnChildCounts[pos.x] : maxChildrenInColumn;
+					int columnCount = m_columnChildCounts.Count > pos.x ? m_columnChildCounts[pos.x] : maxChildrenInColumn;
 					spacingIndexX = px;
 					spacingIndexY = cornerY == 0 ? childLineIndex : (columnCount - 1 - childLineIndex);
 				}
@@ -231,19 +251,37 @@ namespace ANest.UI {
 				SetChildAlongBothAxes(child, alignedX, alignedY, childWidth, childHeight, scaleX, scaleY);
 
 				if(py >= 0 && py < actualCellCountY && px >= 0 && px < actualCellCountX) {
-					grid[py, px] = child;
+					int gridIndex = GetGridIndex(px, py, m_navigationGridCols);
+					m_navigationGrid[gridIndex] = child;
+					m_filledGridCells.Add(new Vector2Int(px, py));
 				}
 			}
 
-			ApplyNavigationGrid(grid, actualCellCountX, actualCellCountY);
+			ApplyNavigationGrid(m_navigationGrid, actualCellCountX, actualCellCountY);
 		}
 
+		/// <summary>必要サイズを満たすようにNavigation探索用グリッドを再確保する</summary>
+		private void EnsureNavigationGridCapacity(int cols, int rows) {
+			if(m_navigationGridCols < cols) m_navigationGridCols = cols;
+			if(m_navigationGridRows < rows) m_navigationGridRows = rows;
+
+			int required = m_navigationGridCols * m_navigationGridRows;
+			if(m_navigationGrid.Capacity < required) m_navigationGrid.Capacity = required;
+			while(m_navigationGrid.Count < required) {
+				m_navigationGrid.Add(null);
+			}
+		}
+
+		/// <summary>1次元グリッドバッファ上のインデックスを計算する</summary>
+		private static int GetGridIndex(int x, int y, int cols)
+			=> y * cols + x;
+
 		/// <summary>グリッド上のSelectablesにナビゲーションを割り当てる</summary>
-		private void ApplyNavigationGrid(RectTransform[,] grid, int cols, int rows) {
+		private void ApplyNavigationGrid(List<RectTransform> grid, int cols, int rows) {
 			if(!setNavigation) return;
 			for (int y = 0; y < rows; y++) {
 				for (int x = 0; x < cols; x++) {
-					var rect = grid[y, x];
+					var rect = grid[GetGridIndex(x, y, cols)];
 					if(rect == null) continue;
 					var selectable = rect.GetComponent<Selectable>();
 					if(selectable == null) continue;
@@ -262,7 +300,7 @@ namespace ANest.UI {
 		}
 
 		/// <summary>グリッド内で指定方向の次のSelectableを探索</summary>
-		private Selectable FindSelectableInGrid(RectTransform[,] grid, int cols, int rows, int startX, int startY, int dx, int dy, bool loop, Axis startAxis) {
+		private Selectable FindSelectableInGrid(List<RectTransform> grid, int cols, int rows, int startX, int startY, int dx, int dy, bool loop, Axis startAxis) {
 			if(dx == 0 && dy == 0) return null;
 
 			int maxSteps = dx != 0 ? cols : rows;
@@ -285,7 +323,7 @@ namespace ANest.UI {
 						if(x < 0 || x >= cols || y < 0 || y >= rows) break;
 					}
 
-					var rect = grid[y, x];
+					var rect = grid[GetGridIndex(x, y, cols)];
 					if(rect == null) continue;
 					var selectable = rect.GetComponent<Selectable>();
 					if(selectable != null) return selectable;
@@ -313,7 +351,7 @@ namespace ANest.UI {
 				int bestDistance = int.MaxValue;
 				if(dx != 0) {
 					for (int row = 0; row < rows; row++) {
-						var rect = grid[row, x];
+						var rect = grid[GetGridIndex(x, row, cols)];
 						if(rect == null) continue;
 						var s = rect.GetComponent<Selectable>();
 						if(s == null) continue;
@@ -326,7 +364,7 @@ namespace ANest.UI {
 					}
 				} else {
 					for (int col = 0; col < cols; col++) {
-						var rect = grid[y, col];
+						var rect = grid[GetGridIndex(col, y, cols)];
 						if(rect == null) continue;
 						var s = rect.GetComponent<Selectable>();
 						if(s == null) continue;

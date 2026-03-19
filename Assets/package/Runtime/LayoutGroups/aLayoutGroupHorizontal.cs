@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace ANest.UI {
@@ -73,11 +72,7 @@ namespace ANest.UI {
 			float startX = GetStartOffset(0, usedMain); // 主軸開始位置
 			float posX = startX;
 
-			var order = new List<RectTransform>(count);
-			for (int i = 0; i < count; i++) {
-				int idx = reverseArrangement ? (count - 1 - i) : i;
-				order.Add(rectChildren[idx]); // 並び順を反転する場合に対応
-			}
+			var order = BuildOrderBuffer(count); // 並び順リストを再利用してGC Allocを抑制
 
 			for (int i = 0; i < count; i++) {
 				var child = order[i];

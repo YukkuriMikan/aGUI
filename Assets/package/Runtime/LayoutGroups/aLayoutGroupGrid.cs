@@ -69,6 +69,8 @@ namespace ANest.UI {
 
 			float width = RectTransform.rect.width;
 			float height = RectTransform.rect.height;
+			float availableWidth = Mathf.Max(0f, width - padding.horizontal);
+			float availableHeight = Mathf.Max(0f, height - padding.vertical);
 
 			// 制約設定に応じて列・行数の上限を算出
 			int cellCountX = 1;
@@ -102,6 +104,26 @@ namespace ANest.UI {
 			m_columnChildCounts.Clear();
 			if(m_positions.Capacity < count) m_positions.Capacity = count;
 			if(m_childIndexInLine.Capacity < count) m_childIndexInLine.Capacity = count;
+
+			int estimatedCellCountX;
+			int estimatedCellCountY;
+			if(constraint == Constraint.FixedColumnCount) {
+				estimatedCellCountX = Mathf.Max(1, constraintCount);
+				estimatedCellCountY = Mathf.Max(1, Mathf.CeilToInt((float)count / estimatedCellCountX));
+			} else if(constraint == Constraint.FixedRowCount) {
+				estimatedCellCountY = Mathf.Max(1, constraintCount);
+				estimatedCellCountX = Mathf.Max(1, Mathf.CeilToInt((float)count / estimatedCellCountY));
+			} else {
+				estimatedCellCountX = cellCountX == int.MaxValue ? count : Mathf.Min(Mathf.Max(1, cellCountX), count);
+				estimatedCellCountY = cellCountY == int.MaxValue ? count : Mathf.Min(Mathf.Max(1, cellCountY), count);
+			}
+			float estimatedSpacingCountWidth = Mathf.Max(0, estimatedCellCountX - 1);
+			float estimatedSpacingCountHeight = Mathf.Max(0, estimatedCellCountY - 1);
+			float estimatedWidthWithoutSpacing = Mathf.Max(0f, availableWidth - spacingXY.x * estimatedSpacingCountWidth);
+			float estimatedHeightWithoutSpacing = Mathf.Max(0f, availableHeight - spacingXY.y * estimatedSpacingCountHeight);
+			float estimatedSlotWidth = estimatedWidthWithoutSpacing / Mathf.Max(1, estimatedCellCountX);
+			float estimatedSlotHeight = estimatedHeightWithoutSpacing / Mathf.Max(1, estimatedCellCountY);
+			float mainSpacing = startAxis == Axis.Horizontal ? spacingXY.x : spacingXY.y;
 			int currentX = 0;
 			int currentY = 0;
 			int maxX = 0;
@@ -121,9 +143,13 @@ namespace ANest.UI {
 				bool fillSlotMain = startAxis == Axis.Horizontal ? fillSlotWidth : fillSlotHeight;
 				float mainSize = startAxis == Axis.Horizontal ? sizeX.preferred : sizeY.preferred;
 				float mainScale = startAxis == Axis.Horizontal ? scaleX : scaleY;
+				float scaledMain = mainSize * mainScale;
 				int slotNeeded = 1;
-				if(!controlMain && !fillSlotMain) {
-					float scaledMain = mainSize * mainScale;
+				if(fillSlotMain) {
+					float estimatedMainSlot = startAxis == Axis.Horizontal ? estimatedSlotWidth : estimatedSlotHeight;
+					float step = Mathf.Max(0.0001f, estimatedMainSlot + mainSpacing);
+					slotNeeded = Mathf.Max(1, Mathf.CeilToInt((scaledMain + mainSpacing) / step));
+				} else if(!controlMain) {
 					float baseSize = startAxis == Axis.Horizontal ? cellSize.x : cellSize.y;
 					float denom = Mathf.Max(0.0001f, baseSize);
 					slotNeeded = Mathf.Max(1, Mathf.CeilToInt(scaledMain / denom));
@@ -166,8 +192,6 @@ namespace ANest.UI {
 			// 実際に必要となるセル数を算出
 			int actualCellCountX = Mathf.Max(1, maxX + 1);
 			int actualCellCountY = Mathf.Max(1, maxY + 1);
-			float availableWidth = Mathf.Max(0f, width - padding.horizontal);
-			float availableHeight = Mathf.Max(0f, height - padding.vertical);
 			float spacingCountWidth = Mathf.Max(0, actualCellCountX - 1);
 			float spacingCountHeight = Mathf.Max(0, actualCellCountY - 1);
 			float widthWithoutSpacing = Mathf.Max(0f, availableWidth - spacingXY.x * spacingCountWidth);

@@ -16542,7 +16542,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 2108395534}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 1440, y: 540, z: 0}
+    m_worldPosition: {x: 1140, y: 427.5, z: 0}
     m_localPosition: {x: 480, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -17636,8 +17636,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 9180117016763449519}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 150, y: 760, z: 0}
-    m_localPosition: {x: -330, y: 220, z: 0}
+    m_worldPosition: {x: 150, y: 535, z: 0}
+    m_localPosition: {x: -130, y: 107.5, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
     m_localScale: {x: 1, y: 1, z: 1}
@@ -18368,7 +18368,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_rectTransform: {fileID: 3734348396435557597}
   m_originalRectTransformValues:
-    m_worldPosition: {x: 480, y: 540, z: 0}
+    m_worldPosition: {x: 280, y: 427.5, z: 0}
     m_localPosition: {x: -480, y: 0, z: 0}
     m_worldRotation: {x: -0, y: -0, z: -0, w: 1}
     m_localRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -18380,10 +18380,10 @@ MonoBehaviour:
     m_pivot: {x: 0.5, y: 0.5}
     m_rect:
       serializedVersion: 2
-      x: -480
-      y: -540
-      width: 960
-      height: 1080
+      x: -280
+      y: -427.5
+      width: 560
+      height: 855
   m_targetGraphic: {fileID: 5353897303642360248}
 --- !u!114 &3505274328561532065
 MonoBehaviour:
@@ -20150,8 +20150,8 @@ MonoBehaviour:
   childControlHeight: 0
   childScaleWidth: 0
   childScaleHeight: 0
-  childForceExpandWidth: 1
-  childForceExpandHeight: 1
+  childForceExpandWidth: 0
+  childForceExpandHeight: 0
   excludedChildren:
   - {fileID: 4057888856531803156}
   setNavigation: 1

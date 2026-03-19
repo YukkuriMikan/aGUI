@@ -42,368 +42,269 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
-		private readonly List<Vector2Int> m_positions = new();       // 各子要素の配置セル座標を再利用保持
-		private readonly List<int> m_childIndexInLine = new();       // 行/列内での子インデックスを再利用保持
-		private readonly List<int> m_rowChildCounts = new();         // 各行の子要素数キャッシュ
-		private readonly List<int> m_columnChildCounts = new();      // 各列の子要素数キャッシュ
-		private readonly List<Vector2Int> m_filledGridCells = new(); // 前回ナビゲーショングリッドで使用したセル一覧
-		private readonly List<RectTransform> m_navigationGrid = new(); // Navigation探索用の再利用グリッド（1次元バッファ）
-		private int m_navigationGridCols;
-		private int m_navigationGridRows;
+		private readonly List<RectTransform> m_orderedChildren = new();  // reverseArrangement 反映済みの子要素バッファ
+		private readonly List<List<RectTransform>> m_lines = new();       // 行（または列）単位の子要素バッファ
+		private readonly List<float> m_lineCrossSizes = new();            // 各ラインの cross 軸サイズ
+		private readonly List<float> m_allocatedMainScaled = new();       // 各子要素の main 軸割当スロット（scale適用後）
+		private readonly List<float> m_finalMain = new();                 // 各子要素の main 軸最終サイズ（scale適用前）
+		private readonly List<float> m_finalCross = new();                // 各子要素の cross 軸最終サイズ（scale適用前）
+		private readonly List<float> m_scaleMain = new();                 // 各子要素の main 軸スケール
+		private readonly List<float> m_scaleCross = new();                // 各子要素の cross 軸スケール
 		#endregion
 
 		#region Methods
-		/// <summary>制約設定・開始コーナー・主軸・セルサイズやスケールを考慮して子要素をグリッド配置する</summary>
+		/// <summary>指定インデックスのラインを取得し、未作成なら生成して返す</summary>
+		private List<RectTransform> GetOrCreateLine(int index) {
+			while(m_lines.Count <= index) m_lines.Add(new List<RectTransform>());
+			var line = m_lines[index];
+			line.Clear();
+			return line;
+		}
+
+		/// <summary>再利用用 float リストのサイズを指定数に合わせる</summary>
+		private static void EnsureFloatListSize(List<float> list, int count) {
+			if(list.Count > count) {
+				list.RemoveRange(count, list.Count - count);
+				return;
+			}
+			for (int i = list.Count; i < count; i++) list.Add(0f);
+		}
+
+		/// <summary>現在設定に基づき、子要素をグリッド状に再配置する</summary>
 		protected override void CalculateLayout() {
 			if(RectTransform == null) return;
-
-			bool forceExpandWidth = childForceExpandWidth;
-			bool forceExpandHeight = childForceExpandHeight;
-			bool controlChildWidth = childControlWidth;
-			bool controlChildHeight = childControlHeight;
-			bool fillSlotWidth = forceExpandWidth;
-			bool fillSlotHeight = forceExpandHeight;
 
 			int count = rectChildren.Count;
 			if(count == 0) return;
 
-			float width = RectTransform.rect.width;
-			float height = RectTransform.rect.height;
-			float availableWidth = Mathf.Max(0f, width - padding.horizontal);
-			float availableHeight = Mathf.Max(0f, height - padding.vertical);
+			float availableWidth = RectTransform.rect.width - padding.horizontal;
+			float availableHeight = RectTransform.rect.height - padding.vertical;
+			int mainAxis = startAxis == Axis.Horizontal ? 0 : 1;
+			int crossAxis = startAxis == Axis.Horizontal ? 1 : 0;
+			float mainSpacing = startAxis == Axis.Horizontal ? spacingXY.x : spacingXY.y;
+			float crossSpacing = startAxis == Axis.Horizontal ? spacingXY.y : spacingXY.x;
+			float availableMain = mainAxis == 0 ? availableWidth : availableHeight;
+			float availableCross = crossAxis == 0 ? availableWidth : availableHeight;
+			float alignMain = GetAlignmentOnAxis(mainAxis);
+			float alignCross = GetAlignmentOnAxis(crossAxis);
 
-			// 制約設定に応じて列・行数の上限を算出
-			int cellCountX = 1;
-			int cellCountY = 1;
-			if(constraint == Constraint.FixedColumnCount) {
-				cellCountX = Mathf.Max(1, constraintCount);
-				cellCountY = int.MaxValue; // 実際の行数は後でスキャン
-			} else if(constraint == Constraint.FixedRowCount) {
-				cellCountY = Mathf.Max(1, constraintCount);
-				cellCountX = int.MaxValue; // 実際の列数は後でスキャン
-			} else {
-				if(cellSize.x + spacingXY.x <= 0f) {
-					cellCountX = int.MaxValue;
-				} else {
-					cellCountX = Mathf.Max(1, Mathf.FloorToInt((width - padding.horizontal + spacingXY.x + 0.001f) / (cellSize.x + spacingXY.x)));
-				}
-				if(cellSize.y + spacingXY.y <= 0f) {
-					cellCountY = int.MaxValue;
-				} else {
-					cellCountY = Mathf.Max(1, Mathf.FloorToInt((height - padding.vertical + spacingXY.y + 0.001f) / (cellSize.y + spacingXY.y)));
-				}
-			}
+			bool controlMain = mainAxis == 0 ? childControlWidth : childControlHeight;
+			bool controlCross = crossAxis == 0 ? childControlWidth : childControlHeight;
+			bool forceMain = mainAxis == 0 ? childForceExpandWidth : childForceExpandHeight;
+			bool forceCross = crossAxis == 0 ? childForceExpandWidth : childForceExpandHeight;
+			bool scaleMainEnabled = mainAxis == 0 ? childScaleWidth : childScaleHeight;
+			bool scaleCrossEnabled = crossAxis == 0 ? childScaleWidth : childScaleHeight;
 
 			int cornerX = (int)startCorner % 2;
 			int cornerY = (int)startCorner / 2;
 
-			// 1st pass: サイズとスケールに応じて必要スロットを算出し、配置候補を決める
-			m_positions.Clear();
-			m_childIndexInLine.Clear();
-			m_rowChildCounts.Clear();
-			m_columnChildCounts.Clear();
-			if(m_positions.Capacity < count) m_positions.Capacity = count;
-			if(m_childIndexInLine.Capacity < count) m_childIndexInLine.Capacity = count;
+			// 既存バッファを使い回すため、前回分のラインデータをクリア
+			for (int i = 0; i < m_lines.Count; i++) m_lines[i].Clear();
 
-			int estimatedCellCountX;
-			int estimatedCellCountY;
-			if(constraint == Constraint.FixedColumnCount) {
-				estimatedCellCountX = Mathf.Max(1, constraintCount);
-				estimatedCellCountY = Mathf.Max(1, Mathf.CeilToInt((float)count / estimatedCellCountX));
-			} else if(constraint == Constraint.FixedRowCount) {
-				estimatedCellCountY = Mathf.Max(1, constraintCount);
-				estimatedCellCountX = Mathf.Max(1, Mathf.CeilToInt((float)count / estimatedCellCountY));
-			} else {
-				estimatedCellCountX = cellCountX == int.MaxValue ? count : Mathf.Min(Mathf.Max(1, cellCountX), count);
-				estimatedCellCountY = cellCountY == int.MaxValue ? count : Mathf.Min(Mathf.Max(1, cellCountY), count);
-			}
-			float estimatedSpacingCountWidth = Mathf.Max(0, estimatedCellCountX - 1);
-			float estimatedSpacingCountHeight = Mathf.Max(0, estimatedCellCountY - 1);
-			float estimatedWidthWithoutSpacing = Mathf.Max(0f, availableWidth - spacingXY.x * estimatedSpacingCountWidth);
-			float estimatedHeightWithoutSpacing = Mathf.Max(0f, availableHeight - spacingXY.y * estimatedSpacingCountHeight);
-			float estimatedSlotWidth = estimatedWidthWithoutSpacing / Mathf.Max(1, estimatedCellCountX);
-			float estimatedSlotHeight = estimatedHeightWithoutSpacing / Mathf.Max(1, estimatedCellCountY);
-			float mainSpacing = startAxis == Axis.Horizontal ? spacingXY.x : spacingXY.y;
-			int currentX = 0;
-			int currentY = 0;
-			int maxX = 0;
-			int maxY = 0;
-			int currentChildInLine = 0;
-			int maxChildrenInRow = 0;
-			int maxChildrenInColumn = 0;
+			// 表示順（reverseArrangement 含む）で子要素バッファを再構築
+			m_orderedChildren.Clear();
+			if(m_orderedChildren.Capacity < count) m_orderedChildren.Capacity = count;
 			for (int i = 0; i < count; i++) {
-				int childIndex = reverseArrangement ? (count - 1 - i) : i;
-				var child = rectChildren[childIndex];
-				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);
-				GetChildSizes(child, 1, childControlHeight, childForceExpandHeight, out var sizeY);
-				float scaleX = childScaleWidth ? Mathf.Abs(child.localScale.x) : 1f;
-				float scaleY = childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f;
+				int srcIndex = reverseArrangement ? (count - 1 - i) : i;
+				var child = rectChildren[srcIndex];
+				if(child != null) m_orderedChildren.Add(child);
+			}
 
-				bool controlMain = startAxis == Axis.Horizontal ? childControlWidth : childControlHeight;
-				bool fillSlotMain = startAxis == Axis.Horizontal ? fillSlotWidth : fillSlotHeight;
-				float mainSize = startAxis == Axis.Horizontal ? sizeX.preferred : sizeY.preferred;
-				float mainScale = startAxis == Axis.Horizontal ? scaleX : scaleY;
-				float scaledMain = mainSize * mainScale;
-				int slotNeeded = 1;
-				if(fillSlotMain) {
-					float estimatedMainSlot = startAxis == Axis.Horizontal ? estimatedSlotWidth : estimatedSlotHeight;
-					float step = Mathf.Max(0.0001f, estimatedMainSlot + mainSpacing);
-					slotNeeded = Mathf.Max(1, Mathf.CeilToInt((scaledMain + mainSpacing) / step));
-				} else if(!controlMain) {
-					float baseSize = startAxis == Axis.Horizontal ? cellSize.x : cellSize.y;
-					float denom = Mathf.Max(0.0001f, baseSize);
-					slotNeeded = Mathf.Max(1, Mathf.CeilToInt(scaledMain / denom));
-				}
+			if(m_orderedChildren.Count == 0) return;
+			count = m_orderedChildren.Count;
 
-				// 主軸の空きが足りなければ次の列/行へ送る
-				if(startAxis == Axis.Horizontal) {
-					if(currentX + slotNeeded > cellCountX) {
-						currentX = 0;
-						currentY++;
-						currentChildInLine = 0;
+			int columns;
+			int rows;
+			int lineCount;
+			int usedLineCount = 0;
+			switch (constraint) {
+				case Constraint.FixedColumnCount:
+					// 列数固定: 行数を算出してラインへ振り分け
+					columns = Mathf.Max(1, constraintCount);
+					rows = Mathf.CeilToInt(count / (float)columns);
+					lineCount = startAxis == Axis.Horizontal ? rows : columns;
+					for (int i = 0; i < lineCount; i++) GetOrCreateLine(i);
+					usedLineCount = lineCount;
+					for (int i = 0; i < count; i++) {
+						var child = m_orderedChildren[i];
+						int rawCol = i % columns;
+						int rawRow = i / columns;
+						int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
+						int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
+						int lineIndex = startAxis == Axis.Horizontal ? row : col;
+						if(lineIndex < 0 || lineIndex >= lineCount) continue;
+						m_lines[lineIndex].Add(child);
 					}
-					m_positions.Add(new Vector2Int(currentX, currentY));
-					m_childIndexInLine.Add(currentChildInLine);
-					while(m_rowChildCounts.Count <= currentY) m_rowChildCounts.Add(0);
-					m_rowChildCounts[currentY]++;
-					currentChildInLine++;
-					maxChildrenInRow = Mathf.Max(maxChildrenInRow, currentChildInLine);
-					maxX = Mathf.Max(maxX, currentX + slotNeeded - 1);
-					maxY = Mathf.Max(maxY, currentY);
-					currentX += slotNeeded;
-				} else {
-					if(currentY + slotNeeded > cellCountY) {
-						currentY = 0;
-						currentX++;
-						currentChildInLine = 0;
+					break;
+				case Constraint.FixedRowCount:
+					// 行数固定: 列数を算出してラインへ振り分け
+					rows = Mathf.Max(1, constraintCount);
+					columns = Mathf.CeilToInt(count / (float)rows);
+					lineCount = startAxis == Axis.Horizontal ? rows : columns;
+					for (int i = 0; i < lineCount; i++) GetOrCreateLine(i);
+					usedLineCount = lineCount;
+					for (int i = 0; i < count; i++) {
+						var child = m_orderedChildren[i];
+						int rawCol = i / rows;
+						int rawRow = i % rows;
+						int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
+						int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
+						int lineIndex = startAxis == Axis.Horizontal ? row : col;
+						if(lineIndex < 0 || lineIndex >= lineCount) continue;
+						m_lines[lineIndex].Add(child);
 					}
-					m_positions.Add(new Vector2Int(currentX, currentY));
-					m_childIndexInLine.Add(currentChildInLine);
-					while(m_columnChildCounts.Count <= currentX) m_columnChildCounts.Add(0);
-					m_columnChildCounts[currentX]++;
-					currentChildInLine++;
-					maxChildrenInColumn = Mathf.Max(maxChildrenInColumn, currentChildInLine);
-					maxY = Mathf.Max(maxY, currentY + slotNeeded - 1);
-					maxX = Mathf.Max(maxX, currentX);
-					currentY += slotNeeded;
-				}
-			}
+					break;
+				default:
+					// 可変: main 軸の空き幅に収まらなくなったら改行（折返し）
+					var currentLine = GetOrCreateLine(0);
+					usedLineCount = 1;
+					float currentMainUsed = 0f;
+					for (int i = 0; i < count; i++) {
+						var child = m_orderedChildren[i];
+						GetChildSizes(child, mainAxis, controlMain, forceMain, out var sizeMain);
+						float sMain = scaleMainEnabled ? Mathf.Abs(mainAxis == 0 ? child.localScale.x : child.localScale.y) : 1f;
+						float preferredMain = controlMain ? (mainAxis == 0 ? cellSize.x : cellSize.y) : sizeMain.preferred;
+						float childMainScaled = Mathf.Max(0f, preferredMain * sMain);
 
-			// 実際に必要となるセル数を算出
-			int actualCellCountX = Mathf.Max(1, maxX + 1);
-			int actualCellCountY = Mathf.Max(1, maxY + 1);
-			float spacingCountWidth = Mathf.Max(0, actualCellCountX - 1);
-			float spacingCountHeight = Mathf.Max(0, actualCellCountY - 1);
-			float widthWithoutSpacing = Mathf.Max(0f, availableWidth - spacingXY.x * spacingCountWidth);
-			float heightWithoutSpacing = Mathf.Max(0f, availableHeight - spacingXY.y * spacingCountHeight);
-			float cellWidth = cellSize.x;
-			float cellHeight = cellSize.y;
-			float slotWidth = fillSlotWidth ? widthWithoutSpacing / Mathf.Max(1, actualCellCountX) : cellWidth;
-			float slotHeight = fillSlotHeight ? heightWithoutSpacing / Mathf.Max(1, actualCellCountY) : cellHeight;
-
-			// Spacing を考慮した必要領域を計算
-			int spacingCountX = startAxis == Axis.Horizontal ? Mathf.Max(0, maxChildrenInRow - 1) : Mathf.Max(0, actualCellCountX - 1);
-			int spacingCountY = startAxis == Axis.Vertical ? Mathf.Max(0, maxChildrenInColumn - 1) : Mathf.Max(0, actualCellCountY - 1);
-			Vector2 requiredSpace = new Vector2(
-				fillSlotWidth ? availableWidth : actualCellCountX * cellWidth + spacingCountX * spacingXY.x,
-				fillSlotHeight ? availableHeight : actualCellCountY * cellHeight + spacingCountY * spacingXY.y
-				);
-			Vector2 startOffset = new Vector2(
-				GetStartOffset(0, requiredSpace.x),
-				GetStartOffset(1, requiredSpace.y)
-				);
-
-			EnsureNavigationGridCapacity(actualCellCountX, actualCellCountY);
-			for (int i = 0; i < m_filledGridCells.Count; i++) {
-				var filled = m_filledGridCells[i];
-				int clearIndex = GetGridIndex(filled.x, filled.y, m_navigationGridCols);
-				m_navigationGrid[clearIndex] = null;
-			}
-			m_filledGridCells.Clear();
-			float alignX = GetAlignmentOnAxis(0);
-			float alignY = GetAlignmentOnAxis(1);
-
-			// 2nd pass: 実際の配置とナビゲーション用グリッドを構築
-			for (int i = 0; i < count; i++) {
-				int childIndex = reverseArrangement ? (count - 1 - i) : i;
-				var child = rectChildren[childIndex];
-				var pos = m_positions[i];
-				int childLineIndex = m_childIndexInLine[i];
-				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);
-				GetChildSizes(child, 1, childControlHeight, childForceExpandHeight, out var sizeY);
-
-				float scaleX = childScaleWidth ? child.localScale.x : 1f;
-				float scaleY = childScaleHeight ? child.localScale.y : 1f;
-
-				float childWidth = controlChildWidth ? (fillSlotWidth ? slotWidth : cellWidth) : sizeX.preferred;
-				float childHeight = controlChildHeight ? (fillSlotHeight ? slotHeight : cellHeight) : sizeY.preferred;
-
-				// 主軸方向で必要なスロット数を算出（制御しない場合はサイズに応じて複数スロット消費）
-				float currentSlotWidth = slotWidth;
-				float currentSlotHeight = slotHeight;
-
-				int px = pos.x;
-				int py = pos.y;
-				if(cornerX == 1) px = actualCellCountX - 1 - px;
-				if(cornerY == 1) py = actualCellCountY - 1 - py;
-
-				int spacingIndexX;
-				int spacingIndexY;
-				if(startAxis == Axis.Horizontal) {
-					// Spacing は子の並び順ベースでカウントするが、右開始の場合は行内のインデックスを反転して距離が正方向に保たれるようにする。
-					int rowCount = m_rowChildCounts.Count > pos.y ? m_rowChildCounts[pos.y] : maxChildrenInRow;
-					if(cornerX == 1) {
-						spacingIndexX = Mathf.Max(0, rowCount - 1 - childLineIndex);
-					} else {
-						spacingIndexX = childLineIndex;
-					}
-					spacingIndexY = py;
-				} else {
-					int columnCount = m_columnChildCounts.Count > pos.x ? m_columnChildCounts[pos.x] : maxChildrenInColumn;
-					spacingIndexX = px;
-					spacingIndexY = cornerY == 0 ? childLineIndex : (columnCount - 1 - childLineIndex);
-				}
-
-				float stepX = fillSlotWidth ? slotWidth : cellWidth;
-				float stepY = fillSlotHeight ? slotHeight : cellHeight;
-				float baseX = startOffset.x + px * stepX + spacingXY.x * spacingIndexX;
-				float baseY = startOffset.y + py * stepY + spacingXY.y * spacingIndexY;
-
-				float alignedX = baseX + (currentSlotWidth - childWidth * scaleX) * alignX;
-				float alignedY = baseY + (currentSlotHeight - childHeight * scaleY) * alignY;
-
-				SetChildAlongBothAxes(child, alignedX, alignedY, childWidth, childHeight, scaleX, scaleY);
-
-				if(py >= 0 && py < actualCellCountY && px >= 0 && px < actualCellCountX) {
-					int gridIndex = GetGridIndex(px, py, m_navigationGridCols);
-					m_navigationGrid[gridIndex] = child;
-					m_filledGridCells.Add(new Vector2Int(px, py));
-				}
-			}
-
-			ApplyNavigationGrid(m_navigationGrid, actualCellCountX, actualCellCountY);
-		}
-
-		/// <summary>必要サイズを満たすようにNavigation探索用グリッドを再確保する</summary>
-		private void EnsureNavigationGridCapacity(int cols, int rows) {
-			if(m_navigationGridCols < cols) m_navigationGridCols = cols;
-			if(m_navigationGridRows < rows) m_navigationGridRows = rows;
-
-			int required = m_navigationGridCols * m_navigationGridRows;
-			if(m_navigationGrid.Capacity < required) m_navigationGrid.Capacity = required;
-			while(m_navigationGrid.Count < required) {
-				m_navigationGrid.Add(null);
-			}
-		}
-
-		/// <summary>1次元グリッドバッファ上のインデックスを計算する</summary>
-		private static int GetGridIndex(int x, int y, int cols)
-			=> y * cols + x;
-
-		/// <summary>グリッド上のSelectablesにナビゲーションを割り当てる</summary>
-		private void ApplyNavigationGrid(List<RectTransform> grid, int cols, int rows) {
-			if(!setNavigation) return;
-			for (int y = 0; y < rows; y++) {
-				for (int x = 0; x < cols; x++) {
-					var rect = grid[GetGridIndex(x, y, cols)];
-					if(rect == null) continue;
-					var selectable = rect.GetComponent<Selectable>();
-					if(selectable == null) continue;
-
-					Navigation nav = selectable.navigation;
-					nav.mode = Navigation.Mode.Explicit;
-
-					nav.selectOnLeft = FindSelectableInGrid(grid, cols, rows, x, y, -1, 0, navigationLoop, startAxis);
-					nav.selectOnRight = FindSelectableInGrid(grid, cols, rows, x, y, 1, 0, navigationLoop, startAxis);
-					nav.selectOnUp = FindSelectableInGrid(grid, cols, rows, x, y, 0, -1, navigationLoop, startAxis);
-					nav.selectOnDown = FindSelectableInGrid(grid, cols, rows, x, y, 0, 1, navigationLoop, startAxis);
-
-					selectable.navigation = nav;
-				}
-			}
-		}
-
-		/// <summary>グリッド内で指定方向の次のSelectableを探索</summary>
-		private Selectable FindSelectableInGrid(List<RectTransform> grid, int cols, int rows, int startX, int startY, int dx, int dy, bool loop, Axis startAxis) {
-			if(dx == 0 && dy == 0) return null;
-
-			int maxSteps = dx != 0 ? cols : rows;
-			bool allowCrossLine = !loop || (dx != 0 ? startAxis == Axis.Vertical : startAxis == Axis.Horizontal);
-			bool useSameLineFirst = !loop || !allowCrossLine;
-			// まずは同一行/列で方向が合うものを優先して探す
-			if(useSameLineFirst) {
-				for (int step = 1; step <= maxSteps; step++) {
-					int x = startX + dx * step;
-					int y = startY + dy * step;
-					if(loop) {
-						if(dx != 0) {
-							x = (x % cols + cols) % cols;
-							y = startY;
-						} else {
-							y = (y % rows + rows) % rows;
-							x = startX;
+						float required = currentLine.Count > 0 ? currentMainUsed + mainSpacing + childMainScaled : childMainScaled;
+						bool shouldWrap = currentLine.Count > 0 && required > availableMain + 0.001f;
+						if(shouldWrap) {
+							currentLine = GetOrCreateLine(usedLineCount);
+							usedLineCount++;
+							currentMainUsed = 0f;
 						}
-					} else {
-						if(x < 0 || x >= cols || y < 0 || y >= rows) break;
-					}
 
-					var rect = grid[GetGridIndex(x, y, cols)];
-					if(rect == null) continue;
-					var selectable = rect.GetComponent<Selectable>();
-					if(selectable != null) return selectable;
-				}
+						currentLine.Add(child);
+						currentMainUsed = currentLine.Count == 1 ? childMainScaled : currentMainUsed + mainSpacing + childMainScaled;
+					}
+					if(currentLine.Count == 0 && usedLineCount > 0) usedLineCount--;
+
+					if(startAxis == Axis.Horizontal) {
+						if(cornerX == 1) {
+							for (int i = 0; i < usedLineCount; i++) m_lines[i].Reverse();
+						}
+						if(cornerY == 1) m_lines.Reverse(0, usedLineCount);
+					} else {
+						if(cornerY == 1) {
+							for (int i = 0; i < usedLineCount; i++) m_lines[i].Reverse();
+						}
+						if(cornerX == 1) m_lines.Reverse(0, usedLineCount);
+					}
+					break;
 			}
 
-			if(!allowCrossLine) return null;
+			lineCount = usedLineCount;
+			if(lineCount <= 0) return;
 
-			for (int step = 1; step <= maxSteps; step++) {
-				int x = startX + dx * step;
-				int y = startY + dy * step;
-				if(loop) {
-					if(dx != 0) {
-						x = (x % cols + cols) % cols;
-						y = startY;
-					} else {
-						y = (y % rows + rows) % rows;
-						x = startX;
-					}
-				} else {
-					if(x < 0 || x >= cols || y < 0 || y >= rows) break;
+			// 各ラインの cross 軸必要サイズを算出
+			EnsureFloatListSize(m_lineCrossSizes, lineCount);
+			for (int line = 0; line < lineCount; line++) {
+				var lineChildren = m_lines[line];
+				float lineCross = 0f;
+				for (int i = 0; i < lineChildren.Count; i++) {
+					var child = lineChildren[i];
+					GetChildSizes(child, crossAxis, controlCross, forceCross, out var sizeCross);
+					float scaleCross = scaleCrossEnabled ? Mathf.Abs(crossAxis == 0 ? child.localScale.x : child.localScale.y) : 1f;
+					float preferredCross = controlCross ? (crossAxis == 0 ? cellSize.x : cellSize.y) : sizeCross.preferred;
+					lineCross = Mathf.Max(lineCross, preferredCross * scaleCross);
 				}
-
-				Selectable best = null;
-				int bestDistance = int.MaxValue;
-				if(dx != 0) {
-					for (int row = 0; row < rows; row++) {
-						var rect = grid[GetGridIndex(x, row, cols)];
-						if(rect == null) continue;
-						var s = rect.GetComponent<Selectable>();
-						if(s == null) continue;
-						int dist = Mathf.Abs(row - startY);
-						if(dist < bestDistance) {
-							bestDistance = dist;
-							best = s;
-							if(bestDistance == 0) return best;
-						}
-					}
-				} else {
-					for (int col = 0; col < cols; col++) {
-						var rect = grid[GetGridIndex(col, y, cols)];
-						if(rect == null) continue;
-						var s = rect.GetComponent<Selectable>();
-						if(s == null) continue;
-						int dist = Mathf.Abs(col - startX);
-						if(dist < bestDistance) {
-							bestDistance = dist;
-							best = s;
-							if(bestDistance == 0) return best;
-						}
-					}
-				}
-
-				if(best != null) return best;
+				m_lineCrossSizes[line] = lineCross;
 			}
-			return null;
+
+			if(forceCross) {
+				// forceExpand が有効なら cross 軸を等分配
+				float expanded = Mathf.Max(0f, (availableCross - crossSpacing * (lineCount - 1)) / Mathf.Max(1, lineCount));
+				for (int i = 0; i < lineCount; i++) m_lineCrossSizes[i] = expanded;
+			}
+
+			float requiredCross = crossSpacing * Mathf.Max(0, lineCount - 1);
+			for (int i = 0; i < lineCount; i++) requiredCross += m_lineCrossSizes[i];
+			float crossCursor = GetStartOffset(crossAxis, requiredCross);
+
+			for (int line = 0; line < lineCount; line++) {
+				var lineChildren = m_lines[line];
+				int lineChildCount = lineChildren.Count;
+				if(lineChildCount == 0) {
+					crossCursor += m_lineCrossSizes[line] + crossSpacing;
+					continue;
+				}
+
+				// ライン内処理用ワークバッファを再利用
+				EnsureFloatListSize(m_allocatedMainScaled, lineChildCount);
+				EnsureFloatListSize(m_finalMain, lineChildCount);
+				EnsureFloatListSize(m_finalCross, lineChildCount);
+				EnsureFloatListSize(m_scaleMain, lineChildCount);
+				EnsureFloatListSize(m_scaleCross, lineChildCount);
+
+				// main 軸の割当スロット（scale考慮）を計算
+				float spacingTotal = mainSpacing * Mathf.Max(0, lineChildCount - 1);
+				float totalWeight = 0f;
+				for (int i = 0; i < lineChildCount; i++) {
+					var child = lineChildren[i];
+					float sMain = scaleMainEnabled ? Mathf.Abs(mainAxis == 0 ? child.localScale.x : child.localScale.y) : 1f;
+					m_scaleMain[i] = sMain;
+					if(controlMain || forceMain) totalWeight += sMain;
+				}
+				if(totalWeight <= 0f) totalWeight = lineChildCount;
+				float slotPerWeight = (availableMain - spacingTotal) / totalWeight;
+
+				float usedMain = spacingTotal;
+				float lineCrossSize = m_lineCrossSizes[line];
+				for (int i = 0; i < lineChildCount; i++) {
+					var child = lineChildren[i];
+					GetChildSizes(child, mainAxis, controlMain, forceMain, out var sizeMain);
+					GetChildSizes(child, crossAxis, controlCross, forceCross, out var sizeC);
+
+					float sMain = m_scaleMain[i];
+					float sCross = scaleCrossEnabled ? Mathf.Abs(crossAxis == 0 ? child.localScale.x : child.localScale.y) : 1f;
+					m_scaleCross[i] = sCross;
+
+					float preferredMain = controlMain ? (mainAxis == 0 ? cellSize.x : cellSize.y) : sizeMain.preferred;
+					float preferredCross = controlCross ? (crossAxis == 0 ? cellSize.x : cellSize.y) : sizeC.preferred;
+
+					float allocatedScaled = (controlMain || forceMain) ? slotPerWeight * sMain : preferredMain * sMain;
+					float childMain;
+					if(controlMain) {
+						// ControlChildSize=true の場合は forceExpand の有無に関わらず cellSize を最終サイズとして使用する
+						childMain = preferredMain;
+						// forceExpand が無効な場合はスロット幅も実サイズに揃える
+						if(!forceMain) allocatedScaled = childMain * sMain;
+					} else {
+						childMain = preferredMain;
+					}
+
+					float childCrossScaled = controlCross ? lineCrossSize : preferredCross * sCross;
+					float childCross = controlCross ? childCrossScaled / Mathf.Max(0.0001f, sCross) : preferredCross;
+
+					m_allocatedMainScaled[i] = allocatedScaled;
+					m_finalMain[i] = childMain;
+					m_finalCross[i] = childCross;
+					usedMain += (controlMain || forceMain) ? allocatedScaled : childMain * sMain;
+				}
+
+				// ライン内の最終配置
+				float mainCursor = GetStartOffset(mainAxis, usedMain);
+				for (int i = 0; i < lineChildCount; i++) {
+					var child = lineChildren[i];
+					float sMain = m_scaleMain[i];
+					float sCross = m_scaleCross[i];
+
+					float childMainScaled = m_finalMain[i] * sMain;
+					float childCrossScaled = m_finalCross[i] * sCross;
+					float alignedMain = mainCursor + (m_allocatedMainScaled[i] - childMainScaled) * alignMain;
+					float alignedCross = crossCursor + (m_lineCrossSizes[line] - childCrossScaled) * alignCross;
+
+					if(startAxis == Axis.Horizontal) {
+						SetChildAlongBothAxes(child, alignedMain, alignedCross, m_finalMain[i], m_finalCross[i], sMain, sCross);
+					} else {
+						SetChildAlongBothAxes(child, alignedCross, alignedMain, m_finalCross[i], m_finalMain[i], sCross, sMain);
+					}
+
+					mainCursor += m_allocatedMainScaled[i] + mainSpacing;
+				}
+
+				crossCursor += m_lineCrossSizes[line] + crossSpacing;
+			}
 		}
 		#endregion
 	}

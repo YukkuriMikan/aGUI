@@ -519,7 +519,6 @@ namespace ANest.UI.Editor {
 			}
 
 			if(target is aLayoutGroupGrid) {
-				PropertyFieldSafe(cellSizeProp);
 				PropertyFieldSafe(spacingXYProp, new GUIContent("Spacing"));
 				PropertyFieldSafe(startCornerProp);
 				PropertyFieldSafe(startAxisProp);
@@ -556,6 +555,9 @@ namespace ANest.UI.Editor {
 
 			if(!isCircular) {
 				DrawToggleRow(childControlsLabel, childControlWidthProp, childControlHeightProp);
+				if(target is aLayoutGroupGrid) {
+					DrawGridCellSizeField();
+				}
 				DrawToggleRow(childScaleLabel, childScaleWidthProp, childScaleHeightProp);
 			}
 
@@ -578,6 +580,37 @@ namespace ANest.UI.Editor {
 			}
 
 			EditorGUILayout.Space();
+		}
+
+		/// <summary>Grid用のCell Size表示をControl/ForceExpand状態に応じて描画する。</summary>
+		private void DrawGridCellSizeField() {
+			if(cellSizeProp == null) return;
+			if(childControlWidthProp == null || childControlHeightProp == null) return;
+			if(childForceExpandWidthProp == null || childForceExpandHeightProp == null) return;
+
+			bool showWidth = childControlWidthProp.boolValue && !childForceExpandWidthProp.boolValue;
+			bool showHeight = childControlHeightProp.boolValue && !childForceExpandHeightProp.boolValue;
+
+			if(!showWidth && !showHeight) return;
+
+			if(showWidth && showHeight) {
+				PropertyFieldSafe(cellSizeProp);
+				return;
+			}
+
+			var xProp = cellSizeProp.FindPropertyRelative("x");
+			var yProp = cellSizeProp.FindPropertyRelative("y");
+			if(xProp == null || yProp == null) return;
+
+			EditorGUILayout.BeginHorizontal();
+			EditorGUILayout.PrefixLabel("Cell Size");
+			if(showWidth) {
+				PropertyFieldSafe(xProp, childControlWidthLabel);
+			}
+			if(showHeight) {
+				PropertyFieldSafe(yProp, childControlHeightLabel);
+			}
+			EditorGUILayout.EndHorizontal();
 		}
 
 		/// <summary>アニメーション有効時の各種パラメータを描画する。</summary>

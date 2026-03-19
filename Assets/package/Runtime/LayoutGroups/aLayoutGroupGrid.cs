@@ -117,43 +117,67 @@ namespace ANest.UI {
 			int rows;
 			int lineCount;
 			int usedLineCount = 0;
-			switch (constraint) {
-				case Constraint.FixedColumnCount:
-					// 列数固定: 行数を算出してラインへ振り分け
-					columns = Mathf.Max(1, constraintCount);
-					rows = Mathf.CeilToInt(count / (float)columns);
-					lineCount = startAxis == Axis.Horizontal ? rows : columns;
-					for (int i = 0; i < lineCount; i++) GetOrCreateLine(i);
-					usedLineCount = lineCount;
-					for (int i = 0; i < count; i++) {
-						var child = m_orderedChildren[i];
-						int rawCol = i % columns;
-						int rawRow = i / columns;
-						int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
-						int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
-						int lineIndex = startAxis == Axis.Horizontal ? row : col;
-						if(lineIndex < 0 || lineIndex >= lineCount) continue;
-						m_lines[lineIndex].Add(child);
-					}
-					break;
-				case Constraint.FixedRowCount:
-					// 行数固定: 列数を算出してラインへ振り分け
-					rows = Mathf.Max(1, constraintCount);
-					columns = Mathf.CeilToInt(count / (float)rows);
-					lineCount = startAxis == Axis.Horizontal ? rows : columns;
-					for (int i = 0; i < lineCount; i++) GetOrCreateLine(i);
-					usedLineCount = lineCount;
-					for (int i = 0; i < count; i++) {
-						var child = m_orderedChildren[i];
-						int rawCol = i / rows;
-						int rawRow = i % rows;
-						int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
-						int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
-						int lineIndex = startAxis == Axis.Horizontal ? row : col;
-						if(lineIndex < 0 || lineIndex >= lineCount) continue;
-						m_lines[lineIndex].Add(child);
-					}
-					break;
+				switch (constraint) {
+					case Constraint.FixedColumnCount:
+						// 列数固定: 行数を算出してラインへ振り分け
+						columns = Mathf.Max(1, constraintCount);
+						rows = Mathf.CeilToInt(count / (float)columns);
+						lineCount = startAxis == Axis.Horizontal ? rows : columns;
+						int slotsPerLine = startAxis == Axis.Horizontal ? columns : rows;
+						for (int i = 0; i < lineCount; i++) {
+							var line = GetOrCreateLine(i);
+							for (int j = 0; j < slotsPerLine; j++) line.Add(null);
+						}
+						usedLineCount = lineCount;
+						for (int i = 0; i < count; i++) {
+							var child = m_orderedChildren[i];
+							int rawCol = i % columns;
+							int rawRow = i / columns;
+							int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
+							int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
+							int lineIndex = startAxis == Axis.Horizontal ? row : col;
+							int inLineIndex = startAxis == Axis.Horizontal ? col : row;
+							if(lineIndex < 0 || lineIndex >= lineCount) continue;
+							if(inLineIndex < 0 || inLineIndex >= slotsPerLine) continue;
+							m_lines[lineIndex][inLineIndex] = child;
+						}
+						for (int i = 0; i < lineCount; i++) {
+							var line = m_lines[i];
+							for (int j = line.Count - 1; j >= 0; j--) {
+								if(line[j] == null) line.RemoveAt(j);
+							}
+						}
+						break;
+					case Constraint.FixedRowCount:
+						// 行数固定: 列数を算出してラインへ振り分け
+						rows = Mathf.Max(1, constraintCount);
+						columns = Mathf.CeilToInt(count / (float)rows);
+						lineCount = startAxis == Axis.Horizontal ? rows : columns;
+						slotsPerLine = startAxis == Axis.Horizontal ? columns : rows;
+						for (int i = 0; i < lineCount; i++) {
+							var line = GetOrCreateLine(i);
+							for (int j = 0; j < slotsPerLine; j++) line.Add(null);
+						}
+						usedLineCount = lineCount;
+						for (int i = 0; i < count; i++) {
+							var child = m_orderedChildren[i];
+							int rawCol = i / rows;
+							int rawRow = i % rows;
+							int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
+							int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
+							int lineIndex = startAxis == Axis.Horizontal ? row : col;
+							int inLineIndex = startAxis == Axis.Horizontal ? col : row;
+							if(lineIndex < 0 || lineIndex >= lineCount) continue;
+							if(inLineIndex < 0 || inLineIndex >= slotsPerLine) continue;
+							m_lines[lineIndex][inLineIndex] = child;
+						}
+						for (int i = 0; i < lineCount; i++) {
+							var line = m_lines[i];
+							for (int j = line.Count - 1; j >= 0; j--) {
+								if(line[j] == null) line.RemoveAt(j);
+							}
+						}
+						break;
 				default:
 					// 可変: main 軸の空き幅に収まらなくなったら改行（折返し）
 					var currentLine = GetOrCreateLine(0);

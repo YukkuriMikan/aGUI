@@ -55,10 +55,23 @@ namespace ANest.UI {
 		private bool m_suppressActiveWarning;                      // 内部処理用：SetActive実行時の警告を一時的に抑制するフラグ
 		private bool m_nowShowing;                                 // 現在表示処理中かどうか
 		private bool m_nowHiding;                                  // 現在非表示処理中かどうか
+		private readonly Action m_showAnimationCompleteAction;     // Showアニメーション完了時コールバック（GC削減用キャッシュ）
+		private readonly Action m_showAnimationKillAction;         // Showアニメーション中断時コールバック（GC削減用キャッシュ）
+		private readonly Action m_hideAnimationCompleteAction;     // Hideアニメーション完了時コールバック（GC削減用キャッシュ）
+		private readonly Action m_hideAnimationKillAction;         // Hideアニメーション中断時コールバック（GC削減用キャッシュ）
 		private readonly Subject<Unit> m_showStartSubject = new(); // 表示開始通知用
 		private readonly Subject<Unit> m_showEndSubject = new();   // 表示完了通知用
 		private readonly Subject<Unit> m_hideStartSubject = new(); // 非表示開始通知用
 		private readonly Subject<Unit> m_hideEndSubject = new();   // 非表示完了通知用
+		#endregion
+
+		#region Constructor
+		protected aContainerBase() {
+			m_showAnimationCompleteAction = OnShowAnimationCompleted;
+			m_showAnimationKillAction = OnShowAnimationKilled;
+			m_hideAnimationCompleteAction = OnHideAnimationCompleted;
+			m_hideAnimationKillAction = OnHideAnimationKilled;
+		}
 		#endregion
 
 		#region Property
@@ -251,12 +264,7 @@ namespace ANest.UI {
 			m_onShow?.Invoke();
 
 			// 2. アニメーションの再生（完了を待たずに選択復帰へ進む）
-			TryPlayAnimations(ShowAnimations, () => {
-				m_nowShowing = false;
-				m_showEndSubject.OnNext(Unit.Default);
-			}, () => {
-				m_nowShowing = false;
-			});
+			TryPlayAnimations(ShowAnimations, m_showAnimationCompleteAction, m_showAnimationKillAction);
 
 			m_suppressActiveWarning = false;
 			m_showStartSubject.OnNext(Unit.Default);
@@ -282,16 +290,7 @@ namespace ANest.UI {
 			m_onHide?.Invoke();
 
 			// 3. アニメーションの再生。完了時にGameObjectを非アクティブにする
-			TryPlayAnimations(HideAnimations,
-				() => {
-					// アニメーション完了時のみGameObjectを非表示にする
-					m_nowHiding = false;
-					SetActiveInternal(false);
-				},
-				() => {
-					// アニメーションが中断（Kill）された場合は、後続のShow処理を優先するため非表示化は行わない
-					m_nowHiding = false;
-				});
+			TryPlayAnimations(HideAnimations, m_hideAnimationCompleteAction, m_hideAnimationKillAction);
 
 			m_suppressActiveWarning = false;
 		}
@@ -315,8 +314,28 @@ namespace ANest.UI {
 			}
 
 			aGuiUtils.PlayAnimation(animations, m_guiInfo.RectTransform, m_guiInfo.TargetGraphic, m_guiInfo.OriginalRectTransformValues,
-				() => completeCallback?.Invoke(),
-				() => killCallback?.Invoke());
+				completeCallback,
+				killCallback);
+		}
+
+		private void OnShowAnimationCompleted() {
+			m_nowShowing = false;
+			m_showEndSubject.OnNext(Unit.Default);
+		}
+
+		private void OnShowAnimationKilled() {
+			m_nowShowing = false;
+		}
+
+		private void OnHideAnimationCompleted() {
+			// アニメーション完了時のみGameObjectを非表示にする
+			m_nowHiding = false;
+			SetActiveInternal(false);
+		}
+
+		private void OnHideAnimationKilled() {
+			// アニメーションが中断（Kill）された場合は、後続のShow処理を優先するため非表示化は行わない
+			m_nowHiding = false;
 		}
 
 		/// <summary>表示状態の内部フラグを更新する</summary>

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
@@ -58,6 +57,13 @@ namespace ANest.UI {
 		protected int m_currentSelectableIndex = -1;                        // 現在選択されているSelectableのインデックス
 		protected T m_lastSelected;                                         // 非表示時に記録した、最後に選択されていたSelectable
 		protected readonly CompositeDisposable m_eventDisposables = new(); // イベント用
+		private readonly Action<long> m_releaseInitialGuardAction;          // InitialGuard解除処理（GC削減用キャッシュ）
+		#endregion
+
+		#region Constructor
+		protected aSelectableContainerBase() {
+			m_releaseInitialGuardAction = ReleaseInitialGuard;
+		}
 		#endregion
 
 		#region Property
@@ -300,11 +306,7 @@ namespace ANest.UI {
 				CanvasGroup.blocksRaycasts = false;
 				Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
 					.TakeUntilDestroy(this)
-					.Subscribe(_ => {
-						if(this != null && CanvasGroup != null) {
-							CanvasGroup.blocksRaycasts = true;
-						}
-					});
+					.Subscribe(m_releaseInitialGuardAction);
 			}
 
 			// 初期化中（Awake）の場合は Start で実行するためここではスキップ
@@ -322,8 +324,7 @@ namespace ANest.UI {
 
 			//Disableでもイベントシステムのオブジェクトとして選択され続けるのを防ぐ
 			var es = aGuiManager.EventSystem;
-
-			if(ChildSelectableList.Any(selectable => es.currentSelectedGameObject == selectable.gameObject)) {
+			if(ContainsCurrentEventSystemSelection(es)) {
 				es.SetSelectedGameObject(null);
 			}
 		}
@@ -350,14 +351,16 @@ namespace ANest.UI {
 			ApplySkipNavigationToChildren();
 			if(ChildSelectableList == null || ChildSelectableList.Count == 0) return;
 
-			foreach (var selectable in ChildSelectableList) {
+			for(var i = 0; i < ChildSelectableList.Count; i++) {
+				var selectable = ChildSelectableList[i];
 				if(selectable == null) continue;
 
 				selectable
 					.OnPointerEnterAsObservable()
 					.Subscribe(_ => {
 						if(!m_selectOnHover) return;
-						if(!selectable.IsActive() || !selectable.IsInteractable()) return;
+						if(!selectable.IsActive()) return;
+						if(m_skipNonInteractableNavigation && !selectable.IsInteractable()) return;
 
 						CurrentSelectable = selectable;
 					})
@@ -367,6 +370,27 @@ namespace ANest.UI {
 				selectable.OnSelectAsObservable()
 					.Subscribe(_ => CurrentSelectable = selectable)
 					.AddTo(m_eventDisposables);
+			}
+		}
+
+		private bool ContainsCurrentEventSystemSelection(UnityEngine.EventSystems.EventSystem eventSystem) {
+			if(eventSystem == null || m_childSelectableList == null || m_childSelectableList.Count == 0) return false;
+
+			var currentSelected = eventSystem.currentSelectedGameObject;
+			if(currentSelected == null) return false;
+
+			for(var i = 0; i < m_childSelectableList.Count; i++) {
+				var selectable = m_childSelectableList[i];
+				if(selectable == null) continue;
+				if(currentSelected == selectable.gameObject) return true;
+			}
+
+			return false;
+		}
+
+		private void ReleaseInitialGuard(long _) {
+			if(this != null && CanvasGroup != null) {
+				CanvasGroup.blocksRaycasts = true;
 			}
 		}
 

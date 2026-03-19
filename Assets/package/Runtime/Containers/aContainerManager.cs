@@ -61,7 +61,7 @@ namespace ANest.UI {
 		/// <param name="container">削除するコンテナ</param>
 		public static void Remove(aContainerBase container) {
 			if(container == null) return;
-			if(m_containers.IndexOf(container) < 0) {
+			if(m_containers.IndexOf(container) >= 0) {
 				m_containers.Remove(container);
 			}
 			m_containerNameDictionary.Remove(container.name);

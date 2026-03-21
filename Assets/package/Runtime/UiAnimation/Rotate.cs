@@ -50,8 +50,8 @@ namespace ANest.UI {
 			if(callerRect == null) return null;
 
 			// 初期回転を設定（元の回転に相対オフセットを適用）
-			Quaternion startRotation = original.LocalRotation * Quaternion.Euler(m_startValue);
-			Quaternion endRotation = original.LocalRotation * Quaternion.Euler(m_endValue);
+			Quaternion startRotation = callerRect.localRotation * Quaternion.Euler(m_startValue);
+			Quaternion endRotation = callerRect.localRotation * Quaternion.Euler(m_endValue);
 			callerRect.localRotation = startRotation;
 
 			m_tween = callerRect

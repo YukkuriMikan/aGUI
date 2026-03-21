@@ -48,8 +48,8 @@ namespace ANest.UI {
 		/// <param name="___">復元用のRectTransform初期値（未使用）</param>
 		public Tween DoAnimate(Graphic _, RectTransform __, RectTransformValues ___) {
 			// 初期回転を設定（元の回転に相対オフセットを適用）
-			var startRotation = m_target.OriginalRectTransformValues.LocalRotation * Quaternion.Euler(m_startValue);
-			var endRotation = m_target.OriginalRectTransformValues.LocalRotation * Quaternion.Euler(m_endValue);
+			var startRotation = m_target.RectTransform.localRotation * Quaternion.Euler(m_startValue);
+			var endRotation = m_target.RectTransform.localRotation * Quaternion.Euler(m_endValue);
 			m_target.RectTransform.localRotation = startRotation;
 
 			m_tween = m_target.RectTransform

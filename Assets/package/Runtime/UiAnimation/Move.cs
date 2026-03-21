@@ -6,8 +6,8 @@ namespace ANest.UI {
 	/// <summary> 移動アニメーション </summary>
 	public class Move : IUiAnimation {
 		#region SerializeField
-		[SerializeField] private Vector3 m_startValue = Vector3.left;                           // 移動開始時の相対座標
-		[SerializeField] private Vector3 m_endValue = Vector3.zero;                             // 移動終了時の相対座標
+		[SerializeField] private Vector2 m_startValue = Vector2.left;                           // 移動開始時の相対座標
+		[SerializeField] private Vector2 m_endValue = Vector2.zero;                             // 移動終了時の相対座標
 		[SerializeField] private float m_delay;                                                 // 再生までの遅延秒数
 		[SerializeField] private float m_duration = 0.5f;                                       // 再生時間
 		[SerializeField] private bool m_isYoYo;                                                 // ヨーヨー再生か？
@@ -50,10 +50,10 @@ namespace ANest.UI {
 
 			m_tween.Kill();
 
-			callerRect.localPosition = original.LocalPosition + m_startValue; //開始座標へ
-
-			m_tween = callerRect
-				.DOLocalMove(original.LocalPosition + m_endValue, m_duration / 2f)
+			callerRect.anchoredPosition += m_startValue; //開始座標へ
+			
+			m_tween = DOTween
+				.To(() => callerRect.anchoredPosition, x => callerRect.anchoredPosition = x, callerRect.anchoredPosition + m_endValue, m_duration / 2f)
 				.SetDelay(Delay);
 
 			if(UseCurve) {

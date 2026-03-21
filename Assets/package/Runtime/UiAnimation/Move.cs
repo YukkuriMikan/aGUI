@@ -50,8 +50,8 @@ namespace ANest.UI {
 
 			m_tween.Kill();
 
-			callerRect.anchoredPosition += m_startValue; //開始座標へ
-			
+			callerRect.anchoredPosition = original.AnchoredPosition + m_startValue; //開始座標へ
+
 			m_tween = DOTween
 				.To(() => callerRect.anchoredPosition, x => callerRect.anchoredPosition = x, callerRect.anchoredPosition + m_endValue, m_duration / 2f)
 				.SetDelay(Delay);

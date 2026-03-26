@@ -94,6 +94,11 @@ namespace ANest.UI {
 			bool forceCross = crossAxis == 0 ? childForceExpandWidth : childForceExpandHeight;
 			bool scaleMainEnabled = mainAxis == 0 ? childScaleWidth : childScaleHeight;
 			bool scaleCrossEnabled = crossAxis == 0 ? childScaleWidth : childScaleHeight;
+			bool isFixedConstraint = constraint == Constraint.FixedColumnCount || constraint == Constraint.FixedRowCount;
+			bool isConstraintAxisMatched =
+				(constraint == Constraint.FixedColumnCount && startAxis == Axis.Horizontal)
+				|| (constraint == Constraint.FixedRowCount && startAxis == Axis.Vertical);
+			bool useConstraintMainFill = controlMain && forceMain && isFixedConstraint && isConstraintAxisMatched;
 
 			int cornerX = (int)startCorner % 2;
 			int cornerY = (int)startCorner / 2;
@@ -261,7 +266,8 @@ namespace ANest.UI {
 				EnsureFloatListSize(m_scaleCross, lineChildCount);
 
 				// main 軸の割当スロット（scale考慮）を計算
-				float spacingTotal = mainSpacing * Mathf.Max(0, lineChildCount - 1);
+				float spacingSlotCount = useConstraintMainFill ? Mathf.Max(0, Mathf.Max(1, constraintCount) - 1) : Mathf.Max(0, lineChildCount - 1);
+				float spacingTotal = mainSpacing * spacingSlotCount;
 				float totalWeight = 0f;
 				for (int i = 0; i < lineChildCount; i++) {
 					var child = lineChildren[i];
@@ -270,7 +276,9 @@ namespace ANest.UI {
 					if(controlMain || forceMain) totalWeight += sMain;
 				}
 				if(totalWeight <= 0f) totalWeight = lineChildCount;
-				float slotPerWeight = (availableMain - spacingTotal) / totalWeight;
+				float slotPerWeight = useConstraintMainFill
+					? (availableMain - spacingTotal) / Mathf.Max(1, constraintCount)
+					: (availableMain - spacingTotal) / totalWeight;
 
 				float usedMain = spacingTotal;
 				float lineCrossSize = m_lineCrossSizes[line];
@@ -288,7 +296,10 @@ namespace ANest.UI {
 
 					float allocatedScaled = (controlMain || forceMain) ? slotPerWeight * sMain : preferredMain * sMain;
 					float childMain;
-					if(controlMain) {
+					if(useConstraintMainFill) {
+						allocatedScaled = slotPerWeight;
+						childMain = slotPerWeight / Mathf.Max(0.0001f, sMain);
+					} else if(controlMain) {
 						// ControlChildSize=true の場合は forceExpand の有無に関わらず cellSize を最終サイズとして使用する
 						childMain = preferredMain;
 						// forceExpand が無効な場合はスロット幅も実サイズに揃える

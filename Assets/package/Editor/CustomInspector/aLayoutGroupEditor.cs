@@ -587,9 +587,20 @@ namespace ANest.UI.Editor {
 			if(cellSizeProp == null) return;
 			if(childControlWidthProp == null || childControlHeightProp == null) return;
 			if(childForceExpandWidthProp == null || childForceExpandHeightProp == null) return;
+			if(constraintProp == null || startAxisProp == null) return;
 
-			bool showWidth = childControlWidthProp.boolValue && !childForceExpandWidthProp.boolValue;
-			bool showHeight = childControlHeightProp.boolValue && !childForceExpandHeightProp.boolValue;
+			bool isFixedConstraint = constraintProp.enumValueIndex != 0;
+			bool isFixedColumnAndHorizontal = constraintProp.enumValueIndex == (int)aLayoutGroupGrid.Constraint.FixedColumnCount
+				&& startAxisProp.enumValueIndex == (int)aLayoutGroupGrid.Axis.Horizontal;
+			bool isFixedRowAndVertical = constraintProp.enumValueIndex == (int)aLayoutGroupGrid.Constraint.FixedRowCount
+				&& startAxisProp.enumValueIndex == (int)aLayoutGroupGrid.Axis.Vertical;
+			bool isConstraintAxisMatched = isFixedColumnAndHorizontal || isFixedRowAndVertical;
+
+			bool hideWidth = childControlWidthProp.boolValue && childForceExpandWidthProp.boolValue && isFixedConstraint && isConstraintAxisMatched;
+			bool hideHeight = childControlHeightProp.boolValue && childForceExpandHeightProp.boolValue && isFixedConstraint && isConstraintAxisMatched;
+
+			bool showWidth = childControlWidthProp.boolValue && !hideWidth;
+			bool showHeight = childControlHeightProp.boolValue && !hideHeight;
 
 			if(!showWidth && !showHeight) return;
 

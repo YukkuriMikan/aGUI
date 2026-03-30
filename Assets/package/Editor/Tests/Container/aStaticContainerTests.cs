@@ -251,10 +251,52 @@ namespace ANest.UI.Tests {
 			// Show 完了を待つ（0.1sアニメーション + 余裕）
 			yield return new WaitForSeconds(0.2f);
 			Assert.IsTrue(m_testObject.activeSelf, "Step 7: Show完了後(0.2s)もアクティブであるべき");
+			Assert.IsFalse((bool)nowHidingField.GetValue(m_container), "Step 7.1: Show完了後もm_nowHidingはfalseのままであるべき");
 
 			// Hide の中断により SetActiveInternal(false) が呼ばれていないことを確認
 			yield return new WaitForSeconds(0.8f); // 元の Hide アニメーション時間を超えるまで待機
 			Assert.IsTrue(m_testObject.activeSelf, "Step 8: Hideアニメーション予定時間を超えてもアクティブであるべき");
+		}
+
+		/// <summary> 2つのコンテナを高速で相互切り替えしても両方非表示にならないか </summary>
+		[UnityTest]
+		public IEnumerator RapidSwitch_BetweenTwoContainers_DoesNotEndWithBothHidden() {
+			var objectB = new GameObject("aStaticContainerB", typeof(RectTransform));
+			objectB.AddComponent<CanvasGroup>();
+			var guiInfoB = objectB.AddComponent<aGuiInfo>();
+			var guiInfoType = typeof(aGuiInfo);
+			var rectTransformB = objectB.GetComponent<RectTransform>();
+			guiInfoType.GetField("m_rectTransform", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(guiInfoB, rectTransformB);
+			guiInfoType.GetField("m_originalRectTransformValues", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(guiInfoB, RectTransformValues.CreateValues(rectTransformB));
+
+			var containerA = m_container;
+			var containerB = objectB.AddComponent<TestStaticContainer>();
+
+			var hideAnim = new MockUiAnimation {
+				Duration = 0.2f
+			};
+			containerA.SetAnimations(null, new IUiAnimation[] { hideAnim });
+			containerB.SetAnimations(null, new IUiAnimation[] { hideAnim });
+
+			containerA.Show();
+			containerB.Hide();
+
+			for (int i = 0; i < 8; i++) {
+				containerA.Hide();
+				containerB.Show();
+				yield return new WaitForSeconds(0.02f);
+
+				containerB.Hide();
+				containerA.Show();
+				yield return new WaitForSeconds(0.02f);
+			}
+
+			yield return new WaitForSeconds(0.3f);
+
+			bool anyActive = containerA.gameObject.activeSelf || containerB.gameObject.activeSelf;
+			Assert.IsTrue(anyActive, "高速切り替え後にA/Bが両方非表示になってはいけない");
+
+			Object.DestroyImmediate(objectB);
 		}
 		#endregion
 	}

@@ -301,6 +301,74 @@ namespace ANest.UI.Tests {
 
 			Assert.IsTrue(canvasGroup.blocksRaycasts, "InitialGuard終了後はblocksRaycastsがtrueに戻るべき");
 		}
+
+		/// <summary> InitialGuard が有効な間は子aButtonのSubmit入力をブロックし、解除後は受理するか </summary>
+		[UnityTest]
+		public IEnumerator InitialGuard_BlocksChildButtonSubmitTemporarily() {
+			m_container.Initialize();
+			m_container.SetInitialGuard(true, 0.2f);
+
+			var buttonGo = new GameObject("aButton", typeof(RectTransform), typeof(aButton));
+			buttonGo.transform.SetParent(m_testObject.transform);
+			var button = buttonGo.GetComponent<aButton>();
+
+			bool clicked = false;
+			button.onClick.AddListener(() => clicked = true);
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				button
+			});
+
+			m_container.Show();
+			yield return null;
+
+			button.OnSubmit(new BaseEventData(EventSystem.current));
+			yield return null;
+			Assert.IsFalse(clicked, "InitialGuard中はSubmit入力がブロックされるべき");
+
+			yield return new WaitForSeconds(0.25f);
+
+			button.OnSubmit(new BaseEventData(EventSystem.current));
+			yield return null;
+			Assert.IsTrue(clicked, "InitialGuard解除後はSubmit入力が受理されるべき");
+		}
+
+		/// <summary> InitialGuard が有効な間は子aButtonのClick入力をブロックし、解除後は受理するか </summary>
+		[UnityTest]
+		public IEnumerator InitialGuard_BlocksChildButtonClickTemporarily() {
+			m_container.Initialize();
+			m_container.SetInitialGuard(true, 0.2f);
+
+			var buttonGo = new GameObject("aButton", typeof(RectTransform), typeof(aButton));
+			buttonGo.transform.SetParent(m_testObject.transform);
+			var button = buttonGo.GetComponent<aButton>();
+
+			bool clicked = false;
+			button.onClick.AddListener(() => clicked = true);
+
+			m_container.SetChildSelectableList(new List<Selectable> {
+				button
+			});
+
+			m_container.Show();
+			yield return null;
+
+			var pointerEventData = new PointerEventData(EventSystem.current) {
+				button = PointerEventData.InputButton.Left
+			};
+
+			button.OnPointerDown(pointerEventData);
+			button.OnPointerClick(pointerEventData);
+			yield return null;
+			Assert.IsFalse(clicked, "InitialGuard中はClick入力がブロックされるべき");
+
+			yield return new WaitForSeconds(0.25f);
+
+			button.OnPointerDown(pointerEventData);
+			button.OnPointerClick(pointerEventData);
+			yield return null;
+			Assert.IsTrue(clicked, "InitialGuard解除後はClick入力が受理されるべき");
+		}
 		#endregion
 
 		#region Animation Tests

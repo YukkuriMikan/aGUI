@@ -4723,7 +4723,7 @@ MonoBehaviour:
   updateMode: 2
   updateTiming: 0
   delayAlignByOneFrame: 0
-  childControlWidth: 0
+  childControlWidth: 1
   childControlHeight: 0
   childScaleWidth: 0
   childScaleHeight: 0
@@ -4765,7 +4765,7 @@ MonoBehaviour:
   startAxis: 0
   cellSize: {x: 50, y: 69.17}
   spacingXY: {x: 10, y: 10}
-  constraint: 0
+  constraint: 1
   constraintCount: 5
 --- !u!225 &1150951256
 CanvasGroup:

@@ -330,7 +330,9 @@ namespace ANest.UI {
 		private void OnHideAnimationCompleted() {
 			// アニメーション完了時のみGameObjectを非表示にする
 			m_nowHiding = false;
-			SetActiveInternal(false);
+			if(!m_isVisible) {
+				SetActiveInternal(false);
+			}
 		}
 
 		private void OnHideAnimationKilled() {

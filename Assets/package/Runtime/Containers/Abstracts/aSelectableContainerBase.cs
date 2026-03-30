@@ -303,10 +303,13 @@ namespace ANest.UI {
 
 			// InitialGuard機能の実行
 			if(m_initialGuard && m_initialGuardDuration > 0) {
+				ApplyInitialGuardToChildren(true);
 				CanvasGroup.blocksRaycasts = false;
 				Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
 					.TakeUntilDestroy(this)
 					.Subscribe(m_releaseInitialGuardAction);
+			} else {
+				ApplyInitialGuardToChildren(false);
 			}
 
 			// 初期化中（Awake）の場合は Start で実行するためここではスキップ
@@ -342,6 +345,22 @@ namespace ANest.UI {
 		private void ApplySkipNavigationToSelectable(T selectable) {
 			if(selectable is ISkipNavigationSelectable skipNav) {
 				skipNav.SkipNonInteractableNavigation = m_skipNonInteractableNavigation;
+			}
+		}
+
+		/// <summary>単一のSelectableにInitialGuard状態を反映する</summary>
+		private void ApplyInitialGuardToSelectable(T selectable, bool guardActive) {
+			if(selectable is IInitialGuardSelectable guardSelectable) {
+				guardSelectable.InitialGuardActive = guardActive;
+			}
+		}
+
+		/// <summary>子要素のSelectableにInitialGuard状態を反映する</summary>
+		private void ApplyInitialGuardToChildren(bool guardActive) {
+			if(ChildSelectableList == null) return;
+
+			foreach(var selectable in ChildSelectableList) {
+				ApplyInitialGuardToSelectable(selectable, guardActive);
 			}
 		}
 
@@ -392,6 +411,8 @@ namespace ANest.UI {
 			if(this != null && CanvasGroup != null) {
 				CanvasGroup.blocksRaycasts = true;
 			}
+
+			ApplyInitialGuardToChildren(false);
 		}
 
 		/// <summary>現在フォーカスされているSelectableを記録する</summary>

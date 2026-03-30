@@ -8,7 +8,7 @@ namespace ANest.UI {
 	/// <summary>各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle</summary>
 	[Icon("d_Toggle Icon")]
 	[RequireComponent(typeof(aGuiInfo))]
-	public class aToggle : Toggle, ISkipNavigationSelectable {
+	public class aToggle : Toggle, ISkipNavigationSelectable, IInitialGuardSelectable {
 		#region SerializeField
 		[Header("Shared Parameters")]
 		[Tooltip("共通パラメータを使用するかどうか")]
@@ -69,6 +69,9 @@ namespace ANest.UI {
 		#region Properties
 		/// <summary> 非Interactableをスキップして次のSelectableに移動するかどうか </summary>
 		public bool SkipNonInteractableNavigation { get; set; }
+
+		/// <summary> コンテナのInitialGuardにより入力をブロック中かどうか </summary>
+		public bool InitialGuardActive { get; set; }
 		#endregion
 
 		#region Unity Methods
@@ -109,6 +112,7 @@ namespace ANest.UI {
 		public override void OnPointerClick(PointerEventData eventData) {
 			if(eventData.button != PointerEventData.InputButton.Left) return;
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			float now = Time.unscaledTime;
 			if(IsGuardActive(now)) return;
@@ -121,6 +125,7 @@ namespace ANest.UI {
 		/// <summary>Submit入力時にガードを適用する</summary>
 		public override void OnSubmit(BaseEventData eventData) {
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			float now = Time.unscaledTime;
 			if(IsGuardActive(now)) return;
@@ -133,6 +138,7 @@ namespace ANest.UI {
 		public override void OnMove(AxisEventData eventData) {
 			if(!IsActive()) return;
 			if(eventData == null) return;
+			if(InitialGuardActive) return;
 			if(!SkipNonInteractableNavigation) {
 				base.OnMove(eventData);
 				return;
@@ -183,6 +189,7 @@ namespace ANest.UI {
 		/// <summary>ショートカット押下開始時の処理</summary>
 		private void HandleShortCutPress() {
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			float now = Time.unscaledTime;
 			if(IsGuardActive(now)) return;

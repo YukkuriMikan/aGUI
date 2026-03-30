@@ -11,7 +11,7 @@ namespace ANest.UI {
 	/// <summary>複数の入力ガードや長押し対応を備えた拡張Button</summary>
 	[Icon("d_Button Icon")]
 	[RequireComponent(typeof(aGuiInfo))]
-	public class aButton : Button, ISkipNavigationSelectable {
+	public class aButton : Button, ISkipNavigationSelectable, IInitialGuardSelectable {
 		#region Serialize Fields
 		[Header("Shared Parameters")]
 		[Tooltip("共通パラメータを使用するかどうか")]
@@ -95,6 +95,9 @@ namespace ANest.UI {
 
 		/// <summary> 非Interactableをスキップして次のSelectableに移動するかどうか </summary>
 		public bool SkipNonInteractableNavigation { get; set; }
+
+		/// <summary> コンテナのInitialGuardにより入力をブロック中かどうか </summary>
+		public bool InitialGuardActive { get; set; }
 
 		/// <summary> テキスト差し替え状態の参照と設定 </summary>
 		public TextSwapState TextSwapState {
@@ -203,6 +206,7 @@ namespace ANest.UI {
 		/// <summary> クリック成立時の処理。長押し成立済みなら通常クリックを抑制 </summary>
 		public override void OnPointerClick(PointerEventData eventData) {
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			if(!_pressAccepted) return;
 
@@ -236,6 +240,7 @@ namespace ANest.UI {
 		/// <summary> Submit入力時にガードを適用 </summary>
 		public override void OnSubmit(BaseEventData eventData) {
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			float now = Time.unscaledTime;
 			if(IsGuardActive(now)) return;
@@ -244,6 +249,7 @@ namespace ANest.UI {
 
 			if(!enableLongPress) {
 				base.OnSubmit(eventData);
+				PlayClickAnimations();
 				return;
 			}
 
@@ -264,6 +270,7 @@ namespace ANest.UI {
 		public override void OnMove(AxisEventData eventData) {
 			if(!IsActive()) return;
 			if(eventData == null) return;
+			if(InitialGuardActive) return;
 			if(!SkipNonInteractableNavigation) {
 				base.OnMove(eventData);
 				return;
@@ -406,6 +413,7 @@ namespace ANest.UI {
 		/// <summary> ショートカット押下開始時の処理 </summary>
 		private void HandleShortCutPress() {
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			float now = Time.unscaledTime;
 			if(IsGuardActive(now)) return;
@@ -493,6 +501,7 @@ namespace ANest.UI {
 				var eventSystem = aGuiManager.EventSystem;
 				if(eventSystem != null) {
 					base.OnSubmit(_cachedSubmitEventData ?? new BaseEventData(eventSystem));
+					PlayClickAnimations();
 				}
 			}
 

@@ -7,11 +7,11 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
-namespace ANest.UI {
-	/// <summary>複数の入力ガードや長押し対応を備えた拡張Button</summary>
-	[Icon("d_Button Icon")]
-	[RequireComponent(typeof(aGuiInfo))]
-	public class aButton : Button, ISkipNavigationSelectable, IInitialGuardSelectable {
+	namespace ANest.UI {
+		/// <summary>複数の入力ガードや長押し対応を備えた拡張Button</summary>
+		[Icon("d_Button Icon")]
+		[RequireComponent(typeof(aGuiInfo))]
+		public class aButton : Button, IaGuiSelectable {
 		#region Serialize Fields
 		[Header("Shared Parameters")]
 		[Tooltip("共通パラメータを使用するかどうか")]
@@ -113,6 +113,23 @@ namespace ANest.UI {
 
 		/// <summary> 長押しキャンセルイベント </summary>
 		public UnityEvent OnLongPressCancel => onLongPressCancel;
+
+		/// <summary>
+		/// 外部スクリプト向けのクリック実行。
+		/// ガード中や非操作可能状態では発火しない。
+		/// </summary>
+		public bool InvokeClickWithGuard() {
+			if(!IsActive() || !IsInteractable()) return false;
+			if(InitialGuardActive) return false;
+
+			float now = Time.unscaledTime;
+			if(IsGuardActive(now)) return false;
+
+			StartGuard(now);
+			onClick?.Invoke();
+			PlayClickAnimations();
+			return true;
+		}
 		#endregion
 
 		#region Lifecycle Methods

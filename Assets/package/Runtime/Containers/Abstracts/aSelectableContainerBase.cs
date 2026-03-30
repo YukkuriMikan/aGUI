@@ -343,15 +343,15 @@ namespace ANest.UI {
 
 		/// <summary>単一のSelectableにナビゲーションスキップ設定を反映する</summary>
 		private void ApplySkipNavigationToSelectable(T selectable) {
-			if(selectable is ISkipNavigationSelectable skipNav) {
-				skipNav.SkipNonInteractableNavigation = m_skipNonInteractableNavigation;
+			if(selectable is IaGuiSelectable aGuiSelectable) {
+				aGuiSelectable.SkipNonInteractableNavigation = m_skipNonInteractableNavigation;
 			}
 		}
 
 		/// <summary>単一のSelectableにInitialGuard状態を反映する</summary>
 		private void ApplyInitialGuardToSelectable(T selectable, bool guardActive) {
-			if(selectable is IInitialGuardSelectable guardSelectable) {
-				guardSelectable.InitialGuardActive = guardActive;
+			if(selectable is IaGuiSelectable aGuiSelectable) {
+				aGuiSelectable.InitialGuardActive = guardActive;
 			}
 		}
 

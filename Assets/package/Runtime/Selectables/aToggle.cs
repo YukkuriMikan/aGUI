@@ -8,7 +8,7 @@ namespace ANest.UI {
 	/// <summary>各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle</summary>
 	[Icon("d_Toggle Icon")]
 	[RequireComponent(typeof(aGuiInfo))]
-	public class aToggle : Toggle, ISkipNavigationSelectable, IInitialGuardSelectable {
+	public class aToggle : Toggle, IaGuiSelectable {
 		#region SerializeField
 		[Header("Shared Parameters")]
 		[Tooltip("共通パラメータを使用するかどうか")]
@@ -72,6 +72,24 @@ namespace ANest.UI {
 
 		/// <summary> コンテナのInitialGuardにより入力をブロック中かどうか </summary>
 		public bool InitialGuardActive { get; set; }
+
+		/// <summary>
+		/// 外部スクリプト向けのクリック実行。
+		/// ガード中や非操作可能状態では発火しない。
+		/// </summary>
+		public bool InvokeClickWithGuard() {
+			if(!IsActive() || !IsInteractable()) return false;
+			if(InitialGuardActive) return false;
+
+			float now = Time.unscaledTime;
+			if(IsGuardActive(now)) return false;
+
+			StartGuard(now);
+			var eventSystem = aGuiManager.EventSystem;
+			base.OnSubmit(eventSystem != null ? new BaseEventData(eventSystem) : null);
+			PlayClickAnimations();
+			return true;
+		}
 		#endregion
 
 		#region Unity Methods

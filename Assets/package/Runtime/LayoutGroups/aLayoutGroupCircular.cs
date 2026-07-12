@@ -380,7 +380,7 @@ namespace ANest.UI {
 
 			Vector2 delta = rect.anchoredPosition - targetPos;
 			float distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
-			bool shouldAnimate = !m_positionTweens.ContainsKey(rect) && distance <= animationDistanceThreshold && animationDuration > 0f;
+			bool shouldAnimate = !m_positionTweens.ContainsKey(rect) && distance <= animationDistanceThreshold && (animationMode == AnimationMode.Speed ? animationSpeed > 0f : animationDuration > 0f);
 			if(m_suppressAnimation || !shouldAnimate) {
 				base.ApplyPosition(rect, targetPos);
 				return;
@@ -410,6 +410,14 @@ namespace ANest.UI {
 					break;
 			}
 
+			// 速度方式の場合は円弧の移動距離から再生時間を算出する
+			float arcLength = Mathf.Abs(endDeg - currentDeg) * Mathf.Deg2Rad * info.Radius;
+			float duration = CalculateAnimationDuration(arcLength);
+			if(duration <= 0f) {
+				base.ApplyPosition(rect, targetPos);
+				return;
+			}
+
 			Tween tween = DG.Tweening.DOTween.To(
 				() => currentDeg,
 				v => {
@@ -418,7 +426,7 @@ namespace ANest.UI {
 					rect.anchoredPosition = pos;
 				},
 				endDeg,
-				animationDuration
+				duration
 				);
 			if(useAnimationCurve && animationCurve != null) {
 				tween.SetEase(animationCurve);

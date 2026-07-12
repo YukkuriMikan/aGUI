@@ -31,7 +31,9 @@ namespace ANest.UI.Editor {
 		private SerializedProperty navigationAxisRangeProp;        // navigationAxisRange プロパティへの参照
 		private SerializedProperty navigationTypeProp;             // navigationType プロパティ（Circular）への参照
 		private SerializedProperty useAnimationProp;               // useAnimation プロパティへの参照
+		private SerializedProperty animationModeProp;              // animationMode プロパティへの参照
 		private SerializedProperty animationDurationProp;          // animationDuration プロパティへの参照
+		private SerializedProperty animationSpeedProp;             // animationSpeed プロパティへの参照
 		private SerializedProperty animationDistanceThresholdProp; // animationDistanceThreshold プロパティへの参照
 		private SerializedProperty useAnimationCurveProp;          // useAnimationCurve プロパティへの参照
 		private SerializedProperty animationCurveProp;             // animationCurve プロパティへの参照
@@ -78,7 +80,9 @@ namespace ANest.UI.Editor {
 			navigationAxisRangeProp = serializedObject.FindProperty("navigationAxisRange");
 			navigationTypeProp = serializedObject.FindProperty("navigationType");
 			useAnimationProp = serializedObject.FindProperty("useAnimation");
+			animationModeProp = serializedObject.FindProperty("animationMode");
 			animationDurationProp = serializedObject.FindProperty("animationDuration");
+			animationSpeedProp = serializedObject.FindProperty("animationSpeed");
 			animationDistanceThresholdProp = serializedObject.FindProperty("animationDistanceThreshold");
 			useAnimationCurveProp = serializedObject.FindProperty("useAnimationCurve");
 			animationCurveProp = serializedObject.FindProperty("animationCurve");
@@ -632,7 +636,12 @@ namespace ANest.UI.Editor {
 
 			if(useAnimationProp.boolValue) {
 				EditorGUI.indentLevel++;
-				PropertyFieldSafe(animationDurationProp, new GUIContent("Animation Duration"));
+				PropertyFieldSafe(animationModeProp, new GUIContent("Animation Mode"));
+				if(animationModeProp != null && animationModeProp.enumValueIndex == (int)aLayoutGroupBase.AnimationMode.Speed) {
+					PropertyFieldSafe(animationSpeedProp, new GUIContent("Animation Speed"));
+				} else {
+					PropertyFieldSafe(animationDurationProp, new GUIContent("Animation Duration"));
+				}
 				PropertyFieldSafe(animationDistanceThresholdProp, new GUIContent("Distance Threshold"));
 				PropertyFieldSafe(useAnimationCurveProp, new GUIContent("Use Animation Curve"));
 
@@ -754,7 +763,9 @@ namespace ANest.UI.Editor {
 				case "setNavigation":
 				case "navigationLoop":
 				case "useAnimation":
+				case "animationMode":
 				case "animationDuration":
+				case "animationSpeed":
 				case "animationDistanceThreshold":
 				case "useAnimationCurve":
 				case "animationCurve":

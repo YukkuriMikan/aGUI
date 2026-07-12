@@ -18,6 +18,12 @@ namespace ANest.UI {
 			OnTransformChildrenChanged, // 子Transform変更時に更新
 		}
 
+		/// <summary> アニメーションの再生方式 </summary>
+		public enum AnimationMode {
+			Duration, // 再生時間を固定し、速度は距離によって変動する
+			Speed,    // 速度を固定し、再生時間は距離によって変動する
+		}
+
 		/// <summary> レイアウトを更新するタイミング </summary>
 		public enum UpdateTiming {
 			Immediate,  // 即時実行
@@ -60,8 +66,12 @@ namespace ANest.UI {
 		[SerializeField] protected bool navigationLoop = true; // ナビゲーションをループさせるか
 		[Tooltip("レイアウト移動をアニメーションさせるか")]
 		[SerializeField] protected bool useAnimation; // レイアウト移動をアニメーションするか
+		[Tooltip("アニメーションの再生方式")]
+		[SerializeField] protected AnimationMode animationMode = AnimationMode.Duration; // アニメーション再生方式
 		[Tooltip("アニメーションの再生時間（秒）")]
 		[SerializeField] protected float animationDuration = 0.25f; // アニメーション時間
+		[Tooltip("アニメーションの移動速度（単位/秒）")]
+		[SerializeField] protected float animationSpeed = 1000f; // アニメーション速度
 		[Tooltip("アニメーションを適用する距離の閾値")]
 		[SerializeField] protected float animationDistanceThreshold = 1000f; // アニメ適用距離閾値
 		[Tooltip("アニメーションでカーブを使用するか")]
@@ -94,8 +104,14 @@ namespace ANest.UI {
 		/// <summary> レイアウト完了を通知するObservable </summary>
 		public IObservable<Rect> CompleteLayoutAsObservable => m_completeLayoutSubject;
 
+		/// <summary> アニメーションの再生方式 </summary>
+		public AnimationMode Mode => animationMode;
+
 		/// <summary> アニメーションの再生時間（秒） </summary>
 		public float AnimationDuration => animationDuration;
+
+		/// <summary> アニメーションの移動速度（単位/秒） </summary>
+		public float AnimationSpeed => animationSpeed;
 
 		/// <summary> アニメーションを適用する距離の閾値 </summary>
 		public float AnimationDistanceThreshold => animationDistanceThreshold;
@@ -391,7 +407,8 @@ namespace ANest.UI {
 
 			var delta = rect.anchoredPosition - targetPos;
 			var distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
-			var shouldAnimate = useAnimation && !m_suppressAnimation && distance <= animationDistanceThreshold && animationDuration > 0f;
+			var duration = CalculateAnimationDuration(distance);
+			var shouldAnimate = useAnimation && !m_suppressAnimation && distance <= animationDistanceThreshold && duration > 0f;
 
 			KillTween(rect);
 
@@ -401,7 +418,7 @@ namespace ANest.UI {
 							rect.anchoredPosition,
 						v => rect.anchoredPosition = v,
 						targetPos,
-						animationDuration);
+						duration);
 
 				if(useAnimationCurve && animationCurve != null) {
 					tween.SetEase(animationCurve);
@@ -412,6 +429,17 @@ namespace ANest.UI {
 				m_positionTweens[rect] = tween;
 			} else {
 				rect.anchoredPosition = targetPos;
+			}
+		}
+
+		/// <summary> アニメーション方式に応じた再生時間を算出 </summary>
+		protected virtual float CalculateAnimationDuration(float distance) {
+			switch (animationMode) {
+				case AnimationMode.Speed:
+					return animationSpeed > 0f ? distance / animationSpeed : 0f;
+				case AnimationMode.Duration:
+				default:
+					return animationDuration;
 			}
 		}
 

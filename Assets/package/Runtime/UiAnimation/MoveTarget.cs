@@ -44,9 +44,9 @@ namespace ANest.UI {
 		#region Methods
 		/// <summary> 指定ターゲットを移動させるアニメーションを実行 </summary>
 		/// <param name="_">アニメーション対象の Graphic (未使用)</param>
-		/// <param name="__">呼び出し元の RectTransform（未使用）</param>
+		/// <param name="callerRect">呼び出し元の RectTransform（DOKillによる中断用ターゲット）</param>
 		/// <param name="___">復元用のRectTransform初期値（未使用）</param>
-		public Tween DoAnimate(Graphic _, RectTransform __, RectTransformValues ___) {
+		public Tween DoAnimate(Graphic _, RectTransform callerRect, RectTransformValues ___) {
 			var targetRect = m_target.RectTransform;
 			var original = m_target.OriginalRectTransformValues;
 
@@ -59,8 +59,9 @@ namespace ANest.UI {
 					targetRect.anchoredPosition,
 					x => targetRect.anchoredPosition = x,
 					original.AnchoredPosition + m_endValue,
-					m_duration / 2f)
-				.SetDelay(Delay);
+					IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
+				.SetDelay(Delay)
+				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
 			if(UseCurve) {
 				if(IsYoYo) {

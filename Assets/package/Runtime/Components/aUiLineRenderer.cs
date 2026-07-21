@@ -295,6 +295,11 @@ namespace ANest.UI {
 		/// <summary>エディタ上で値が変更された際にメッシュ更新を反映する</summary>
 		protected override void OnValidate() {
 			base.OnValidate();
+			// プロパティ経由と同じ範囲にインスペクタ入力値をクランプする
+			m_thickness = Mathf.Max(0f, m_thickness);
+			m_cornerVertices = Mathf.Max(0, m_cornerVertices);
+			m_startCapSegments = Mathf.Max(1, m_startCapSegments);
+			m_endCapSegments = Mathf.Max(1, m_endCapSegments);
 			SetVerticesDirty();
 		}
 		#endif
@@ -641,9 +646,7 @@ namespace ANest.UI {
 					var angle = Mathf.Lerp(startAngle, endAngle, t);
 					var dirCircle = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
 					var pos = center + dirCircle * halfThickness;
-					var radial = Mathf.Clamp01((pos - center).magnitude / halfThickness);
-					var uvY = Mathf.Lerp(uvCenterY, uvOuterY, radial);
-					AddVertex(vh, pos, TransformUV(new Vector2(uvX, uvY)));
+					AddVertex(vh, pos, TransformUV(new Vector2(uvX, uvOuterY))); // 外周頂点は常に半径いっぱいのためUVは外側固定
 				}
 
 				for (var i = 0; i < segments; i++) {
@@ -721,7 +724,7 @@ namespace ANest.UI {
 					var prev = localPoints[(i - 1 + count) % count];
 					var current = localPoints[i];
 					var next = localPoints[(i + 1) % count];
-					AppendRoundedCorner(result, prev, current, next, i == 0);
+					AppendRoundedCorner(result, prev, current, next);
 				}
 			}
 
@@ -729,7 +732,7 @@ namespace ANest.UI {
 		}
 
 		/// <summary>丸めた角を生成して出力リストに追加する</summary>
-		private void AppendRoundedCorner(List<Vector2> dst, Vector2 prev, Vector2 current, Vector2 next, bool addStart = false) {
+		private void AppendRoundedCorner(List<Vector2> dst, Vector2 prev, Vector2 current, Vector2 next) {
 			var dirPrev = current - prev;
 			var dirNext = next - current;
 
@@ -737,7 +740,6 @@ namespace ANest.UI {
 			var lenNext = dirNext.magnitude;
 
 			if(lenPrev <= Mathf.Epsilon || lenNext <= Mathf.Epsilon) {
-				if(addStart) dst.Add(current);
 				dst.Add(current);
 				return;
 			}
@@ -749,8 +751,7 @@ namespace ANest.UI {
 			var start = current - dirPrev * cut;
 			var end = current + dirNext * cut;
 
-			if(addStart) dst.Add(start);
-			else dst.Add(start);
+			dst.Add(start);
 
 			for (var i = 1; i <= m_cornerVertices; i++) {
 				var t = (float)i / (m_cornerVertices + 1);

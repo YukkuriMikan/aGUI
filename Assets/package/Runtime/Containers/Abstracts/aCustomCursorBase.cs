@@ -24,9 +24,10 @@ namespace ANest.UI {
 
 			if(m_selectableContainer == null) {
 #if UNITY_EDITOR
-				Debug.LogError($"リンク先のコンテナ{m_container.name}がSelectableContainerではありません", this.gameObject);
+				var containerName = m_container != null ? m_container.name : "未設定";
+				Debug.LogError($"リンク先のコンテナ（{containerName}）がSelectableContainerではありません", this.gameObject);
 #endif
-				
+
 				return;
 			}
 
@@ -41,8 +42,9 @@ namespace ANest.UI {
 					}
 				}
 
+				// 選択変更を監視して追従対象を切り替える（選択解除時はnullが通知される）
 				m_selectableContainer.OnSelectChanged.AsObservable()
-					.Subscribe(selectable => OnTargetRectChanged(selectable.transform as RectTransform))
+					.Subscribe(selectable => OnTargetRectChanged(selectable != null ? selectable.transform as RectTransform : null))
 					.AddTo(m_disposables);
 
 				// コンテナがShowされた時に瞬間移動フラグを立てる

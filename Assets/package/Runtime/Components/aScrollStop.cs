@@ -31,6 +31,7 @@ namespace ANest.UI {
 
 		#region Fields
 		private readonly List<Vector2> m_childPoints = new(64);         // 子要素のローカル頂点
+		private readonly List<RectTransform> m_childRectBuffer = new(32); // 子RectTransform取得用バッファ（毎フレームのGC Alloc回避）
 		private readonly List<Vector2> m_polygonPoints = new(16);       // 可視化用ポリゴン
 		private readonly List<Vector2> m_polygonWorkPoints = new(64);   // ポリゴン計算用
 		private readonly Vector3[] m_worldCorners = new Vector3[4];     // 角取得用
@@ -297,10 +298,10 @@ namespace ANest.UI {
 			// 前回の結果をクリア
 			m_childPoints.Clear();
 			if(m_targetRect == null) return false;
-			var childRects = m_targetRect.GetComponentsInChildren<RectTransform>(false);
-			if(childRects == null || childRects.Length == 0) return false;
+			m_targetRect.GetComponentsInChildren(false, m_childRectBuffer);
+			if(m_childRectBuffer.Count == 0) return false;
 
-			foreach (var child in childRects) {
+			foreach (var child in m_childRectBuffer) {
 				// 自身は除外し、子要素の角を収集
 				if(child == m_targetRect) continue;
 				child.GetWorldCorners(m_worldCorners);

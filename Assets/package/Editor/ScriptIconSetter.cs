@@ -15,6 +15,8 @@ namespace ANest.UI.Editor {
 		#region Fields
 		private static readonly Dictionary<Type, Texture2D> s_iconMap = new();         // 型とアイコンの対応マップ
 		private static readonly Dictionary<string, Texture2D> s_scriptIconMap = new(); // MonoScriptのGUIDとアイコンの対応マップ
+		private static readonly HashSet<int> s_cursorRectTargetIds = new();            // CursorRect対象GameObjectのインスタンスIDキャッシュ
+		private static bool s_cursorTargetsDirty = true;                               // CursorRectキャッシュの再構築が必要か
 		private static Texture2D s_cursorIcon;                                         // aCursorBase用アイコン
 		#endregion
 
@@ -37,6 +39,16 @@ namespace ANest.UI.Editor {
 			EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;
 			EditorApplication.projectWindowItemOnGUI -= OnProjectGUI;
 			EditorApplication.projectWindowItemOnGUI += OnProjectGUI;
+
+			// CursorRect対象キャッシュの無効化トリガーを登録
+			EditorApplication.hierarchyChanged -= MarkCursorTargetsDirty;
+			EditorApplication.hierarchyChanged += MarkCursorTargetsDirty;
+			ObjectChangeEvents.changesPublished -= OnObjectChanged;
+			ObjectChangeEvents.changesPublished += OnObjectChanged;
+			PrefabStage.prefabStageOpened -= OnPrefabStageChanged;
+			PrefabStage.prefabStageOpened += OnPrefabStageChanged;
+			PrefabStage.prefabStageClosing -= OnPrefabStageChanged;
+			PrefabStage.prefabStageClosing += OnPrefabStageChanged;
 		}
 		#endregion
 
@@ -79,8 +91,8 @@ namespace ANest.UI.Editor {
 				RegisterScriptGuid(script, icon);
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
+				// SetDirtyはスクリプトの.metaへの書き込み（差分ノイズ）になるため行わない。アイコンはドメインリロード毎に再設定される
 				EditorGUIUtility.SetIconForObject(script, icon);
-				EditorUtility.SetDirty(script);
 			}
 		}
 
@@ -118,8 +130,8 @@ namespace ANest.UI.Editor {
 				RegisterScriptGuid(script, icon);
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
+				// SetDirtyはスクリプトの.metaへの書き込み（差分ノイズ）になるため行わない。アイコンはドメインリロード毎に再設定される
 				EditorGUIUtility.SetIconForObject(script, icon);
-				EditorUtility.SetDirty(script);
 			}
 		}
 
@@ -204,9 +216,24 @@ namespace ANest.UI.Editor {
 			GUI.DrawTexture(iconRect, icon);
 		}
 
-		/// <summary>指定GameObjectがいずれかのaCursorBase派生コンポーネントのCursorRectの対象かどうかを判定する。</summary>
-		/// <param name="go">判定対象のGameObject</param>
-		private static bool IsCursorRectTarget(GameObject go) {
+		/// <summary>CursorRect対象キャッシュを無効化する。</summary>
+		private static void MarkCursorTargetsDirty() {
+			s_cursorTargetsDirty = true;
+		}
+
+		/// <summary>オブジェクト変更時にキャッシュを無効化する（m_cursorRect等のプロパティ変更を拾うため）。</summary>
+		private static void OnObjectChanged(ref ObjectChangeEventStream stream) {
+			s_cursorTargetsDirty = true;
+		}
+
+		/// <summary>プレハブステージの開閉時にキャッシュを無効化する。</summary>
+		private static void OnPrefabStageChanged(PrefabStage stage) {
+			s_cursorTargetsDirty = true;
+		}
+
+		/// <summary>CursorRect対象のGameObjectインスタンスIDキャッシュを再構築する。</summary>
+		private static void RebuildCursorTargetCache() {
+			s_cursorRectTargetIds.Clear();
 			var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
 			aCursorBase[] cursors;
 			if(prefabStage != null) {
@@ -217,11 +244,21 @@ namespace ANest.UI.Editor {
 			foreach (var cursor in cursors) {
 				var so = new SerializedObject((UnityEngine.Object)cursor);
 				var prop = so.FindProperty("m_cursorRect");
-				if(prop != null && prop.objectReferenceValue is RectTransform rt && rt.gameObject == go) {
-					return true;
+				if(prop != null && prop.objectReferenceValue is RectTransform rt) {
+					s_cursorRectTargetIds.Add(rt.gameObject.GetInstanceID());
 				}
 			}
-			return false;
+		}
+
+		/// <summary>指定GameObjectがいずれかのaCursorBase派生コンポーネントのCursorRectの対象かどうかを判定する。</summary>
+		/// <param name="go">判定対象のGameObject</param>
+		private static bool IsCursorRectTarget(GameObject go) {
+			// Hierarchyの行ごとにシーン全体を走査すると重いため、キャッシュを使用する
+			if(s_cursorTargetsDirty) {
+				s_cursorTargetsDirty = false;
+				RebuildCursorTargetCache();
+			}
+			return s_cursorRectTargetIds.Contains(go.GetInstanceID());
 		}
 		#endregion
 	}

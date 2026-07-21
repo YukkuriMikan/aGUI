@@ -15,6 +15,8 @@ namespace ANest.UI {
 		[Tooltip("アイテム表示時の上下余白（ピクセル）")]
 		[SerializeField] private float m_scrollPadding = 20f;   // スクロール時の余白
 
+		private static readonly Vector3[] s_worldCornersBuffer = new Vector3[4]; // GetWorldCorners用の共有バッファ（GC Alloc回避）
+
 		private CancellationTokenSource m_scrollCancelSource; // スクロールキャンセル用CTS
 		private T m_previousSelectable;              // 直前に選択されていたSelectable
 
@@ -62,9 +64,6 @@ namespace ANest.UI {
 			float scrollPadding,
 			ref CancellationTokenSource cancellationTokenSource) {
 
-			// レイアウトを強制更新してcontentのサイズを確定させる
-			Canvas.ForceUpdateCanvases();
-
 			// ScrollRectが設定されていない場合は何もしない
 			if (scrollRect == null) {
 				return;
@@ -80,15 +79,17 @@ namespace ANest.UI {
 				return;
 			}
 
+			// レイアウトを強制更新してcontentのサイズを確定させる
+			Canvas.ForceUpdateCanvases();
+
 			// 変更前のアイテムが画面内にあるかチェック（パディングなしで純粋に画面内かどうか）
 			bool wasPreviousItemVisible = false;
 			if (previousItem != null) {
 				var viewport = scrollRect.viewport;
-				var previousItemWorldCorners = new Vector3[4];
-				previousItem.GetWorldCorners(previousItemWorldCorners);
+				previousItem.GetWorldCorners(s_worldCornersBuffer);
 
-				var prevItemTopInViewport = viewport.InverseTransformPoint(previousItemWorldCorners[1]).y;
-				var prevItemBottomInViewport = viewport.InverseTransformPoint(previousItemWorldCorners[0]).y;
+				var prevItemTopInViewport = viewport.InverseTransformPoint(s_worldCornersBuffer[1]).y;
+				var prevItemBottomInViewport = viewport.InverseTransformPoint(s_worldCornersBuffer[0]).y;
 				var vpLocalMin = viewport.rect.yMin;
 				var vpLocalMax = viewport.rect.yMax;
 
@@ -101,12 +102,11 @@ namespace ANest.UI {
 			var contentRect = scrollRect.content;
 
 			// アイテムの位置をviewport空間に変換
-			var itemWorldCorners = new Vector3[4];
-			item.GetWorldCorners(itemWorldCorners);
+			item.GetWorldCorners(s_worldCornersBuffer);
 
 			// アイテムの上端と下端のローカル位置を計算
-			var itemTopInViewport = viewportRect.InverseTransformPoint(itemWorldCorners[1]).y;
-			var itemBottomInViewport = viewportRect.InverseTransformPoint(itemWorldCorners[0]).y;
+			var itemTopInViewport = viewportRect.InverseTransformPoint(s_worldCornersBuffer[1]).y;
+			var itemBottomInViewport = viewportRect.InverseTransformPoint(s_worldCornersBuffer[0]).y;
 			var viewportHeight = viewportRect.rect.height;
 
 			// ビューポートのローカル座標範囲
@@ -137,7 +137,7 @@ namespace ANest.UI {
 			if (shouldScrollUp) {
 				// アイテムが上にはみ出している場合
 				// アイテムの上端がビューポート上端からpadding分下に来るようにする
-				var itemTopInContent = contentRect.InverseTransformPoint(itemWorldCorners[1]).y;
+				var itemTopInContent = contentRect.InverseTransformPoint(s_worldCornersBuffer[1]).y;
 				var contentHeight = contentRect.rect.height;
 				var scrollableHeight = contentHeight - viewportHeight;
 
@@ -152,7 +152,7 @@ namespace ANest.UI {
 			} else if (shouldScrollDown) {
 				// アイテムが下にはみ出している場合
 				// アイテムの下端がビューポート下端からpadding分上に来るようにする
-				var itemBottomInContent = contentRect.InverseTransformPoint(itemWorldCorners[0]).y;
+				var itemBottomInContent = contentRect.InverseTransformPoint(s_worldCornersBuffer[0]).y;
 				var contentHeight = contentRect.rect.height;
 				var scrollableHeight = contentHeight - viewportHeight;
 
@@ -199,6 +199,11 @@ namespace ANest.UI {
 				var easedT = 1f - Mathf.Pow(1f - t, 3f);
 				scrollRect.verticalNormalizedPosition = Mathf.Lerp(startPosition, targetPosition, easedT);
 				await UniTask.Yield(cancellationToken);
+
+				// スクロール中にScrollRectが破棄された場合は中断
+				if (scrollRect == null) {
+					return;
+				}
 			}
 
 			// 最終位置に確実に設定

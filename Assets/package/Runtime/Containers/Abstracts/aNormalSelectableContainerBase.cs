@@ -99,9 +99,10 @@ namespace ANest.UI {
 
 			Observable.EveryUpdate()
 				.Subscribe(_ => {
+					// 破棄済みチェックを最初に行ってから他の判定に進む
+					if(this == null || !gameObject.activeInHierarchy) return;
 					if(!m_disallowNullSelection) return;
 					if(!aContainerManager.IsHighestPriorityDisallowNullSelectionContainer(this)) return;
-					if(this == null || !gameObject.activeInHierarchy) return;
 
 					var es = aGuiManager.EventSystem;
 

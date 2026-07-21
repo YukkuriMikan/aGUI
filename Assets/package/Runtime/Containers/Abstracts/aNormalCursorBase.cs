@@ -32,9 +32,9 @@ namespace ANest.UI {
 					}
 				}
 
-				// 選択変更を監視して追従対象を切り替える
+				// 選択変更を監視して追従対象を切り替える（選択解除時はnullが通知される）
 				selectableContainer.OnSelectChanged.AsObservable()
-					.Subscribe(selectable => OnTargetRectChanged(selectable.transform as RectTransform))
+					.Subscribe(selectable => OnTargetRectChanged(selectable != null ? selectable.transform as RectTransform : null))
 					.AddTo(m_disposables);
 
 				// コンテナがShowされた時に瞬間移動フラグを立てる

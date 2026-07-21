@@ -45,14 +45,19 @@ namespace ANest.UI {
 			if(container == null) return false;
 			if(!m_addTimeDictionary.ContainsKey(container)) return false;
 
-			//時間が最新のコンテナを取得
-			var latest = m_addTimeDictionary
-				.Where(pair => pair.Key != null)
-				.Where(pair => pair.Key.IsVisible)
-				.Where(pair => pair.Key is IDisallowNullSelectionContainer { DisallowNullSelection: true })
-				.OrderByDescending(pair => pair.Value)
-				.Select(pair => pair.Key)
-				.FirstOrDefault();
+			//時間が最新のコンテナを取得（毎フレーム呼ばれるためLINQを使わずに走査）
+			aContainerBase latest = null;
+			double latestTime = double.NegativeInfinity;
+			foreach(var pair in m_addTimeDictionary) {
+				var candidate = pair.Key;
+				if(candidate == null) continue;
+				if(!candidate.IsVisible) continue;
+				if(candidate is not IDisallowNullSelectionContainer { DisallowNullSelection: true }) continue;
+				if(pair.Value > latestTime) {
+					latestTime = pair.Value;
+					latest = candidate;
+				}
+			}
 
 			return latest == container;
 		}
@@ -99,9 +104,40 @@ namespace ANest.UI {
 		#endregion
 
 		#region Event Handlers
-		/// <summary>シーンが切り替わった際の処理。管理状態をクリアする</summary>
+		/// <summary>シーンが切り替わった際の処理。破棄済みのコンテナのみ管理対象から取り除く（DontDestroyOnLoadや残存シーンのコンテナは維持する）</summary>
 		private static void OnActiveSceneChanged(Scene oldScene, Scene newScene) {
-			Clear();
+			RemoveDestroyedContainers();
+		}
+
+		/// <summary>破棄済みのコンテナを管理対象から取り除く</summary>
+		private static void RemoveDestroyedContainers() {
+			m_containers.RemoveAll(c => c == null);
+
+			List<string> staleNames = null;
+			foreach(var pair in m_containerNameDictionary) {
+				if(pair.Value == null) {
+					staleNames ??= new List<string>();
+					staleNames.Add(pair.Key);
+				}
+			}
+			if(staleNames != null) {
+				foreach(var key in staleNames) {
+					m_containerNameDictionary.Remove(key);
+				}
+			}
+
+			List<aContainerBase> staleContainers = null;
+			foreach(var pair in m_addTimeDictionary) {
+				if(pair.Key == null) {
+					staleContainers ??= new List<aContainerBase>();
+					staleContainers.Add(pair.Key);
+				}
+			}
+			if(staleContainers != null) {
+				foreach(var key in staleContainers) {
+					m_addTimeDictionary.Remove(key);
+				}
+			}
 		}
 		#endregion
 	}

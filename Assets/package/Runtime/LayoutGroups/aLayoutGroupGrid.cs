@@ -50,6 +50,7 @@ namespace ANest.UI {
 		private readonly List<float> m_finalCross = new();                // 各子要素の cross 軸最終サイズ（scale適用前）
 		private readonly List<float> m_scaleMain = new();                 // 各子要素の main 軸スケール
 		private readonly List<float> m_scaleCross = new();                // 各子要素の cross 軸スケール
+		private readonly List<float> m_lineUsedMain = new();              // 各ラインの main 軸使用量
 		#endregion
 
 		#region Methods
@@ -250,20 +251,23 @@ namespace ANest.UI {
 			for (int i = 0; i < lineCount; i++) requiredCross += m_lineCrossSizes[i];
 			float crossCursor = GetStartOffset(crossAxis, requiredCross);
 
+			// 計測フェーズ: 全子要素のサイズ・割当をフラットバッファへ格納し、各ラインの main 軸使用量を算出
+			EnsureFloatListSize(m_allocatedMainScaled, count);
+			EnsureFloatListSize(m_finalMain, count);
+			EnsureFloatListSize(m_finalCross, count);
+			EnsureFloatListSize(m_scaleMain, count);
+			EnsureFloatListSize(m_scaleCross, count);
+			EnsureFloatListSize(m_lineUsedMain, lineCount);
+
+			float maxUsedMain = 0f;
+			int flatIndex = 0;
 			for (int line = 0; line < lineCount; line++) {
 				var lineChildren = m_lines[line];
 				int lineChildCount = lineChildren.Count;
 				if(lineChildCount == 0) {
-					crossCursor += m_lineCrossSizes[line] + crossSpacing;
+					m_lineUsedMain[line] = 0f;
 					continue;
 				}
-
-				// ライン内処理用ワークバッファを再利用
-				EnsureFloatListSize(m_allocatedMainScaled, lineChildCount);
-				EnsureFloatListSize(m_finalMain, lineChildCount);
-				EnsureFloatListSize(m_finalCross, lineChildCount);
-				EnsureFloatListSize(m_scaleMain, lineChildCount);
-				EnsureFloatListSize(m_scaleCross, lineChildCount);
 
 				// main 軸の割当スロット（scale考慮）を計算
 				float spacingSlotCount = useConstraintMainFill ? Mathf.Max(0, Mathf.Max(1, constraintCount) - 1) : Mathf.Max(0, lineChildCount - 1);
@@ -272,7 +276,7 @@ namespace ANest.UI {
 				for (int i = 0; i < lineChildCount; i++) {
 					var child = lineChildren[i];
 					float sMain = scaleMainEnabled ? Mathf.Abs(mainAxis == 0 ? child.localScale.x : child.localScale.y) : 1f;
-					m_scaleMain[i] = sMain;
+					m_scaleMain[flatIndex + i] = sMain;
 					if(controlMain || forceMain) totalWeight += sMain;
 				}
 				if(totalWeight <= 0f) totalWeight = lineChildCount;
@@ -287,9 +291,9 @@ namespace ANest.UI {
 					GetChildSizes(child, mainAxis, controlMain, forceMain, out var sizeMain);
 					GetChildSizes(child, crossAxis, controlCross, forceCross, out var sizeC);
 
-					float sMain = m_scaleMain[i];
+					float sMain = m_scaleMain[flatIndex + i];
 					float sCross = scaleCrossEnabled ? Mathf.Abs(crossAxis == 0 ? child.localScale.x : child.localScale.y) : 1f;
-					m_scaleCross[i] = sCross;
+					m_scaleCross[flatIndex + i] = sCross;
 
 					float preferredMain = controlMain ? (mainAxis == 0 ? cellSize.x : cellSize.y) : sizeMain.preferred;
 					float preferredCross = controlCross ? (crossAxis == 0 ? cellSize.x : cellSize.y) : sizeC.preferred;
@@ -311,33 +315,51 @@ namespace ANest.UI {
 					float childCrossScaled = controlCross ? lineCrossSize : preferredCross * sCross;
 					float childCross = controlCross ? childCrossScaled / Mathf.Max(0.0001f, sCross) : preferredCross;
 
-					m_allocatedMainScaled[i] = allocatedScaled;
-					m_finalMain[i] = childMain;
-					m_finalCross[i] = childCross;
+					m_allocatedMainScaled[flatIndex + i] = allocatedScaled;
+					m_finalMain[flatIndex + i] = childMain;
+					m_finalCross[flatIndex + i] = childCross;
 					usedMain += (controlMain || forceMain) ? allocatedScaled : childMain * sMain;
 				}
 
+				m_lineUsedMain[line] = usedMain;
+				if(usedMain > maxUsedMain) maxUsedMain = usedMain;
+				flatIndex += lineChildCount;
+			}
+
+			// 配置フェーズ: 全ラインで共通の開始位置（最大ライン幅基準）を使い、端数ラインも他ラインの列位置に揃える
+			bool alignLineToEnd = startAxis == Axis.Horizontal ? cornerX == 1 : cornerY == 1; // 開始コーナーが終端側なら端数ラインを終端に寄せる
+			float commonMainStart = GetStartOffset(mainAxis, maxUsedMain);
+			flatIndex = 0;
+			for (int line = 0; line < lineCount; line++) {
+				var lineChildren = m_lines[line];
+				int lineChildCount = lineChildren.Count;
+				if(lineChildCount == 0) {
+					crossCursor += m_lineCrossSizes[line] + crossSpacing;
+					continue;
+				}
+
 				// ライン内の最終配置
-				float mainCursor = GetStartOffset(mainAxis, usedMain);
+				float mainCursor = commonMainStart + (alignLineToEnd ? maxUsedMain - m_lineUsedMain[line] : 0f);
 				for (int i = 0; i < lineChildCount; i++) {
 					var child = lineChildren[i];
-					float sMain = m_scaleMain[i];
-					float sCross = m_scaleCross[i];
+					float sMain = m_scaleMain[flatIndex + i];
+					float sCross = m_scaleCross[flatIndex + i];
 
-					float childMainScaled = m_finalMain[i] * sMain;
-					float childCrossScaled = m_finalCross[i] * sCross;
-					float alignedMain = mainCursor + (m_allocatedMainScaled[i] - childMainScaled) * alignMain;
+					float childMainScaled = m_finalMain[flatIndex + i] * sMain;
+					float childCrossScaled = m_finalCross[flatIndex + i] * sCross;
+					float alignedMain = mainCursor + (m_allocatedMainScaled[flatIndex + i] - childMainScaled) * alignMain;
 					float alignedCross = crossCursor + (m_lineCrossSizes[line] - childCrossScaled) * alignCross;
 
 					if(startAxis == Axis.Horizontal) {
-						SetChildAlongBothAxes(child, alignedMain, alignedCross, m_finalMain[i], m_finalCross[i], sMain, sCross);
+						SetChildAlongBothAxes(child, alignedMain, alignedCross, m_finalMain[flatIndex + i], m_finalCross[flatIndex + i], sMain, sCross);
 					} else {
-						SetChildAlongBothAxes(child, alignedCross, alignedMain, m_finalCross[i], m_finalMain[i], sCross, sMain);
+						SetChildAlongBothAxes(child, alignedCross, alignedMain, m_finalCross[flatIndex + i], m_finalMain[flatIndex + i], sCross, sMain);
 					}
 
-					mainCursor += m_allocatedMainScaled[i] + mainSpacing;
+					mainCursor += m_allocatedMainScaled[flatIndex + i] + mainSpacing;
 				}
 
+				flatIndex += lineChildCount;
 				crossCursor += m_lineCrossSizes[line] + crossSpacing;
 			}
 		}

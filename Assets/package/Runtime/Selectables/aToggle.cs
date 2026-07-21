@@ -252,8 +252,8 @@ namespace ANest.UI {
 #if UNITY_EDITOR
 			if(!Application.isPlaying) return;
 #endif
-			
-			if(!m_useCustomAnimation) return;
+
+			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
 
 			PlayToggleAnimations(isOn);
 		}
@@ -262,7 +262,7 @@ namespace ANest.UI {
 		#region Toggle Animation Async
 		/// <summary>ON/OFF切替時のカスタムアニメーションを非同期待機で再生する</summary>
 		private void PlayToggleAnimations(bool isOn) {
-			if(!m_useCustomAnimation) return;
+			if(!m_useCustomAnimation && !m_useSharedAnimation) return;
 
 			//ToggleのGraphic指定がないなら無視
 			if(graphic == null) return;

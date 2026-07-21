@@ -249,7 +249,8 @@ namespace ANest.UI {
 
 		/// <summary>1フレーム遅延の整列要求をスケジュールする</summary>
 		private void ScheduleDelayedAlign(bool withCollection) {
-			m_delayedAlignWithCollection = withCollection;
+			// 収集ありの要求は同フレーム内の後続要求で打ち消さない
+			m_delayedAlignWithCollection |= withCollection;
 			if(m_isFrameDelayScheduled) return;
 
 			m_isFrameDelayScheduled = true;
@@ -261,9 +262,11 @@ namespace ANest.UI {
 			await UniTask.DelayFrame(1);
 
 			m_isFrameDelayScheduled = false;
+			var withCollection = m_delayedAlignWithCollection;
+			m_delayedAlignWithCollection = false;
 			if(!this || !gameObject.activeSelf) return;
 
-			if(m_delayedAlignWithCollection) {
+			if(withCollection) {
 				AlignWithCollectionCore();
 			} else {
 				AlignCore();
@@ -322,7 +325,7 @@ namespace ANest.UI {
 			if(updateMode != UpdateMode.InitializeOnly) return;
 			if(RectTransform == null) return;
 			var size = RectTransform.rect.size;
-			if(size.x <= 1f || size.y <= 1f) return;
+			if(size.x <= 0f || size.y <= 0f) return; // サイズ未確定（0以下）の間のみ初期化を保留する
 			m_initialized = true;
 
 			if(!this || !gameObject.activeSelf) return;

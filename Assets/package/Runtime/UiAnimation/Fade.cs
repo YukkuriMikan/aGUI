@@ -53,12 +53,15 @@ namespace ANest.UI {
 				return null;
 			}
 
+			m_tween.Kill();
+
 			// 初期値設定
 			graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, m_startValue);
 
 			m_tween = DOTween
-				.To(() => graphic.color.a, value => graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, value), m_endValue, m_duration / 2f)
-				.SetDelay(Delay);
+				.To(() => graphic.color.a, value => graphic.color = new Color(graphic.color.r, graphic.color.g, graphic.color.b, value), m_endValue, IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
+				.SetDelay(Delay)
+				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
 			if(UseCurve) {
 				if(IsYoYo) {

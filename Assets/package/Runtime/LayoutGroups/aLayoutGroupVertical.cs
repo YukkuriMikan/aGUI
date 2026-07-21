@@ -20,7 +20,7 @@ namespace ANest.UI {
 				var child = rectChildren[i];
 				bool usesSlot = childControlHeight || childForceExpandHeight;
 				if(usesSlot) {
-					float scaleYWeight = childScaleHeight ? child.localScale.y : 1f;
+					float scaleYWeight = childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f;
 					totalWeight += scaleYWeight; // スケールを重みとして加算
 				}
 			}
@@ -28,42 +28,45 @@ namespace ANest.UI {
 			float slotHeightPerWeight = (availableHeight - spacingTotal) / totalWeight; // 重み1あたりの割当高さ
 
 			float usedMain = spacingTotal; // 主軸使用量（スペース含む）
-			float usedCross = 0f;
 			float[] allocatedSlots = new float[count];
 			float[] allocatedSlotsScaled = new float[count];
 			float[] finalWidths = new float[count];
 			float[] finalHeights = new float[count];
+			float[] crossPositions = new float[count];
+			float alignmentX = GetAlignmentOnAxis(0);
 			float alignmentY = GetAlignmentOnAxis(1);
 
 			for (int i = 0; i < count; i++) {
 				var child = rectChildren[i];
 				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);
 				GetChildSizes(child, 1, childControlHeight, childForceExpandHeight, out var sizeY);
-				float scaleX = childScaleWidth ? child.localScale.x : 1f;
-				float scaleY = childScaleHeight ? child.localScale.y : 1f;
+				float scaleX = childScaleWidth ? Mathf.Abs(child.localScale.x) : 1f;
+				float scaleY = childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f;
 
 				bool usesSlot = childControlHeight || childForceExpandHeight;
-				float weightY = usesSlot ? (childScaleHeight ? child.localScale.y : 1f) : 0f;
+				float weightY = usesSlot ? (childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f) : 0f;
 				float allocatedScaled = usesSlot ? slotHeightPerWeight * weightY : sizeY.preferred * scaleY; // スケール込み割当
 				float allocated = usesSlot ? allocatedScaled / Mathf.Max(0.0001f, scaleY) : sizeY.preferred; // 実寸割当
 				float childHeight = childControlHeight ? allocated : sizeY.preferred;
 
-				float childWidth;
-				if(childControlWidth) {
-					childWidth = childForceExpandWidth ? availableWidth : sizeX.preferred;
-				} else {
-					childWidth = sizeX.preferred;
-				}
+				float minX = sizeX.min * scaleX;
+				float prefX = sizeX.preferred * scaleX;
+				float flexX = sizeX.flexible * scaleX;
+				float requiredSpaceScaled = Mathf.Clamp(availableWidth, minX, flexX > 0f ? RectTransform.rect.width : prefX); // 幅の必要量（スケール込み）
+				float requiredSpace = requiredSpaceScaled / Mathf.Max(0.0001f, scaleX); // 実寸幅
+				float startOffsetX = GetStartOffset(0, requiredSpaceScaled); // クロス軸の開始位置
+				float childWidth = childControlWidth ? requiredSpace : sizeX.preferred;
+				float childWidthScaled = childWidth * scaleX;
+				float posX = childControlWidth ? startOffsetX : startOffsetX + (requiredSpaceScaled - childWidthScaled) * alignmentX; // 整列後のX位置
 
 				allocatedSlots[i] = allocated;
 				allocatedSlotsScaled[i] = allocatedScaled;
 				finalWidths[i] = childWidth;
 				finalHeights[i] = childHeight;
+				crossPositions[i] = posX;
 				usedMain += (childControlHeight || childForceExpandHeight) ? allocatedScaled : childHeight * scaleY; // 主軸使用量加算
-				usedCross = Mathf.Max(usedCross, childWidth * scaleX); // クロス軸で最大幅を記録
 			}
 
-			float startX = GetStartOffset(0, usedCross); // クロス軸開始位置
 			float startY = GetStartOffset(1, usedMain); // 主軸開始位置
 			float posY = startY;
 
@@ -76,7 +79,7 @@ namespace ANest.UI {
 				float scaleY = childScaleHeight ? child.localScale.y : 1f;
 
 				float alignedPosY = posY + (allocatedSlotsScaled[src] - finalHeights[src] * scaleY) * alignmentY; // 整列後Y位置
-				SetChildAlongBothAxes(child, startX, alignedPosY, finalWidths[src], finalHeights[src], scaleX, scaleY);
+				SetChildAlongBothAxes(child, crossPositions[src], alignedPosY, finalWidths[src], finalHeights[src], scaleX, scaleY);
 				posY += allocatedSlotsScaled[src] + spacing; // 次の要素のY位置に進める
 			}
 

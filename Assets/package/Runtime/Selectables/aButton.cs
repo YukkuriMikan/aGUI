@@ -182,6 +182,10 @@ using TMPro;
 		/// <summary> ポインタ押下時の処理。ガード判定と長押し開始を管理する </summary>
 		public override void OnPointerDown(PointerEventData eventData) {
 			base.OnPointerDown(eventData);
+
+			// 解放されないまま残った前回の受理フラグをクリア（ガードで弾かれた押下がクリック成立するのを防ぐ）
+			_pressAccepted = false;
+
 			if(!IsActive() || !IsInteractable()) return;
 
 			float now = Time.unscaledTime;

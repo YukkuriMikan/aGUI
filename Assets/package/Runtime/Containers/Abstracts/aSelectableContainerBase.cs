@@ -58,6 +58,7 @@ namespace ANest.UI {
 		protected T m_lastSelected;                                         // 非表示時に記録した、最後に選択されていたSelectable
 		protected readonly CompositeDisposable m_eventDisposables = new(); // イベント用
 		private readonly Action<long> m_releaseInitialGuardAction;          // InitialGuard解除処理（GC削減用キャッシュ）
+		private IDisposable m_initialGuardDisposable;                       // InitialGuard解除タイマーの購読
 		#endregion
 
 		#region Constructor
@@ -92,16 +93,12 @@ namespace ANest.UI {
 			get => m_currentSelectableIndex;
 			set {
 				if(!TryGetSelectableIndex(value, out var normalizedIndex)) {
-					m_currentSelectableIndex = -1;
-					m_currentSelectable = null;
-					CaptureCurrentSelection();
+					CurrentSelectable = null;
 					return;
 				}
 
-				m_currentSelectableIndex = normalizedIndex;
-				m_currentSelectable = m_childSelectableList[normalizedIndex];
-
-				CaptureCurrentSelection();
+				// CurrentSelectable経由で更新し、OnSelectChangedの発火とサブクラスの選択処理を通す
+				CurrentSelectable = m_childSelectableList[normalizedIndex];
 			}
 		}
 
@@ -170,6 +167,7 @@ namespace ANest.UI {
 			base.OnDestroy();
 
 			m_eventDisposables.Dispose();
+			m_initialGuardDisposable?.Dispose();
 		}
 		#endregion
 
@@ -305,7 +303,9 @@ namespace ANest.UI {
 			if(m_initialGuard && m_initialGuardDuration > 0) {
 				ApplyInitialGuardToChildren(true);
 				CanvasGroup.blocksRaycasts = false;
-				Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
+				// 前回のタイマーが残っているとガードが早期解除されるため破棄してから開始する
+				m_initialGuardDisposable?.Dispose();
+				m_initialGuardDisposable = Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
 					.TakeUntilDestroy(this)
 					.Subscribe(m_releaseInitialGuardAction);
 			} else {
@@ -321,6 +321,10 @@ namespace ANest.UI {
 		/// <summary>非表示処理の実装。現在の選択状態を保存する</summary>
 		protected override void HideInternal() {
 			base.HideInternal();
+
+			// 進行中のInitialGuardタイマーを破棄（非表示中の解除でblocksRaycastsが戻るのを防ぐ）
+			m_initialGuardDisposable?.Dispose();
+			m_initialGuardDisposable = null;
 
 			//選択状態を保存
 			CaptureCurrentSelection();

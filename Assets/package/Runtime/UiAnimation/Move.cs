@@ -57,8 +57,9 @@ namespace ANest.UI {
 					callerRect.anchoredPosition,
 					x => callerRect.anchoredPosition = x,
 					original.AnchoredPosition + m_endValue,
-					m_duration / 2f)
-				.SetDelay(Delay);
+					IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
+				.SetDelay(Delay)
+				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
 			if(UseCurve) {
 				if(IsYoYo) {

@@ -49,16 +49,23 @@ namespace ANest.UI {
 		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
 			if(callerRect == null) return null;
 			if(m_canvasGroup == null) {
-				Debug.LogError("CanvasGroup is not assigned in FadeCanvasGroup.");
+				// 共有アニメーションセット（アセット）経由ではシーン参照を保持できないため、未設定時は呼び出し元から取得する
+				m_canvasGroup = callerRect.GetComponent<CanvasGroup>();
+			}
+			if(m_canvasGroup == null) {
+				Debug.LogError($"[FadeCanvasGroup] CanvasGroupが見つかりません（{callerRect.name}）。", callerRect);
 				return null;
 			}
+
+			m_tween.Kill();
 
 			// 初期値設定
 			m_canvasGroup.alpha = m_startValue;
 
 			m_tween = DOTween
-				.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, m_duration / 2f)
-				.SetDelay(Delay);
+				.To(() => m_canvasGroup.alpha, value => m_canvasGroup.alpha = value, m_endValue, IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
+				.SetDelay(Delay)
+				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
 			if(UseCurve) {
 				if(IsYoYo) {

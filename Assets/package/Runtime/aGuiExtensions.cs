@@ -13,34 +13,8 @@ namespace ANest.UI {
 		public static async UniTask<Tween> AwaitCompletion(this Tween tween, CancellationToken ct = default) {
 			if(tween == null) throw new ArgumentNullException(nameof(tween));
 
-			// 既に完了/無効の場合は即時返す
-			if(!tween.IsActive() || !tween.IsPlaying()) {
-				return tween;
-			}
-
-			var tcs = new UniTaskCompletionSource();
-			TweenCallback onComplete = null;
-			TweenCallback onKill = null;
+			// OnComplete/OnKillの登録は他所で設定済みのコールバックを上書きしてしまうため、ポーリングで完了を検知する
 			CancellationTokenRegistration reg = default;
-
-			void TrySetFinished() {
-				tcs.TrySetResult();
-			}
-
-			onComplete = () => {
-				tween.OnComplete(null);
-				tween.OnKill(null);
-				TrySetFinished();
-			};
-
-			onKill = () => {
-				tween.OnComplete(null);
-				tween.OnKill(null);
-				TrySetFinished();
-			};
-
-			tween.OnComplete(onComplete).OnKill(onKill);
-
 			try {
 				if(ct.CanBeCanceled) {
 					reg = ct.Register(() => {
@@ -50,11 +24,12 @@ namespace ANest.UI {
 					});
 				}
 
-				await tcs.Task.AttachExternalCancellation(ct);
+				// Kill（autoKill含む）でIsActiveがfalseになり、autoKill無効の完了はIsCompleteで検知する
+				while (tween.IsActive() && !tween.IsComplete()) {
+					await UniTask.Yield(ct);
+				}
 			} finally {
 				reg.Dispose();
-				tween.OnComplete(null);
-				tween.OnKill(null);
 			}
 
 			return tween;

@@ -295,6 +295,36 @@ namespace ANest.UI.Editor {
 				return;
 			}
 
+			void DrawChildOutline(RectTransform child) {
+				if(child == null) return;
+
+				child.GetWorldCorners(corners);
+
+				Handles.DrawAAPolyLine(2.5f, new[] {
+					corners[0],
+					corners[1],
+					corners[2],
+					corners[3],
+					corners[0]
+				});
+
+				var handleSize = HandleUtility.GetHandleSize(child.position) * 0.04f;
+				Handles.DotHandleCap(0, corners[0], Quaternion.identity, handleSize, EventType.Repaint);
+				Handles.DotHandleCap(0, corners[1], Quaternion.identity, handleSize, EventType.Repaint);
+				Handles.DotHandleCap(0, corners[2], Quaternion.identity, handleSize, EventType.Repaint);
+				Handles.DotHandleCap(0, corners[3], Quaternion.identity, handleSize, EventType.Repaint);
+			}
+
+			// 再生中はレイアウトの再実行が実動作（Tween・レイアウト完了イベント）へ干渉するため、現在位置をそのまま描画する
+			if(Application.isPlaying) {
+				foreach (var child in previewTargets) {
+					DrawChildOutline(child);
+				}
+
+				Handles.color = prevColor;
+				return;
+			}
+
 			var snapshots = new Dictionary<RectTransform, RectTransformSnapshot>();
 			for (int i = 0; i < previewTargets.Count; i++) {
 				var child = previewTargets[i];
@@ -305,33 +335,17 @@ namespace ANest.UI.Editor {
 
 			var rectChildrenList = GetRectChildrenList(group);
 			var rectChildrenBackup = rectChildrenList != null ? new List<RectTransform>(rectChildrenList) : null;
-			var suppressSet = TrySetSuppressAnimation(group, true, out bool previousSuppress);
 
 			try {
-				group.AlignWithCollection();
+				// delayAlignByOneFrame を迂回して即時実行する（遅延実行だと復元後に本適用され、子が実際に動いてしまう）
+				group.AlignWithCollectionNonAnimate();
 
 				rectChildrenList = GetRectChildrenList(group);
 
 				var drawTargets = rectChildrenList ?? previewTargets;
 
 				foreach (var child in drawTargets) {
-					if(child == null) continue;
-
-					child.GetWorldCorners(corners);
-
-					Handles.DrawAAPolyLine(2.5f, new[] {
-						corners[0],
-						corners[1],
-						corners[2],
-						corners[3],
-						corners[0]
-					});
-
-					var handleSize = HandleUtility.GetHandleSize(child.position) * 0.04f;
-					Handles.DotHandleCap(0, corners[0], Quaternion.identity, handleSize, EventType.Repaint);
-					Handles.DotHandleCap(0, corners[1], Quaternion.identity, handleSize, EventType.Repaint);
-					Handles.DotHandleCap(0, corners[2], Quaternion.identity, handleSize, EventType.Repaint);
-					Handles.DotHandleCap(0, corners[3], Quaternion.identity, handleSize, EventType.Repaint);
+					DrawChildOutline(child);
 				}
 			} finally {
 				if(rectChildrenList != null && rectChildrenBackup != null) {
@@ -340,9 +354,6 @@ namespace ANest.UI.Editor {
 				}
 				foreach (var pair in snapshots) {
 					pair.Value.Restore(pair.Key);
-				}
-				if(suppressSet) {
-					TrySetSuppressAnimation(group, previousSuppress, out _);
 				}
 			}
 
@@ -397,18 +408,6 @@ namespace ANest.UI.Editor {
 			var field = typeof(aLayoutGroupBase).GetField("excludedChildren", BindingFlags.Instance | BindingFlags.NonPublic);
 
 			return field?.GetValue(group) as List<RectTransform>;
-		}
-
-		private static bool TrySetSuppressAnimation(aLayoutGroupBase group, bool value, out bool previous) {
-			previous = false;
-			var field = typeof(aLayoutGroupBase).GetField("m_suppressAnimation", BindingFlags.Instance | BindingFlags.NonPublic);
-
-			if(field == null) return false;
-
-			previous = (bool)field.GetValue(group);
-			field.SetValue(group, value);
-
-			return true;
 		}
 
 		private static Vector2 GetAlignment01(TextAnchor alignment) {

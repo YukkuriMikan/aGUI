@@ -201,7 +201,7 @@ namespace ANest.UI {
 					rubyRect.pivot = new Vector2(0.5f, 0.5f);
 					rubyRect.sizeDelta = Vector2.zero;
 					var rubyTmp = rubyObj.GetComponent<TextMeshProUGUI>();
-					rubyTmp.enableWordWrapping = false;
+					rubyTmp.textWrappingMode = TextWrappingModes.NoWrap;
 					rubyTmp.overflowMode = TextOverflowModes.Overflow;
 					rubyTmp.raycastTarget = false;
 					m_rubyObjects.Add(rubyObj);
@@ -272,7 +272,8 @@ namespace ANest.UI {
 		/// <summary>シーン再読み込み時に残存するルビ子オブジェクトをリストに回収する</summary>
 		private void CollectExistingRubyObjects() {
 			m_rubyObjects.Clear();
-			for (int i = transform.childCount - 1; i >= 0; i--) {
+			// Ruby_Nの連番と再利用時の対応が崩れないよう、子の並び順のまま回収する
+			for (int i = 0; i < transform.childCount; i++) {
 				var child = transform.GetChild(i);
 				if(child.name.StartsWith("Ruby_")) {
 					// 名前がRuby_で始まる子オブジェクトをルビとして回収

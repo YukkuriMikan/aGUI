@@ -37,21 +37,19 @@ namespace ANest.UI {
 
 		/// <summary>指定されたオブジェクトに対してアニメーションを再生する</summary>
 		public static void PlayAnimation(IUiAnimation[] animations, RectTransform targetRect, Graphic targetGraphic, RectTransformValues originalValues, Action completeCallback = null, Action killCallback = null) {
-			if(animations == null || animations.Length == 0) {
-				completeCallback?.Invoke();
-				return;
-			}
-
-			if(targetRect == null) {
-				completeCallback?.Invoke();
-				return;
-			}
-
+			// アニメーション配列が空でも、実行中の逆方向アニメーションは停止して中断仕様を保つ
 			if(targetGraphic != null) {
 				targetGraphic.DOKill();
 			}
 
-			targetRect.DOKill();
+			if(targetRect != null) {
+				targetRect.DOKill();
+			}
+
+			if(animations == null || animations.Length == 0 || targetRect == null) {
+				completeCallback?.Invoke();
+				return;
+			}
 
 			IUiAnimation lastEndAnim = null;
 			float maxDuration = 0f;
@@ -74,19 +72,21 @@ namespace ANest.UI {
 
 			// それぞれのアニメーションを個別に起動
 			bool callbackInvoked = false;
+			bool callbackAttached = false;
 			for (int i = 0; i < animations.Length; i++) {
 				var anim = animations[i];
 
 				if(anim != null) {
 					var tween = anim.DoAnimate(targetGraphic, targetRect, originalValues);
 
-					if(lastEndAnim == anim && completeCallback != null) {
-						tween?.OnKill(() => {
+					if(lastEndAnim == anim && completeCallback != null && tween != null) {
+						callbackAttached = true;
+						tween.OnKill(() => {
 							if(callbackInvoked) return;
 							callbackInvoked = true;
 							killCallback?.Invoke();
 						});
-						tween?.OnComplete(() => {
+						tween.OnComplete(() => {
 							if(callbackInvoked) return;
 							callbackInvoked = true;
 							completeCallback();
@@ -95,8 +95,8 @@ namespace ANest.UI {
 				}
 			}
 
-			// すべてのアニメーションがnullなどで、コールバックが登録されているが呼ばれていない場合のフォールバック
-			if(completeCallback != null && !callbackInvoked && lastEndAnim == null) {
+			// 対象のTweenが生成されなかった（全てnull、またはlastEndAnimのDoAnimateがnullを返した）場合のフォールバック
+			if(completeCallback != null && !callbackAttached) {
 				completeCallback();
 			}
 		}

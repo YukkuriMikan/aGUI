@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using UniRx;
 using UnityEngine;
 using UnityEngine.Events;
@@ -245,6 +246,8 @@ namespace ANest.UI {
 		#region Protected Method
 		/// <summary>表示処理の実装</summary>
 		protected virtual void ShowInternal() {
+			// 進行中のHideを中断してShowを優先する
+			m_nowHiding = false;
 			m_nowShowing = true;
 			m_canvasGroup.blocksRaycasts = true;
 
@@ -263,15 +266,19 @@ namespace ANest.UI {
 			SetActiveInternal(true);
 			m_onShow?.Invoke();
 
+			// アニメーションなしの場合は完了通知が同期で飛ぶため、開始通知はアニメーション再生より先に発火する
+			m_showStartSubject.OnNext(Unit.Default);
+
 			// 2. アニメーションの再生（完了を待たずに選択復帰へ進む）
 			TryPlayAnimations(ShowAnimations, m_showAnimationCompleteAction, m_showAnimationKillAction);
 
 			m_suppressActiveWarning = false;
-			m_showStartSubject.OnNext(Unit.Default);
 		}
 
 		/// <summary>非表示処理の実装</summary>
 		protected virtual void HideInternal() {
+			// 進行中のShowを中断してHideを優先する
+			m_nowShowing = false;
 			m_nowHiding = true;
 			m_canvasGroup.blocksRaycasts = false;
 
@@ -288,6 +295,12 @@ namespace ANest.UI {
 			// 2. 状態の更新
 			UpdateStateForHide();
 			m_onHide?.Invoke();
+
+			// アニメーションなしの場合は完了通知が同期で飛ぶため、開始通知はアニメーション再生より先に発火する
+			// 初期化中（m_suppressAnimation）の初期状態適用では通知しない
+			if(!m_suppressAnimation) {
+				m_hideStartSubject.OnNext(Unit.Default);
+			}
 
 			// 3. アニメーションの再生。完了時にGameObjectを非アクティブにする
 			TryPlayAnimations(HideAnimations, m_hideAnimationCompleteAction, m_hideAnimationKillAction);
@@ -309,6 +322,11 @@ namespace ANest.UI {
 		/// <summary>アニメーションの再生を試行する。抑制フラグや設定がない場合は即座にコールバックを呼ぶ</summary>
 		private void TryPlayAnimations(IUiAnimation[] animations, Action completeCallback = null, Action killCallback = null) {
 			if(m_suppressAnimation || (!m_useCustomAnimations && !m_useSharedAnimation)) {
+				// 再生しない場合でも、実行中の逆方向アニメーションは停止して中断仕様を保つ
+				if(m_guiInfo != null) {
+					if(m_guiInfo.TargetGraphic != null) m_guiInfo.TargetGraphic.DOKill();
+					if(m_guiInfo.RectTransform != null) m_guiInfo.RectTransform.DOKill();
+				}
 				completeCallback?.Invoke();
 				return;
 			}
@@ -332,6 +350,10 @@ namespace ANest.UI {
 			m_nowHiding = false;
 			if(!m_isVisible) {
 				SetActiveInternal(false);
+			}
+			// 初期化中（m_suppressAnimation）の初期状態適用では通知しない
+			if(!m_suppressAnimation) {
+				m_hideEndSubject.OnNext(Unit.Default);
 			}
 		}
 

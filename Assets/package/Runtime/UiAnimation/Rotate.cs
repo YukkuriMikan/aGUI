@@ -38,6 +38,8 @@ namespace ANest.UI {
 
 		#region Fields
 		private Tween m_tween;
+		private Quaternion m_baseRotation; // 相対回転の基準（初回再生時にキャッシュ）
+		private bool m_hasBaseRotation;    // 基準回転をキャッシュ済みか
 		#endregion
 
 		#region Methods
@@ -49,14 +51,23 @@ namespace ANest.UI {
 		public Tween DoAnimate(Graphic graphic, RectTransform callerRect, RectTransformValues original) {
 			if(callerRect == null) return null;
 
-			// 初期回転を設定（元の回転に相対オフセットを適用）
-			Quaternion startRotation = callerRect.localRotation * Quaternion.Euler(m_startValue);
-			Quaternion endRotation = callerRect.localRotation * Quaternion.Euler(m_endValue);
+			m_tween.Kill();
+
+			// 再生中の再トリガーで回転が累積しないよう、基準回転は初回再生時の値を使い続ける
+			if(!m_hasBaseRotation) {
+				m_baseRotation = callerRect.localRotation;
+				m_hasBaseRotation = true;
+			}
+
+			// 初期回転を設定（基準回転に相対オフセットを適用）
+			Quaternion startRotation = m_baseRotation * Quaternion.Euler(m_startValue);
+			Quaternion endRotation = m_baseRotation * Quaternion.Euler(m_endValue);
 			callerRect.localRotation = startRotation;
 
 			m_tween = callerRect
-				.DOLocalRotate(endRotation.eulerAngles, m_duration / 2f)
-				.SetDelay(Delay);
+				.DOLocalRotate(endRotation.eulerAngles, IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
+				.SetDelay(Delay)
+				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
 			if(UseCurve) {
 				if(IsYoYo) {

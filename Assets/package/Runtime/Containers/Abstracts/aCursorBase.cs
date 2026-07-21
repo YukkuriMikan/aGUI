@@ -58,9 +58,12 @@ namespace ANest.UI {
 		#endregion
 
 	    #region Private Fields
+		private const float TweenTargetEpsilon = 0.0001f;                                      // Tween更新/生成の要否を判定する距離閾値（sqrMagnitude比較用）
 		private RectTransform m_currentTargetRect;                                             // 現在のターゲットRectTransform
 		private Tweener m_moveTween;                                                           // 移動アニメーション用Tween
 		private Tweener m_sizeTween;                                                           // サイズ変更アニメーション用Tween
+		private Vector3 m_moveTweenTarget;                                                     // 移動Tweenの終着点キャッシュ
+		private Vector2 m_sizeTweenTarget;                                                     // サイズTweenの終着点キャッシュ
 		private readonly Dictionary<RectTransform, TextMeshProUGUI> m_targetTextCache = new(); // ターゲット配下テキストのキャッシュ
 		protected bool m_wasHidden = true;                                                     // 前フレームで非表示だったかどうか（瞬間移動判定用）
 		#endregion
@@ -160,13 +163,15 @@ namespace ANest.UI {
 				m_wasHidden = false;
 			} else {
 				if(m_moveTween != null && m_moveTween.IsActive()) {
-					// アニメーション中なら、ターゲットの最新位置を終着点として更新し続ける（追従）
-					m_moveTween.ChangeEndValue(targetWorldPos, true);
-				} else {
-					// OnSelectableChanged で Kill された後、最初の更新で Tween を生成する
-					if(m_moveTween == null || !m_moveTween.IsActive()) {
-						m_moveTween = m_cursorRect.DOMove(targetWorldPos, m_moveDuration).SetEase(m_moveEase);
+					// アニメーション中なら、ターゲットの位置が変わった時だけ終着点を更新する（追従）
+					if((m_moveTweenTarget - targetWorldPos).sqrMagnitude > TweenTargetEpsilon) {
+						m_moveTween.ChangeEndValue(targetWorldPos, true);
+						m_moveTweenTarget = targetWorldPos;
 					}
+				} else if((m_cursorRect.position - targetWorldPos).sqrMagnitude > TweenTargetEpsilon) {
+					// 目的地に未到達の場合のみ Tween を生成する（毎フレームの生成を防ぐ）
+					m_moveTween = m_cursorRect.DOMove(targetWorldPos, m_moveDuration).SetEase(m_moveEase);
+					m_moveTweenTarget = targetWorldPos;
 				}
 			}
 
@@ -186,13 +191,16 @@ namespace ANest.UI {
 					m_cursorRect.sizeDelta = targetSize;
 				} else {
 					if(m_sizeTween != null && m_sizeTween.IsActive()) {
-						// アニメーション中なら、ターゲットの最新サイズを終着点として更新し続ける（追従）
-						m_sizeTween.ChangeEndValue(targetSize, true);
-					} else {
-						if(m_sizeTween == null || !m_sizeTween.IsActive()) {
-							m_sizeTween = DOTween.To(() => m_cursorRect.sizeDelta, x => m_cursorRect.sizeDelta = x, targetSize, m_sizeChangeDuration)
-								.SetEase(m_sizeChangeEase);
+						// アニメーション中なら、ターゲットのサイズが変わった時だけ終着点を更新する（追従）
+						if((m_sizeTweenTarget - targetSize).sqrMagnitude > TweenTargetEpsilon) {
+							m_sizeTween.ChangeEndValue(targetSize, true);
+							m_sizeTweenTarget = targetSize;
 						}
+					} else if((m_cursorRect.sizeDelta - targetSize).sqrMagnitude > TweenTargetEpsilon) {
+						// 目標サイズに未到達の場合のみ Tween を生成する（毎フレームの生成を防ぐ）
+						m_sizeTween = DOTween.To(() => m_cursorRect.sizeDelta, x => m_cursorRect.sizeDelta = x, targetSize, m_sizeChangeDuration)
+							.SetEase(m_sizeChangeEase);
+						m_sizeTweenTarget = targetSize;
 					}
 				}
 			}

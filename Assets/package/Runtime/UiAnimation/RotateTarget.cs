@@ -1,9 +1,11 @@
+using System;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary> 指定ターゲットを回転させるアニメーション </summary>
+	[Serializable]
 	public class RotateTarget : IUiAnimation {
 		#region SerializeField
 		[SerializeField] private aGuiInfo m_target;                                             // 回転対象のaGuiInfo

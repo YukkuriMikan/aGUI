@@ -1,9 +1,11 @@
+using System;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary> 指定ターゲットを移動させるアニメーション </summary>
+	[Serializable]
 	public class MoveTarget : IUiAnimation {
 		#region SerializeField
 		[SerializeField] private aGuiInfo m_target;                                             // 移動対象のaGuiInfo

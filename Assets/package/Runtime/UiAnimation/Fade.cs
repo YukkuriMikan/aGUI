@@ -1,9 +1,11 @@
+using System;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary> Graphic のアルファを補間するフェードアニメーション </summary>
+	[Serializable]
 	public class Fade : IUiAnimation {
 		#region SerializeField
 		[SerializeField] private float m_startValue = 0;                                        // フェード開始時のアルファ

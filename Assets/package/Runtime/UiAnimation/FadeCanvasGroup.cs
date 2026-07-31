@@ -1,9 +1,11 @@
+using System;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary> CanvasGroup のアルファを補間するフェードアニメーション </summary>
+	[Serializable]
 	public class FadeCanvasGroup : IUiAnimation {
 		#region SerializeField
 		[SerializeField] private CanvasGroup m_canvasGroup;                                     // フェード対象のCanvasGroup

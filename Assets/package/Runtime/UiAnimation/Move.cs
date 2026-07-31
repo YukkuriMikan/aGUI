@@ -1,9 +1,11 @@
+using System;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary> 移動アニメーション </summary>
+	[Serializable]
 	public class Move : IUiAnimation {
 		#region SerializeField
 		[SerializeField] private Vector2 m_startValue = Vector2.left;                           // 移動開始時の相対座標

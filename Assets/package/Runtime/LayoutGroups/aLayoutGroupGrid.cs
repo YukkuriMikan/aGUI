@@ -362,7 +362,132 @@ namespace ANest.UI {
 				flatIndex += lineChildCount;
 				crossCursor += m_lineCrossSizes[line] + crossSpacing;
 			}
+
+			ApplyNavigationGrid(lineCount);
 		}
+
+		/// <summary>グリッド上の Selectable に明示的な Navigation を設定する。</summary>
+		private void ApplyNavigationGrid(int lineCount) {
+			if(!setNavigation || lineCount <= 0) return;
+
+			int mainCellCount = 0;
+			for (int i = 0; i < lineCount; i++) {
+				mainCellCount = Mathf.Max(mainCellCount, m_lines[i].Count);
+			}
+			if(mainCellCount <= 0) return;
+
+			int columns = startAxis == Axis.Horizontal ? mainCellCount : lineCount;
+			int rows = startAxis == Axis.Horizontal ? lineCount : mainCellCount;
+			for (int y = 0; y < rows; y++) {
+				for (int x = 0; x < columns; x++) {
+					var rect = GetGridCell(x, y, columns, rows);
+					if(rect == null) continue;
+
+					var selectable = rect.GetComponent<Selectable>();
+					if(selectable == null) continue;
+
+					Navigation navigation = selectable.navigation;
+					navigation.mode = Navigation.Mode.Explicit;
+					navigation.selectOnLeft = FindSelectableInGrid(x, y, -1, 0, columns, rows, rect);
+					navigation.selectOnRight = FindSelectableInGrid(x, y, 1, 0, columns, rows, rect);
+					navigation.selectOnUp = FindSelectableInGrid(x, y, 0, -1, columns, rows, rect);
+					navigation.selectOnDown = FindSelectableInGrid(x, y, 0, 1, columns, rows, rect);
+					selectable.navigation = navigation;
+				}
+			}
+		}
+
+		/// <summary>物理的な行列座標から、現在の配置に対応する子要素を取得する。</summary>
+		private RectTransform GetGridCell(int x, int y, int columns, int rows) {
+			if(x < 0 || x >= columns || y < 0 || y >= rows) return null;
+
+			int lineIndex = startAxis == Axis.Horizontal ? y : x;
+			int mainIndex = startAxis == Axis.Horizontal ? x : y;
+			if(lineIndex < 0 || lineIndex >= m_lines.Count) return null;
+
+			var line = m_lines[lineIndex];
+			int mainCellCount = startAxis == Axis.Horizontal ? columns : rows;
+			bool alignLineToEnd = startAxis == Axis.Horizontal
+				? startCorner == Corner.UpperRight || startCorner == Corner.LowerRight
+				: startCorner == Corner.LowerLeft || startCorner == Corner.LowerRight;
+			if(alignLineToEnd) mainIndex -= mainCellCount - line.Count;
+
+			return mainIndex >= 0 && mainIndex < line.Count ? line[mainIndex] : null;
+		}
+
+		/// <summary>指定方向にある最寄りの Selectable を探索する。</summary>
+		private Selectable FindSelectableInGrid(int startX, int startY, int dx, int dy, int columns, int rows, RectTransform origin) {
+			if(dx == 0 && dy == 0) return null;
+
+			int maxSteps = dx != 0 ? columns : rows;
+			bool allowCrossLine = !navigationLoop || (dx != 0 ? startAxis == Axis.Vertical : startAxis == Axis.Horizontal);
+			bool searchSameLineFirst = !navigationLoop || !allowCrossLine;
+
+			if(searchSameLineFirst) {
+				for (int step = 1; step <= maxSteps; step++) {
+					int x = startX + dx * step;
+					int y = startY + dy * step;
+					if(navigationLoop) {
+						x = dx != 0 ? PositiveModulo(x, columns) : startX;
+						y = dy != 0 ? PositiveModulo(y, rows) : startY;
+					} else if(x < 0 || x >= columns || y < 0 || y >= rows) {
+						break;
+					}
+
+					var candidate = GetSelectableAt(x, y, columns, rows, origin);
+					if(candidate != null) return candidate;
+				}
+			}
+
+			if(!allowCrossLine) return null;
+
+			for (int step = 1; step <= maxSteps; step++) {
+				int x = startX + dx * step;
+				int y = startY + dy * step;
+				if(navigationLoop) {
+					x = dx != 0 ? PositiveModulo(x, columns) : startX;
+					y = dy != 0 ? PositiveModulo(y, rows) : startY;
+				} else if(x < 0 || x >= columns || y < 0 || y >= rows) {
+					break;
+				}
+
+				Selectable best = null;
+				int bestDistance = int.MaxValue;
+				if(dx != 0) {
+					for (int row = 0; row < rows; row++) {
+						var candidate = GetSelectableAt(x, row, columns, rows, origin);
+						if(candidate == null) continue;
+						int distance = Mathf.Abs(row - startY);
+						if(distance >= bestDistance) continue;
+						bestDistance = distance;
+						best = candidate;
+						if(distance == 0) return best;
+					}
+				} else {
+					for (int column = 0; column < columns; column++) {
+						var candidate = GetSelectableAt(column, y, columns, rows, origin);
+						if(candidate == null) continue;
+						int distance = Mathf.Abs(column - startX);
+						if(distance >= bestDistance) continue;
+						bestDistance = distance;
+						best = candidate;
+						if(distance == 0) return best;
+					}
+				}
+
+				if(best != null) return best;
+			}
+
+			return null;
+		}
+
+		private Selectable GetSelectableAt(int x, int y, int columns, int rows, RectTransform origin) {
+			var rect = GetGridCell(x, y, columns, rows);
+			return rect != null && rect != origin ? rect.GetComponent<Selectable>() : null;
+		}
+
+		private static int PositiveModulo(int value, int divisor)
+			=> (value % divisor + divisor) % divisor;
 		#endregion
 	}
 }

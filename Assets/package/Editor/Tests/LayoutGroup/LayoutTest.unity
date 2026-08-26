@@ -154,10 +154,10 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 0}
+    m_SelectOnUp: {fileID: 1075544589}
     m_SelectOnDown: {fileID: 1240900260}
     m_SelectOnLeft: {fileID: 1075072565}
-    m_SelectOnRight: {fileID: 1485690244}
+    m_SelectOnRight: {fileID: 1273177646}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -743,7 +743,7 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1075072565}
-    m_SelectOnDown: {fileID: 0}
+    m_SelectOnDown: {fileID: 710643255}
     m_SelectOnLeft: {fileID: 805102646}
     m_SelectOnRight: {fileID: 1240900260}
   m_Transition: 1
@@ -1292,10 +1292,10 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 1037800726}
-    m_SelectOnDown: {fileID: 0}
+    m_SelectOnUp: {fileID: 1775344737}
+    m_SelectOnDown: {fileID: 727869093}
     m_SelectOnLeft: {fileID: 1355810302}
-    m_SelectOnRight: {fileID: 805102646}
+    m_SelectOnRight: {fileID: 1931247991}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -1884,7 +1884,9 @@ MonoBehaviour:
   setNavigation: 1
   navigationLoop: 1
   useAnimation: 1
+  animationMode: 0
   animationDuration: 0.25
+  animationSpeed: 1000
   animationDistanceThreshold: 1000
   useAnimationCurve: 0
   animationCurve:
@@ -2265,8 +2267,8 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1273177646}
-    m_SelectOnDown: {fileID: 1485690244}
-    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnDown: {fileID: 1775344737}
+    m_SelectOnLeft: {fileID: 1240900260}
     m_SelectOnRight: {fileID: 727869093}
   m_Transition: 1
   m_Colors:
@@ -2519,8 +2521,8 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 727869093}
-    m_SelectOnDown: {fileID: 1442576559}
+    m_SelectOnUp: {fileID: 280710708}
+    m_SelectOnDown: {fileID: 1075072565}
     m_SelectOnLeft: {fileID: 1485690244}
     m_SelectOnRight: {fileID: 1075544589}
   m_Transition: 1
@@ -2680,9 +2682,9 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1442576559}
-    m_SelectOnDown: {fileID: 710643255}
+    m_SelectOnDown: {fileID: 1775344737}
     m_SelectOnLeft: {fileID: 702850188}
-    m_SelectOnRight: {fileID: 0}
+    m_SelectOnRight: {fileID: 805102646}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -2934,8 +2936,8 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1931247991}
-    m_SelectOnDown: {fileID: 0}
-    m_SelectOnLeft: {fileID: 387174155}
+    m_SelectOnDown: {fileID: 1485690244}
+    m_SelectOnLeft: {fileID: 727869093}
     m_SelectOnRight: {fileID: 280710708}
   m_Transition: 1
   m_Colors:
@@ -3186,7 +3188,9 @@ MonoBehaviour:
   setNavigation: 0
   navigationLoop: 0
   useAnimation: 1
+  animationMode: 0
   animationDuration: 0.25
+  animationSpeed: 1000
   animationDistanceThreshold: 1000
   useAnimationCurve: 0
   animationCurve:
@@ -3633,8 +3637,8 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 1075544589}
-    m_SelectOnDown: {fileID: 0}
+    m_SelectOnUp: {fileID: 1775344737}
+    m_SelectOnDown: {fileID: 727869093}
     m_SelectOnLeft: {fileID: 1442576559}
     m_SelectOnRight: {fileID: 1355810302}
   m_Transition: 1
@@ -3882,8 +3886,6 @@ GameObject:
   - component: {fileID: 1037800723}
   - component: {fileID: 1037800725}
   - component: {fileID: 1037800724}
-  - component: {fileID: 1037800726}
-  - component: {fileID: 1037800727}
   m_Layer: 5
   m_Name: Image - Yellow
   m_TagString: Untagged
@@ -3948,127 +3950,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1037800722}
   m_CullTransparentMesh: 1
---- !u!114 &1037800726
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1037800722}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c09093695c4ba4b44a41fe5ae06e1066, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Navigation:
-    m_Mode: 4
-    m_WrapAround: 0
-    m_SelectOnUp: {fileID: 0}
-    m_SelectOnDown: {fileID: 387174155}
-    m_SelectOnLeft: {fileID: 1775344737}
-    m_SelectOnRight: {fileID: 1931247991}
-  m_Transition: 1
-  m_Colors:
-    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
-    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
-    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
-    m_SelectedColor: {r: 0, g: 0, b: 0, a: 1}
-    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
-    m_ColorMultiplier: 1
-    m_FadeDuration: 0.1
-  m_SpriteState:
-    m_HighlightedSprite: {fileID: 0}
-    m_PressedSprite: {fileID: 0}
-    m_SelectedSprite: {fileID: 0}
-    m_DisabledSprite: {fileID: 0}
-  m_AnimationTriggers:
-    m_NormalTrigger: Normal
-    m_HighlightedTrigger: Highlighted
-    m_PressedTrigger: Pressed
-    m_SelectedTrigger: Selected
-    m_DisabledTrigger: Disabled
-  m_Interactable: 0
-  m_TargetGraphic: {fileID: 1037800724}
-  m_OnClick:
-    m_PersistentCalls:
-      m_Calls: []
-  useSharedParameters: 0
-  sharedParameters: {fileID: 0}
-  targetText: {fileID: 0}
-  textTransition: 0
-  textColors:
-    m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
-    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
-    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
-    m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
-    m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
-    m_ColorMultiplier: 1
-    m_FadeDuration: 0.1
-  textSwapState:
-    normalText: 
-    highlightedText: 
-    pressedText: 
-    selectedText: 
-    disabledText: 
-  textAnimationTriggers:
-    m_NormalTrigger: Normal
-    m_HighlightedTrigger: Highlighted
-    m_PressedTrigger: Pressed
-    m_SelectedTrigger: Selected
-    m_DisabledTrigger: Disabled
-  textAnimator: {fileID: 0}
-  useMultipleInputGuard: 1
-  multipleInputGuardInterval: 0.5
-  shortCut:
-    rid: -2
-  enableLongPress: 0
-  longPressDuration: 0.5
-  onLongPress:
-    m_PersistentCalls:
-      m_Calls: []
-  onLongPressCancel:
-    m_PersistentCalls:
-      m_Calls: []
-  longPressImage: {fileID: 0}
-  m_useCustomAnimation: 0
-  m_useSharedAnimation: 0
-  m_sharedAnimation: {fileID: 0}
-  m_clickAnimations: []
-  onRightClick:
-    m_PersistentCalls:
-      m_Calls: []
-  m_guiInfo: {fileID: 1037800727}
-  references:
-    version: 2
-    RefIds:
-    - rid: -2
-      type: {class: , ns: , asm: }
---- !u!114 &1037800727
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1037800722}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 570d669aa92d95140898661638fa5e82, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_rectTransform: {fileID: 1037800723}
-  m_originalRectTransformValues:
-    m_anchoredPosition: {x: 445, y: -170}
-    m_anchorMin: {x: 0, y: 1}
-    m_anchorMax: {x: 0, y: 1}
-    m_sizeDelta: {x: 870, y: 100}
-    m_pivot: {x: 0.5, y: 0.5}
-    m_rect:
-      serializedVersion: 2
-      x: -435
-      y: -50
-      width: 870
-      height: 100
-  m_targetGraphic: {fileID: 1037800724}
 --- !u!1 &1071527951
 GameObject:
   m_ObjectHideFlags: 0
@@ -4224,7 +4105,7 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 0}
+    m_SelectOnUp: {fileID: 710643255}
     m_SelectOnDown: {fileID: 280710708}
     m_SelectOnLeft: {fileID: 1931247991}
     m_SelectOnRight: {fileID: 23280357}
@@ -4479,8 +4360,8 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 0}
-    m_SelectOnDown: {fileID: 918632255}
+    m_SelectOnUp: {fileID: 1240900260}
+    m_SelectOnDown: {fileID: 23280357}
     m_SelectOnLeft: {fileID: 710643255}
     m_SelectOnRight: {fileID: 1775344737}
   m_Transition: 1
@@ -4723,7 +4604,7 @@ MonoBehaviour:
   updateMode: 2
   updateTiming: 0
   delayAlignByOneFrame: 0
-  childControlWidth: 1
+  childControlWidth: 0
   childControlHeight: 0
   childScaleWidth: 0
   childScaleHeight: 0
@@ -4733,7 +4614,9 @@ MonoBehaviour:
   setNavigation: 1
   navigationLoop: 1
   useAnimation: 1
+  animationMode: 0
   animationDuration: 0.25
+  animationSpeed: 1000
   animationDistanceThreshold: 1000
   useAnimationCurve: 0
   animationCurve:
@@ -4765,7 +4648,7 @@ MonoBehaviour:
   startAxis: 0
   cellSize: {x: 50, y: 69.17}
   spacingXY: {x: 10, y: 10}
-  constraint: 1
+  constraint: 0
   constraintCount: 5
 --- !u!225 &1150951256
 CanvasGroup:
@@ -4808,7 +4691,7 @@ MonoBehaviour:
   m_debugMode: 0
   m_childSelectableList:
   - {fileID: 1485690244}
-  - {fileID: 1037800726}
+  - {fileID: 0}
   - {fileID: 710643255}
   - {fileID: 1075544589}
   - {fileID: 1775344737}
@@ -5022,9 +4905,9 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 23280357}
-    m_SelectOnDown: {fileID: 0}
+    m_SelectOnDown: {fileID: 1075544589}
     m_SelectOnLeft: {fileID: 280710708}
-    m_SelectOnRight: {fileID: 1273177646}
+    m_SelectOnRight: {fileID: 702850188}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -5459,9 +5342,9 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 1485690244}
+    m_SelectOnUp: {fileID: 1775344737}
     m_SelectOnDown: {fileID: 702850188}
-    m_SelectOnLeft: {fileID: 1240900260}
+    m_SelectOnLeft: {fileID: 23280357}
     m_SelectOnRight: {fileID: 1442576559}
   m_Transition: 1
   m_Colors:
@@ -5658,7 +5541,7 @@ MonoBehaviour:
     m_Mode: 4
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1775344737}
-    m_SelectOnDown: {fileID: 0}
+    m_SelectOnDown: {fileID: 727869093}
     m_SelectOnLeft: {fileID: 918632255}
     m_SelectOnRight: {fileID: 387174155}
   m_Transition: 1
@@ -6215,7 +6098,7 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 710643255}
+    m_SelectOnUp: {fileID: 1775344737}
     m_SelectOnDown: {fileID: 727869093}
     m_SelectOnLeft: {fileID: 1273177646}
     m_SelectOnRight: {fileID: 918632255}
@@ -6590,9 +6473,9 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 702850188}
-    m_SelectOnDown: {fileID: 1273177646}
-    m_SelectOnLeft: {fileID: 23280357}
+    m_SelectOnUp: {fileID: 805102646}
+    m_SelectOnDown: {fileID: 1931247991}
+    m_SelectOnLeft: {fileID: 1775344737}
     m_SelectOnRight: {fileID: 710643255}
   m_Transition: 1
   m_Colors:
@@ -7647,10 +7530,10 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 0}
-    m_SelectOnDown: {fileID: 1355810302}
+    m_SelectOnUp: {fileID: 702850188}
+    m_SelectOnDown: {fileID: 1273177646}
     m_SelectOnLeft: {fileID: 1075544589}
-    m_SelectOnRight: {fileID: 1037800726}
+    m_SelectOnRight: {fileID: 1485690244}
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
@@ -8349,7 +8232,9 @@ MonoBehaviour:
   setNavigation: 1
   navigationLoop: 1
   useAnimation: 1
+  animationMode: 0
   animationDuration: 0.25
+  animationSpeed: 1000
   animationDistanceThreshold: 1000
   useAnimationCurve: 0
   animationCurve:
@@ -8545,9 +8430,9 @@ MonoBehaviour:
   m_Navigation:
     m_Mode: 4
     m_WrapAround: 0
-    m_SelectOnUp: {fileID: 0}
+    m_SelectOnUp: {fileID: 1485690244}
     m_SelectOnDown: {fileID: 805102646}
-    m_SelectOnLeft: {fileID: 1037800726}
+    m_SelectOnLeft: {fileID: 387174155}
     m_SelectOnRight: {fileID: 1075072565}
   m_Transition: 1
   m_Colors:

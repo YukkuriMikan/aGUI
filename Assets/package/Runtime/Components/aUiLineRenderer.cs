@@ -26,6 +26,10 @@ namespace ANest.UI {
 	[RequireComponent(typeof(CanvasRenderer))]
 	[AddComponentMenu("UI/aUiLineRenderer")]
 	public class aUiLineRenderer : MaskableGraphic {
+		// 同じ点を別の計算経路で求めた際に生じる丸め誤差を吸収する。
+		// 座標値に対して十分小さく、float の数 ULP 程度になる相対値を使用する。
+		private const float PointMergeRelativeTolerance = 1e-6f;
+
 		#region SerializeFields
 		[Tooltip("線の太さ（ローカル座標）")]
 		[SerializeField]
@@ -695,8 +699,12 @@ namespace ANest.UI {
 		private List<Vector2> ConvertToLocalPoints(IReadOnlyList<Vector2> source) {
 			var result = new List<Vector2>(source.Count);
 			for (var i = 0; i < source.Count; i++) {
-				result.Add(ToLocalPoint(source[i]));
+				AddDistinctPoint(result, ToLocalPoint(source[i]));
 			}
+
+			// ループの終点に始点と同じ座標が明示されている場合、閉じる処理で
+			// 微小な折返し区間を生成しないよう片方だけを残す。
+			RemoveDuplicateClosingPoint(result);
 			return result;
 		}
 
@@ -714,11 +722,11 @@ namespace ANest.UI {
 			var count = localPoints.Count;
 
 			if(!m_loop) {
-				result.Add(localPoints[0]);
+				AddDistinctPoint(result, localPoints[0]);
 				for (var i = 1; i < count - 1; i++) {
 					AppendRoundedCorner(result, localPoints[i - 1], localPoints[i], localPoints[i + 1]);
 				}
-				result.Add(localPoints[count - 1]);
+				AddDistinctPoint(result, localPoints[count - 1]);
 			} else {
 				for (var i = 0; i < count; i++) {
 					var prev = localPoints[(i - 1 + count) % count];
@@ -726,6 +734,7 @@ namespace ANest.UI {
 					var next = localPoints[(i + 1) % count];
 					AppendRoundedCorner(result, prev, current, next);
 				}
+				RemoveDuplicateClosingPoint(result);
 			}
 
 			return result;
@@ -740,7 +749,7 @@ namespace ANest.UI {
 			var lenNext = dirNext.magnitude;
 
 			if(lenPrev <= Mathf.Epsilon || lenNext <= Mathf.Epsilon) {
-				dst.Add(current);
+				AddDistinctPoint(dst, current);
 				return;
 			}
 
@@ -751,14 +760,41 @@ namespace ANest.UI {
 			var start = current - dirPrev * cut;
 			var end = current + dirNext * cut;
 
-			dst.Add(start);
+			AddDistinctPoint(dst, start);
 
 			for (var i = 1; i <= m_cornerVertices; i++) {
 				var t = (float)i / (m_cornerVertices + 1);
-				dst.Add(QuadraticBezier(start, current, end, t));
+				AddDistinctPoint(dst, QuadraticBezier(start, current, end, t));
 			}
 
-			dst.Add(end);
+			AddDistinctPoint(dst, end);
+		}
+
+		/// <summary>直前の点と描画上同一とみなせる場合を除き、点を追加する</summary>
+		private static void AddDistinctPoint(List<Vector2> points, Vector2 point) {
+			if(points.Count == 0 || !ArePointsNearlyEqual(points[points.Count - 1], point)) {
+				points.Add(point);
+			}
+		}
+
+		/// <summary>ループの末尾が先頭と実質的に同じ場合は重複を取り除く</summary>
+		private void RemoveDuplicateClosingPoint(List<Vector2> points) {
+			if(m_loop && points.Count > 1 && ArePointsNearlyEqual(points[0], points[points.Count - 1])) {
+				points.RemoveAt(points.Count - 1);
+			}
+		}
+
+		/// <summary>float の丸め誤差を考慮して二点が同一か判定する</summary>
+		private static bool ArePointsNearlyEqual(Vector2 a, Vector2 b) {
+			var maxCoordinate = Mathf.Max(
+				1f,
+				Mathf.Max(
+					Mathf.Max(Mathf.Abs(a.x), Mathf.Abs(a.y)),
+					Mathf.Max(Mathf.Abs(b.x), Mathf.Abs(b.y))
+				)
+			);
+			var tolerance = maxCoordinate * PointMergeRelativeTolerance;
+			return (a - b).sqrMagnitude <= tolerance * tolerance;
 		}
 
 		/// <summary>二次ベジェ曲線上の座標を計算する</summary>

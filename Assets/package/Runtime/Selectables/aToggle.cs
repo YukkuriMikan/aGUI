@@ -8,7 +8,7 @@ namespace ANest.UI {
 	/// <summary>各種ガードとテキスト遷移・カスタムアニメーションを備えた拡張Toggle</summary>
 	[Icon("d_Toggle Icon")]
 	[RequireComponent(typeof(aGuiInfo))]
-	public class aToggle : Toggle, IaGuiSelectable {
+	public class aToggle : Toggle, IaGuiSelectable, IPreventFocusSelectable {
 		#region SerializeField
 		[Header("Shared Parameters")]
 		[Tooltip("共通パラメータを使用するかどうか")]
@@ -31,6 +31,10 @@ namespace ANest.UI {
 		[SerializeField] private Animator textAnimator; // テキスト用アニメーター
 
 		[Header("Navigation")]
+		[Tooltip("入力方法を問わずフォーカスを取得しないようにする")]
+		[SerializeField] private bool preventFocus; // フォーカスを取得しないか
+		[SerializeField, HideInInspector] private Navigation navigationBeforePreventFocus; // フォーカス抑制前のNavigation設定
+		[SerializeField, HideInInspector] private bool hasNavigationBeforePreventFocus; // Navigation設定を退避済みか
 		[Tooltip("入力ガード（連打防止）を使用するかどうか")]
 		[SerializeField] private bool useMultipleInputGuard = true; // 入力ガードを使うか
 		[Tooltip("入力ガードの待機秒数")]
@@ -67,6 +71,16 @@ namespace ANest.UI {
 		#endregion
 
 		#region Properties
+		/// <summary> 入力方法を問わずフォーカスを取得しないかどうか </summary>
+		public bool PreventFocus {
+			get => preventFocus;
+			set {
+				if(preventFocus == value) return;
+				preventFocus = value;
+				ApplyPreventFocusState();
+			}
+		}
+
 		/// <summary> 非Interactableをスキップして次のSelectableに移動するかどうか </summary>
 		public bool SkipNonInteractableNavigation { get; set; }
 
@@ -96,7 +110,9 @@ namespace ANest.UI {
 		/// <summary>有効化時に初期化とRectTransformの初期値取得を行う</summary>
 		protected override void OnEnable() {
 			ApplySharedParametersIfNeeded();
+			ApplyPreventFocusState();
 			base.OnEnable();
+			ClearPreventedFocusIfNeeded();
 
 			ResetShortCutState();
 			RegisterToggleListener(true);
@@ -104,6 +120,7 @@ namespace ANest.UI {
 
 		/// <summary>無効化時にリスナー解除やアニメーションのキャンセルを行う</summary>
 		protected override void OnDisable() {
+			ClearPreventedFocusIfNeeded();
 			base.OnDisable();
 
 			RegisterToggleListener(false);
@@ -117,13 +134,29 @@ namespace ANest.UI {
 			if(!Application.isPlaying) return;
 #endif
 
+			ApplyPreventFocusNavigation();
+			ClearPreventedFocusIfNeeded();
 			UpdateShortCutState();
+		}
+
+		/// <summary>ポインター押下時の表示処理は維持しつつ、PreventFocus中の選択を抑制する</summary>
+		public override void OnPointerDown(PointerEventData eventData) {
+			ApplyPreventFocusNavigation();
+			base.OnPointerDown(eventData);
 		}
 
 		/// <summary> 選択時に履歴へ登録する </summary>
 		public override void OnSelect(BaseEventData eventData) {
+			if(preventFocus) return;
+
 			base.OnSelect(eventData);
 			aGuiManager.SetSelectedSelectable(this);
+		}
+
+		/// <summary>PreventFocus中は明示的なSelect呼び出しも受け付けない</summary>
+		public override void Select() {
+			if(preventFocus) return;
+			base.Select();
 		}
 
 		/// <summary>クリック入力時のガード判定とアニメーション再生を処理する</summary>
@@ -154,6 +187,7 @@ namespace ANest.UI {
 
 		/// <summary>方向入力によるナビゲーション移動（非Interactableを無視）</summary>
 		public override void OnMove(AxisEventData eventData) {
+			if(preventFocus) return;
 			if(!IsActive()) return;
 			if(eventData == null) return;
 			if(InitialGuardActive) return;
@@ -294,6 +328,50 @@ namespace ANest.UI {
 		}
 		#endregion
 
+		#region Focus Control
+		/// <summary>PreventFocusの状態に合わせてNavigation設定を退避・復元する</summary>
+		private void ApplyPreventFocusState() {
+			if(preventFocus) {
+				if(!hasNavigationBeforePreventFocus) {
+					navigationBeforePreventFocus = navigation;
+					hasNavigationBeforePreventFocus = true;
+				}
+
+				ApplyPreventFocusNavigation();
+				ClearPreventedFocusIfNeeded();
+				return;
+			}
+
+			if(!hasNavigationBeforePreventFocus) return;
+			navigation = navigationBeforePreventFocus;
+			hasNavigationBeforePreventFocus = false;
+		}
+
+		/// <summary>Navigationからフォーカス対象として探索されない状態にする</summary>
+		private void ApplyPreventFocusNavigation() {
+			if(!preventFocus) return;
+			if(navigation.mode == Navigation.Mode.None) return;
+
+			var currentNavigation = navigation;
+			currentNavigation.mode = Navigation.Mode.None;
+			navigation = currentNavigation;
+		}
+
+		/// <summary>低レベルAPIから直接選択された場合の安全策として選択を解除する</summary>
+		private void ClearPreventedFocusIfNeeded() {
+			if(!preventFocus) return;
+#if UNITY_EDITOR
+			if(!Application.isPlaying) return;
+#endif
+
+			var eventSystem = EventSystem.current;
+			if(eventSystem == null || eventSystem.currentSelectedGameObject != gameObject) return;
+			if(eventSystem.alreadySelecting) return;
+
+			eventSystem.SetSelectedGameObject(null);
+		}
+		#endregion
+
 		#region Guards
 		/// <summary>初期ガード・連打ガードの状態を判定する</summary>
 		private bool IsGuardActive(float now) {
@@ -342,6 +420,7 @@ namespace ANest.UI {
 			if(Application.isPlaying) return;
 
 			ApplySharedParametersIfNeeded();
+			ApplyPreventFocusState();
 			ApplySharedAnimationsFromSet();
 
 			if(m_guiInfo == null) {

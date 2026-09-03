@@ -18,6 +18,9 @@ namespace ANest.UI.Editor {
 		private SerializedProperty spriteStateProp;                    // spriteState プロパティへの参照
 		private SerializedProperty animTriggerProp;                    // animationTriggers プロパティへの参照
 		private SerializedProperty navigationProp;                     // navigation プロパティへの参照
+		private SerializedProperty preventFocusProp;                   // フォーカス抑制フラグへの参照
+		private SerializedProperty navigationBeforePreventFocusProp;   // フォーカス抑制前のNavigation設定への参照
+		private SerializedProperty hasNavigationBeforePreventFocusProp; // Navigation設定退避フラグへの参照
 		private SerializedProperty useSharedParametersProp;            // 共有パラメータ使用フラグへの参照
 		private SerializedProperty sharedParametersProp;               // 共有パラメータオブジェクトへの参照
 
@@ -64,6 +67,9 @@ namespace ANest.UI.Editor {
 			spriteStateProp = serializedObject.FindProperty("m_SpriteState");
 			animTriggerProp = serializedObject.FindProperty("m_AnimationTriggers");
 			navigationProp = serializedObject.FindProperty("m_Navigation");
+			preventFocusProp = serializedObject.FindProperty("preventFocus");
+			navigationBeforePreventFocusProp = serializedObject.FindProperty("navigationBeforePreventFocus");
+			hasNavigationBeforePreventFocusProp = serializedObject.FindProperty("hasNavigationBeforePreventFocus");
 			useSharedParametersProp = serializedObject.FindProperty("useSharedParameters");
 			sharedParametersProp = serializedObject.FindProperty("sharedParameters");
 
@@ -104,6 +110,9 @@ namespace ANest.UI.Editor {
 				"m_SpriteState",
 				"m_AnimationTriggers",
 				"m_Navigation",
+				"preventFocus",
+				"navigationBeforePreventFocus",
+				"hasNavigationBeforePreventFocus",
 				"useSharedParameters",
 				"sharedParameters",
 				"toggleTransition",
@@ -406,7 +415,15 @@ namespace ANest.UI.Editor {
 
 		/// <summary>ナビゲーション設定と可視化トグルを描画する。</summary>
 		private void DrawNavigationSection() {
-			EditorGUILayout.PropertyField(navigationProp);
+			EditorGUILayout.PropertyField(preventFocusProp, new GUIContent("Prevent Focus"));
+
+			bool showStoredNavigation = !preventFocusProp.hasMultipleDifferentValues && preventFocusProp.boolValue && hasNavigationBeforePreventFocusProp.boolValue;
+			SerializedProperty navigationToShow = showStoredNavigation ? navigationBeforePreventFocusProp : navigationProp;
+			EditorGUILayout.PropertyField(navigationToShow, new GUIContent("Navigation"));
+
+			if(!preventFocusProp.hasMultipleDifferentValues && preventFocusProp.boolValue) {
+				EditorGUILayout.HelpBox("フォーカス抑制中はNavigation対象外です。ここでの設定は抑制解除時に復元されます。", MessageType.Info);
+			}
 
 			EditorGUI.BeginChangeCheck();
 			Rect toggleRect = EditorGUILayout.GetControlRect();

@@ -36,10 +36,13 @@ namespace ANest.UI {
 				}
 
 				// 範囲内の場合は選択を実行（EventSystem側の選択と同期させる）
-				var currentSelectedObject = ChildSelectableList[normalizedIndex].gameObject;
+				var selectable = ChildSelectableList[normalizedIndex];
+				if(!aGuiSelectableUtils.CanReceiveFocus(selectable)) return;
+
+				var currentSelectedObject = selectable.gameObject;
 
 				if(es != null && es.currentSelectedGameObject != currentSelectedObject) {
-					ChildSelectableList[normalizedIndex].Select();
+					selectable.Select();
 				}
 
 				base.CurrentSelectableIndex = normalizedIndex;
@@ -66,6 +69,8 @@ namespace ANest.UI {
 
 					return;
 				}
+
+				if(!aGuiSelectableUtils.CanReceiveFocus(value)) return;
 
 				if(ChildSelectableList == null || ChildSelectableList.Count == 0) {
 					TrySetNull();
@@ -110,17 +115,17 @@ namespace ANest.UI {
 					if(es == null) return;
 					if(es.currentSelectedGameObject != null) return;
 
-					if(LastSelected != null && LastSelected.IsActive() && LastSelected.IsInteractable()) {
+					if(LastSelected != null && LastSelected.IsActive() && LastSelected.IsInteractable() && aGuiSelectableUtils.CanReceiveFocus(LastSelected)) {
 						// 直近の選択を優先して復帰する
 						LastSelected.Select();
 
-					} else if(InitialSelectable != null && InitialSelectable.IsActive() && InitialSelectable.IsInteractable()) {
+					} else if(InitialSelectable != null && InitialSelectable.IsActive() && InitialSelectable.IsInteractable() && aGuiSelectableUtils.CanReceiveFocus(InitialSelectable)) {
 						// 初期選択に設定された要素があれば採用する
 						InitialSelectable.Select();
 
 					} else if(ChildSelectableList != null && ChildSelectableList.Count > 0) {
 						// それ以外は最初に選択可能な要素を選択する
-						var first = ChildSelectableList.FirstOrDefault(s => s.IsActive() && s.IsInteractable());
+						var first = ChildSelectableList.FirstOrDefault(s => s.IsActive() && s.IsInteractable() && aGuiSelectableUtils.CanReceiveFocus(s));
 
 						if(first != null && first.IsActive() && first.IsInteractable()) {
 							first.Select();
@@ -134,7 +139,7 @@ namespace ANest.UI {
 			base.SetInitialSelection();
 
 			if(CurrentSelectable == null && m_disallowNullSelection && ChildSelectableList.Count > 0) {
-				CurrentSelectable = ChildSelectableList[0];
+				CurrentSelectable = ChildSelectableList.FirstOrDefault(aGuiSelectableUtils.CanReceiveFocus);
 			}
 		}
 

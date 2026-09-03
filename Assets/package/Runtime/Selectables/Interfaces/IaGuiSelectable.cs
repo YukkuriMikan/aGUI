@@ -1,4 +1,10 @@
 namespace ANest.UI {
+	/// <summary>フォーカス抑制に対応するSelectable向けインターフェース</summary>
+	public interface IPreventFocusSelectable {
+		/// <summary>入力方法を問わずフォーカスを取得しないかどうか</summary>
+		bool PreventFocus { get; set; }
+	}
+
 	/// <summary>Selectable向けの共通インターフェース（ガード付きクリック実行/InitialGuard/ナビゲーションスキップ）</summary>
 	public interface IaGuiSelectable {
 		/// <summary> 非Interactableをスキップして次のSelectableに移動するかどうか </summary>

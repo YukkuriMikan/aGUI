@@ -106,6 +106,7 @@ namespace ANest.UI {
 		public virtual T CurrentSelectable {
 			get => m_currentSelectable;
 			set {
+				if(value != null && !aGuiSelectableUtils.CanReceiveFocus(value)) return;
 				if(m_currentSelectable == value) return;
 
 				if(value == null) {
@@ -255,28 +256,23 @@ namespace ANest.UI {
 
 		/// <summary>次のSelectableを選択する。末尾の場合は何もしない</summary>
 		public void SelectNext() {
-			var nextIndex = CurrentSelectableIndex + 1;
-
-			if(nextIndex < m_childSelectableList.Count) {
+			var nextIndex = FindFocusableIndex(CurrentSelectableIndex + 1, 1, false);
+			if(nextIndex >= 0) {
 				CurrentSelectableIndex = nextIndex;
 			}
 		}
 
 		/// <summary>次のSelectableを選択する。末尾の場合は先頭に戻る</summary>
 		public void SelectNextLoop() {
-			var nextIndex = CurrentSelectableIndex + 1;
-
-			if(nextIndex < m_childSelectableList.Count) {
+			var nextIndex = FindFocusableIndex(CurrentSelectableIndex + 1, 1, true);
+			if(nextIndex >= 0) {
 				CurrentSelectableIndex = nextIndex;
-			} else {
-				CurrentSelectableIndex = 0;
 			}
 		}
 
 		/// <summary>前のSelectableを選択する。先頭の場合は何もしない</summary>
 		public void SelectPrevious() {
-			var previousIndex = CurrentSelectableIndex - 1;
-
+			var previousIndex = FindFocusableIndex(CurrentSelectableIndex - 1, -1, false);
 			if(previousIndex >= 0) {
 				CurrentSelectableIndex = previousIndex;
 			}
@@ -284,15 +280,33 @@ namespace ANest.UI {
 
 		/// <summary>前のSelectableを選択する。先頭の場合は末尾に戻る</summary>
 		public void SelectPreviousLoop() {
-			var previousIndex = CurrentSelectableIndex - 1;
-
+			var startIndex = CurrentSelectableIndex <= 0 ? m_childSelectableList.Count - 1 : CurrentSelectableIndex - 1;
+			var previousIndex = FindFocusableIndex(startIndex, -1, true);
 			if(previousIndex >= 0) {
 				CurrentSelectableIndex = previousIndex;
-			} else {
-				CurrentSelectableIndex = m_childSelectableList.Count - 1;
 			}
 		}
 		#endregion
+
+		/// <summary>指定位置からフォーカス可能なSelectableのインデックスを探索する</summary>
+		private int FindFocusableIndex(int startIndex, int step, bool loop) {
+			if(m_childSelectableList == null || m_childSelectableList.Count == 0) return -1;
+
+			var count = m_childSelectableList.Count;
+			var index = startIndex;
+			for(var inspected = 0; inspected < count; inspected++, index += step) {
+				if(loop) {
+					index = (index % count + count) % count;
+				} else if(index < 0 || index >= count) {
+					return -1;
+				}
+
+				var selectable = m_childSelectableList[index];
+				if(selectable != null && aGuiSelectableUtils.CanReceiveFocus(selectable)) return index;
+			}
+
+			return -1;
+		}
 
 		#region Protected Method
 		/// <summary>表示処理の実装。InitialGuard機能と初期選択の設定を行う</summary>
@@ -384,6 +398,7 @@ namespace ANest.UI {
 						if(!m_selectOnHover) return;
 						if(!selectable.IsActive()) return;
 						if(m_skipNonInteractableNavigation && !selectable.IsInteractable()) return;
+						if(!aGuiSelectableUtils.CanReceiveFocus(selectable)) return;
 
 						CurrentSelectable = selectable;
 					})
@@ -458,9 +473,9 @@ namespace ANest.UI {
 		/// <summary>初期設定のSelectable、または最後に選択されていたSelectableにフォーカスを戻す</summary>
 		protected virtual void SetInitialSelection() {
 			// リジューム設定が有効で、前回選択があった場合はそれを優先
-			if(m_defaultResumeSelectionOnShow && m_lastSelected != null && m_lastSelected.IsActive() && m_lastSelected.IsInteractable()) {
+			if(m_defaultResumeSelectionOnShow && m_lastSelected != null && m_lastSelected.IsActive() && m_lastSelected.IsInteractable() && aGuiSelectableUtils.CanReceiveFocus(m_lastSelected)) {
 				CurrentSelectable = m_lastSelected;
-			} else if(m_initialSelectable != null) {
+			} else if(m_initialSelectable != null && aGuiSelectableUtils.CanReceiveFocus(m_initialSelectable)) {
 				CurrentSelectable = m_initialSelectable;
 			}
 		}

@@ -6555,6 +6555,15 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   textAnimator: {fileID: 0}
+  preventFocus: 0
+  navigationBeforePreventFocus:
+    m_Mode: 0
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  hasNavigationBeforePreventFocus: 0
   useMultipleInputGuard: 1
   multipleInputGuardInterval: 0.5
   shortCut:
@@ -18158,7 +18167,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Navigation:
-    m_Mode: 4
+    m_Mode: 0
     m_WrapAround: 0
     m_SelectOnUp: {fileID: 1933421738900772682}
     m_SelectOnDown: {fileID: 6830703956267424934}
@@ -18214,6 +18223,15 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   textAnimator: {fileID: 0}
+  preventFocus: 1
+  navigationBeforePreventFocus:
+    m_Mode: 4
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 1933421738900772682}
+    m_SelectOnDown: {fileID: 6830703956267424934}
+    m_SelectOnLeft: {fileID: 2415354761722304570}
+    m_SelectOnRight: {fileID: 6426162603001756387}
+  hasNavigationBeforePreventFocus: 1
   useMultipleInputGuard: 1
   multipleInputGuardInterval: 0.5
   shortCut:
@@ -18538,7 +18556,7 @@ GameObject:
   - component: {fileID: 110244616843566224}
   - component: {fileID: 7556296337335714881}
   m_Layer: 5
-  m_Name: Button (1)
+  m_Name: ButtonNoFocus
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -19081,6 +19099,15 @@ MonoBehaviour:
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
   textAnimator: {fileID: 0}
+  preventFocus: 0
+  navigationBeforePreventFocus:
+    m_Mode: 0
+    m_WrapAround: 0
+    m_SelectOnUp: {fileID: 0}
+    m_SelectOnDown: {fileID: 0}
+    m_SelectOnLeft: {fileID: 0}
+    m_SelectOnRight: {fileID: 0}
+  hasNavigationBeforePreventFocus: 0
   useMultipleInputGuard: 1
   multipleInputGuardInterval: 0.5
   shortCut:
@@ -20463,7 +20490,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: ButtonButton
+  m_text: NoFocusButton
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}

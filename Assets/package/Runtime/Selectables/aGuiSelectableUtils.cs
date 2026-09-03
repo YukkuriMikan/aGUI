@@ -6,6 +6,12 @@ using UnityEngine.UI;
 namespace ANest.UI {
 	/// <summary>aButton・aToggle共通のSelectable探索ユーティリティ</summary>
 	public static class aGuiSelectableUtils {
+		/// <summary>指定したSelectableがフォーカスを取得できるかどうか</summary>
+		public static bool CanReceiveFocus(Selectable selectable) {
+			if(selectable == null) return false;
+			return selectable is not IPreventFocusSelectable focusSelectable || !focusSelectable.PreventFocus;
+		}
+
 		/// <summary>指定方向にあるInteractableなSelectableを探索する</summary>
 		public static Selectable FindInteractableSelectable(Selectable origin, MoveDirection direction) {
 			if(direction == MoveDirection.None) return null;
@@ -19,7 +25,7 @@ namespace ANest.UI {
 				if(next == null) return null;
 				if(!visited.Add(next)) return null;
 
-				if(next.IsActive() && next.IsInteractable()) {
+				if(next.IsActive() && next.IsInteractable() && CanReceiveFocus(next)) {
 					return next;
 				}
 

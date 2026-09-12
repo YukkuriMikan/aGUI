@@ -199,7 +199,8 @@ namespace ANest.UI {
 					rubyRect.anchorMin = new Vector2(0.5f, 0.5f);
 					rubyRect.anchorMax = new Vector2(0.5f, 0.5f);
 					rubyRect.pivot = new Vector2(0.5f, 0.5f);
-					rubyRect.sizeDelta = Vector2.zero;
+					rubyRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 0f);
+					rubyRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 0f);
 					var rubyTmp = rubyObj.GetComponent<TextMeshProUGUI>();
 					rubyTmp.textWrappingMode = TextWrappingModes.NoWrap;
 					rubyTmp.overflowMode = TextOverflowModes.Overflow;
@@ -264,7 +265,8 @@ namespace ANest.UI {
 				float rubyY = top + rubyFontSize * 0.6f + m_rubyOffset;
 				var rt = rubyObj.GetComponent<RectTransform>();
 				rt.localPosition = new Vector3(centerX, rubyY, 0f);
-				rt.sizeDelta = new Vector2(baseWidth + fontSize, rubyFontSize * 1.2f);
+				rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, baseWidth + fontSize);
+				rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rubyFontSize * 1.2f);
 				rubyIndex++;
 			}
 		}

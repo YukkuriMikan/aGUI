@@ -406,7 +406,10 @@ namespace ANest.UI {
 
 				// 選択された時の処理
 				selectable.OnSelectAsObservable()
-					.Subscribe(_ => CurrentSelectable = selectable)
+					.Subscribe(_ => {
+						aGuiManager.SetSelectedSelectable(selectable);
+						CurrentSelectable = selectable;
+					})
 					.AddTo(m_eventDisposables);
 			}
 		}

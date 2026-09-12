@@ -115,9 +115,12 @@ namespace ANest.UI {
 
 			// パディングの非対称分だけテキストの配置を補正
 			var textRect = m_targetText.rectTransform;
-			textRect.offsetMin = new Vector2(m_padding.left, m_padding.bottom);
-			textRect.offsetMax = new Vector2(-m_padding.right, -m_padding.top);
+			if(textRect != rectTransform) {
+				textRect.offsetMin = new Vector2(m_padding.left, m_padding.bottom);
+				textRect.offsetMax = new Vector2(-m_padding.right, -m_padding.top);
+			}
 
+			KillTweens();
 			if(deltaSize == Vector2.zero) return;
 
 			// 現在のピボットと基準ピボットの差分で位置を補正
@@ -127,14 +130,12 @@ namespace ANest.UI {
 				(pivot.y - targetPivot.y) * deltaSize.y
 				);
 
-			KillTweens();
-
 			if(m_useAnimation && Application.isPlaying) {
 				var startPos = rectTransform.anchoredPosition;
 				m_sizeTween = DOTween.To(
-					() => rectTransform.sizeDelta,
-					x => rectTransform.sizeDelta = x,
-					rectTransform.sizeDelta + deltaSize,
+					() => rectTransform.rect.size,
+					ApplySize,
+					targetSize,
 					m_animationDuration
 					).SetEase(m_ease).SetTarget(rectTransform);
 
@@ -153,6 +154,12 @@ namespace ANest.UI {
 				}
 				rectTransform.anchoredPosition += posOffset;
 			}
+		}
+
+		/// <summary>フィット対象の軸だけ実サイズを設定する</summary>
+		private void ApplySize(Vector2 size) {
+			if(m_fitWidth) RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
+			if(m_fitHeight) RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
 		}
 
 		/// <summary>実行中のTweenを停止する</summary>

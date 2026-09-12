@@ -9,7 +9,7 @@ namespace ANest.UI {
 		[SerializeField] private RectTransform target; // 同期対象
 		[Tooltip("位置(anchoredPosition)を同期するか")]
 		[SerializeField] private bool syncPosition = true; // 位置を同期するか
-		[Tooltip("サイズ(sizeDelta)を同期するか")]
+		[Tooltip("実際の矩形サイズを同期するか")]
 		[SerializeField] private bool syncSize = true; // サイズを同期するか
 		[Tooltip("ピボットを同期するか")]
 		[SerializeField] private bool syncPivot = true; // ピボットを同期するか
@@ -49,7 +49,10 @@ namespace ANest.UI {
 			}
 
 			if(syncSize) {
-				if(RectTransform.sizeDelta != target.sizeDelta) RectTransform.sizeDelta = target.sizeDelta;
+				var size = RectTransform.rect.size;
+				var targetSize = target.rect.size;
+				if(size.x != targetSize.x) RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetSize.x);
+				if(size.y != targetSize.y) RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, targetSize.y);
 			}
 		}
 		#endregion

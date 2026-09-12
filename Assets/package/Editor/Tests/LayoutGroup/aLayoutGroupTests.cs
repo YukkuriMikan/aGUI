@@ -14,7 +14,8 @@ public class aLayoutGroupTests {
 	public void RepeatedCircularAnimationStaysOnCircumference(bool interruptFirstTween) {
 		var root = new GameObject("Repeated circular animation", typeof(RectTransform));
 		try {
-			((RectTransform)root.transform).sizeDelta = new Vector2(300, 300);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300);
 			var layout = root.AddComponent<aLayoutGroupCircular>();
 			SetField(layout, "useAnimation", true);
 			SetField(layout, "useCircularMove", true);
@@ -57,7 +58,8 @@ public class aLayoutGroupTests {
 			var layout = (aLayoutGroupBase)root.AddComponent(layoutType);
 			var child = (RectTransform)new GameObject("Child", typeof(RectTransform)).transform;
 			child.SetParent(root.transform, false);
-			child.sizeDelta = new Vector2(100, 80);
+			child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
+			child.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 80);
 			child.anchoredPosition = new Vector2(40, -30);
 			layout.AddRectChild(child);
 			SetField(layout, "padding", new RectOffset(7, 13, 17, 23));
@@ -83,7 +85,8 @@ public class aLayoutGroupTests {
 	public void DestroyedChildrenAreRemovedWithoutRecollecting(System.Type layoutType, bool reverse) {
 		var root = new GameObject("Destroyed children", typeof(RectTransform));
 		try {
-			((RectTransform)root.transform).sizeDelta = new Vector2(500, 500);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
 			var layout = (aLayoutGroupBase)root.AddComponent(layoutType);
 			SetField(layout, "childForceExpandWidth", false);
 			SetField(layout, "childForceExpandHeight", false);
@@ -93,7 +96,8 @@ public class aLayoutGroupTests {
 			for(var i = 0; i < children.Length; i++) {
 				children[i] = (RectTransform)new GameObject("Child", typeof(RectTransform), typeof(Button)).transform;
 				children[i].SetParent(root.transform, false);
-				children[i].sizeDelta = new Vector2(100, 80);
+				children[i].SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
+				children[i].SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 80);
 				layout.AddRectChild(children[i]);
 			}
 			layout.Align();
@@ -137,7 +141,8 @@ public class aLayoutGroupTests {
 		var root = new GameObject("Grid", typeof(RectTransform));
 		try {
 			var rootRect = root.GetComponent<RectTransform>();
-			rootRect.sizeDelta = new Vector2(200f, 200f);
+			rootRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 200f);
+			rootRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 200f);
 
 			var buttons = new Button[4];
 			for (int i = 0; i < buttons.Length; i++) {
@@ -182,12 +187,14 @@ public class aLayoutGroupTests {
 		try {
 			for (int variant = 0; variant < roots.Length; variant++) {
 				var root = roots[variant] = new GameObject("Scale comparison", typeof(RectTransform));
-				((RectTransform)root.transform).sizeDelta = new Vector2(900f, 800f);
+				((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 900f);
+				((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 800f);
 				for (int i = 0; i < 3; i++) {
 					var child = new GameObject("Child", typeof(RectTransform)).GetComponent<RectTransform>();
 					children[variant, i] = child;
 					child.SetParent(root.transform, false);
-					child.sizeDelta = new Vector2(40f + 10f * i, 30f + 5f * i);
+					child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 40f + 10f * i);
+					child.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 30f + 5f * i);
 					child.pivot = new Vector2(0.2f * i, 1f - 0.3f * i);
 					// Xのみ、Yのみ、両軸の反転を非中央ピボットで比較する。
 					child.localScale = new Vector3(variant == 1 && i != 1 ? -2f : 2f,
@@ -236,12 +243,14 @@ public class aLayoutGroupTests {
 	public void ReusedBuffersMatchFreshLayoutAfterChildCountAndOrderChanges(System.Type layoutType) {
 		GameObject CreateRoot() {
 			var root = new GameObject("Buffer check", typeof(RectTransform));
-			((RectTransform)root.transform).sizeDelta = new Vector2(900, 800);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 900);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 800);
 			root.AddComponent(layoutType);
 			for(var i = 0; i < 17; i++) {
 				var child = new GameObject("Child " + i, typeof(RectTransform));
 				child.transform.SetParent(root.transform, false);
-				((RectTransform)child.transform).sizeDelta = new Vector2(40 + i, 30 + i);
+				((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 40 + i);
+				((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 30 + i);
 				if(i % 3 != 0) child.AddComponent<UnityEngine.UI.Button>();
 			}
 			return root;

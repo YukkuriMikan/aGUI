@@ -24,11 +24,13 @@ public class aLayoutGroupLifecycleTests {
     }
     static aLayoutGroupHorizontal Create() {
         var root = new GameObject("Lifecycle audit", typeof(RectTransform));
-        ((RectTransform)root.transform).sizeDelta = new Vector2(300, 300);
+        ((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300);
+        ((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300);
         var group = root.AddComponent<aLayoutGroupHorizontal>();
         var child = new GameObject("Child", typeof(RectTransform));
         child.transform.SetParent(root.transform, false);
-        ((RectTransform)child.transform).sizeDelta = new Vector2(100, 100);
+        ((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
+        ((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 100);
         return group;
     }
     [UnityTest]

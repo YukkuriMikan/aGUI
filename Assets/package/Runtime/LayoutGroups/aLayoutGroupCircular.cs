@@ -282,12 +282,6 @@ namespace ANest.UI {
 				var prev = FindAdjacent(i, -1);
 				var next = FindAdjacent(i, 1);
 
-				if(reverseArrangement) {
-					(var tempPrev, var tempNext) = (prev, next);
-					prev = tempNext;
-					next = tempPrev;
-				}
-
 				Selectable up;
 				Selectable down;
 				Selectable left;
@@ -429,10 +423,10 @@ namespace ANest.UI {
 			float endDeg;
 			switch(circularMoveType) {
 				case CircularMoveType.Clockwise:
-					endDeg = currentDeg + Mathf.Repeat(targetDeg - currentDeg, 360f);
+					endDeg = currentDeg - Mathf.Repeat(currentDeg - targetDeg, 360f);
 					break;
 				case CircularMoveType.CounterClockwise:
-					endDeg = currentDeg - Mathf.Repeat(currentDeg - targetDeg, 360f);
+					endDeg = currentDeg + Mathf.Repeat(targetDeg - currentDeg, 360f);
 					break;
 				default:
 					float deltaDeg = Mathf.DeltaAngle(currentDeg, targetDeg);

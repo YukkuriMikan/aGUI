@@ -135,7 +135,8 @@ public class aContentSizeFitterTests {
 			layout.AlignWithCollectionNonAnimate();
 			Assert.That(rect.rect.size, Is.EqualTo(new Vector2(100f, 80f)));
 			fitter.enabled = false;
-			child.sizeDelta = new Vector2(160f, 120f);
+			child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 160f);
+			child.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 120f);
 			layout.AlignWithCollectionNonAnimate();
 			Assert.That(rect.rect.size, Is.EqualTo(new Vector2(100f, 80f)));
 
@@ -155,7 +156,8 @@ public class aContentSizeFitterTests {
 		try {
 			var fitter = AddFitter(original);
 			original.AlignWithCollectionNonAnimate();
-			replacementChild.sizeDelta = new Vector2(160f, 120f);
+			replacementChild.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 160f);
+			replacementChild.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 120f);
 			replacement.AlignWithCollectionNonAnimate();
 			var rect = (RectTransform)original.transform;
 
@@ -164,10 +166,12 @@ public class aContentSizeFitterTests {
 			for(var frame = 0; frame < 10 && rect.rect.width != 160f; frame++) yield return null;
 			Assert.That(rect.rect.size, Is.EqualTo(new Vector2(160f, 120f)));
 
-			originalChild.sizeDelta = new Vector2(240f, 200f);
+			originalChild.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 240f);
+			originalChild.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 200f);
 			original.AlignWithCollectionNonAnimate();
 			Assert.That(rect.rect.size, Is.EqualTo(new Vector2(160f, 120f)), "Old target must be unsubscribed.");
-			replacementChild.sizeDelta = new Vector2(180f, 140f);
+			replacementChild.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 180f);
+			replacementChild.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 140f);
 			replacement.AlignWithCollectionNonAnimate();
 			Assert.That(rect.rect.size, Is.EqualTo(new Vector2(180f, 140f)));
 
@@ -286,7 +290,8 @@ public class aContentSizeFitterTests {
 	public void FittingMeasuresRotatedCornersWithAbsoluteScale(float angle, float scaleX, float scaleY) {
 		var layout = CreateLayout("Rotation", out var child);
 		try {
-			child.sizeDelta = new Vector2(100f, 20f);
+			child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100f);
+			child.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 20f);
 			child.pivot = new Vector2(0.2f, 0.8f);
 			child.localRotation = Quaternion.Euler(0, 0, angle);
 			child.localScale = new Vector3(scaleX, scaleY, 1);
@@ -318,7 +323,8 @@ public class aContentSizeFitterTests {
 		try {
 			for(var i = 0; i < 2; i++) {
 				roots[i] = new GameObject("Animated fitting", typeof(RectTransform));
-				((RectTransform)roots[i].transform).sizeDelta = new Vector2(300, 300);
+				((RectTransform)roots[i].transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300);
+				((RectTransform)roots[i].transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300);
 				var layout = roots[i].AddComponent<aLayoutGroupCircular>();
 				SetField(layout, "useAnimation", true);
 				SetField(layout, "useCircularMove", circularMove);
@@ -356,7 +362,8 @@ public class aContentSizeFitterTests {
 	public void CircularTargetReuseDoesNotChangeExcludedChildTween() {
 		var root = new GameObject("Independent circular paths", typeof(RectTransform));
 		try {
-			((RectTransform)root.transform).sizeDelta = new Vector2(300, 300);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300);
 			var layout = root.AddComponent<aLayoutGroupCircular>();
 			SetField(layout, "useAnimation", true);
 			SetField(layout, "setNavigation", false);
@@ -381,7 +388,8 @@ public class aContentSizeFitterTests {
 
 	private static aLayoutGroupVertical CreateLayout(string name, out RectTransform child) {
 		var root = new GameObject(name, typeof(RectTransform));
-		((RectTransform)root.transform).sizeDelta = new Vector2(300f, 300f);
+		((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300f);
+		((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300f);
 		var layout = root.AddComponent<aLayoutGroupVertical>();
 		SetField(layout, "childForceExpandWidth", false);
 		SetField(layout, "childForceExpandHeight", false);
@@ -394,7 +402,8 @@ public class aContentSizeFitterTests {
 	private static RectTransform CreateChild(Transform parent, string name, Vector2 size) {
 		var child = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
 		child.SetParent(parent, false);
-		child.sizeDelta = size;
+		child.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
+		child.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
 		return child;
 	}
 

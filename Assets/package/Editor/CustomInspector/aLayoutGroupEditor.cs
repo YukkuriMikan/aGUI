@@ -360,6 +360,7 @@ namespace ANest.UI.Editor {
 
 		private readonly struct RectTransformSnapshot {
 			public readonly Vector2 AnchoredPosition;
+			// プレビュー前のアンカー相対設定をそのまま復元するための差分。
 			public readonly Vector2 SizeDelta;
 			public readonly Vector2 AnchorMin;
 			public readonly Vector2 AnchorMax;

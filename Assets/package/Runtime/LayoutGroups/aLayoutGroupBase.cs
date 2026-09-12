@@ -416,11 +416,8 @@ namespace ANest.UI {
 			rect.anchorMin = anchorMin;
 			rect.anchorMax = anchorMax;
 
-			var sizeDelta = rect.sizeDelta;
-
-			sizeDelta.x = sizeX;
-			sizeDelta.y = sizeY;
-			rect.sizeDelta = sizeDelta;
+			rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, sizeX);
+			rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, sizeY);
 
 			Vector2 targetPos = new Vector2(
 				posX + sizeX * rect.pivot.x * scaleX,

@@ -85,6 +85,35 @@ namespace ANest.UI {
 			return null;
 		}
 
+		/// <summary>対象コンテナの履歴を遡り、選択可能な項目へ戻る</summary>
+		internal static T GoBack<T>(IReadOnlyList<T> candidates) where T : Selectable {
+			if(candidates == null) return null;
+			var node = m_selectionHistory.Last;
+			while(node != null) {
+				var previousNode = node.Previous;
+				var selectable = node.Value;
+				if(selectable == null) {
+					m_selectionHistory.Remove(node);
+				} else if(selectable is T candidate && Contains(candidates, candidate)) {
+					m_selectionHistory.Remove(node);
+					if(candidate.IsActive() && candidate.IsInteractable() && aGuiSelectableUtils.CanReceiveFocus(candidate)) {
+						m_currentSelectable = candidate;
+						return candidate;
+					}
+				}
+				// 別のコンテナの履歴は消費しない。
+				node = previousNode;
+			}
+			return null;
+		}
+
+		private static bool Contains<T>(IReadOnlyList<T> candidates, T target) where T : Selectable {
+			for(var i = 0; i < candidates.Count; i++) {
+				if(candidates[i] == target) return true;
+			}
+			return false;
+		}
+
 		/// <summary> 選択履歴をクリアする </summary>
 		public static void ClearSelectionHistory() {
 			m_selectionHistory.Clear();

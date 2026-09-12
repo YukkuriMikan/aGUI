@@ -6,7 +6,9 @@
         "UnityEditor.TestRunner",
         "aGUI",
         "Unity.TextMeshPro",
-        "UniRx"
+        "UniRx",
+        "UniTask",
+        "Unity.ugui"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

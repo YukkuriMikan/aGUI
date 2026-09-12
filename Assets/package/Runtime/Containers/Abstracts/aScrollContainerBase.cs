@@ -39,9 +39,7 @@ namespace ANest.UI {
 		/// <summary>選択対象が変わった際にスクロールを開始する</summary>
 		/// <param name="selectable">現在選択されたSelectable</param>
 		private void OnSelectChangedAction(T selectable) {
-			if(selectable == null) return;
-
-			var item = selectable.GetComponent<RectTransform>();
+			var item = selectable != null ? selectable.GetComponent<RectTransform>() : null;
 			var previousItem = m_previousSelectable != null ? m_previousSelectable.GetComponent<RectTransform>() : null;
 
 			ScrollToItem(m_scrollRect, item, previousItem, m_scrollDuration, m_scrollPadding, ref m_scrollCancelSource);
@@ -63,6 +61,11 @@ namespace ANest.UI {
 			float scrollDuration,
 			float scrollPadding,
 			ref CancellationTokenSource cancellationTokenSource) {
+
+			// 表示済みの項目への選択変更でも、前の選択に向かう移動を停止する。
+			cancellationTokenSource?.Cancel();
+			cancellationTokenSource?.Dispose();
+			cancellationTokenSource = null;
 
 			// ScrollRectが設定されていない場合は何もしない
 			if (scrollRect == null) {
@@ -169,9 +172,7 @@ namespace ANest.UI {
 				return;
 			}
 
-			// 既存のスクロールアニメーションをキャンセル
-			cancellationTokenSource?.Cancel();
-			cancellationTokenSource?.Dispose();
+			// 移動が必要な場合だけ新しいキャンセルトークンを作成する。
 			cancellationTokenSource = new CancellationTokenSource();
 
 			// 新しいスクロールアニメーションを開始

@@ -38,14 +38,16 @@ public class aLayoutGroupUGUITimingTests {
 			canvasRoot.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
 			var container = new GameObject("uGUI parent", typeof(RectTransform), typeof(UnityEngine.UI.HorizontalLayoutGroup));
 			container.transform.SetParent(canvasRoot.transform, false);
-			((RectTransform)container.transform).sizeDelta = new Vector2(800, 200);
+			((RectTransform)container.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 800);
+			((RectTransform)container.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 200);
 			var standard = container.GetComponent<UnityEngine.UI.HorizontalLayoutGroup>();
 			standard.childControlWidth = standard.childControlHeight = true;
 			standard.childForceExpandWidth = standard.childForceExpandHeight = false;
 			var row = new GameObject("aGUI row", typeof(RectTransform), typeof(UnityEngine.UI.LayoutElement));
 			row.transform.SetParent(container.transform, false);
 			var rowRect = (RectTransform)row.transform;
-			rowRect.sizeDelta = new Vector2(200, 100);
+			rowRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 200);
+			rowRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 100);
 			var element = row.GetComponent<UnityEngine.UI.LayoutElement>();
 			element.preferredWidth = 200;
 			element.preferredHeight = 100;
@@ -57,7 +59,8 @@ public class aLayoutGroupUGUITimingTests {
 			Set(group, "setNavigation", false);
 			var child = new GameObject("Child", typeof(RectTransform));
 			child.transform.SetParent(mode == aLayoutGroupBase.UpdateMode.InitializeOnly ? row.transform : canvasRoot.transform, false);
-			((RectTransform)child.transform).sizeDelta = new Vector2(100, 40);
+			((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
+			((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 40);
 			var probe = row.AddComponent<LayoutInputLateUpdateProbe>();
 			probe.Element = element;
 			probe.ChangeFrame = Time.frameCount + 1;
@@ -82,7 +85,8 @@ public class aLayoutGroupUGUITimingTests {
 	public IEnumerator AwaitableAndQueuedRequestsShareOneCompletedLayout() {
 		var root = new GameObject("Awaitable test", typeof(RectTransform));
 		try {
-			((RectTransform)root.transform).sizeDelta = new Vector2(300, 300);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300);
+			((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300);
 			var group = root.AddComponent<aLayoutGroupHorizontal>();
 			var child = new GameObject("Child", typeof(RectTransform));
 			child.transform.SetParent(root.transform, false);
@@ -103,7 +107,8 @@ public class aLayoutGroupUGUITimingTests {
 	public IEnumerator DestroyingPendingInitializationProducesNoCallbackOrException() {
 		var root = new GameObject("Destroyed initialization", typeof(RectTransform));
 		root.SetActive(false);
-		((RectTransform)root.transform).sizeDelta = new Vector2(300, 300);
+		((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 300);
+		((RectTransform)root.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 300);
 		var group = root.AddComponent<aLayoutGroupHorizontal>();
 		Set(group, "updateMode", aLayoutGroupBase.UpdateMode.InitializeOnly);
 		var observer = new Observer { Target = (RectTransform)root.transform };

@@ -84,7 +84,8 @@ namespace ANest.UI.Tests {
 			m_selectableObject1 = new GameObject("Selectable1", typeof(RectTransform), typeof(Image), typeof(Button));
 			m_selectableObject1.transform.SetParent(m_containerObject.transform);
 			m_rect1 = m_selectableObject1.GetComponent<RectTransform>();
-			m_rect1.sizeDelta = new Vector2(100, 50);
+			m_rect1.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
+			m_rect1.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
 			m_rect1.anchoredPosition = new Vector2(0, 0);
 
 			m_cursorObject = new GameObject("Cursor", typeof(RectTransform), typeof(Image));
@@ -158,8 +159,8 @@ namespace ANest.UI.Tests {
 			yield return null;
 
 			Vector2 expectedSize = m_rect1.rect.size + padding;
-			Assert.That(m_cursorImage.rectTransform.sizeDelta.x, Is.EqualTo(expectedSize.x).Within(0.01f));
-			Assert.That(m_cursorImage.rectTransform.sizeDelta.y, Is.EqualTo(expectedSize.y).Within(0.01f));
+			Assert.That(m_cursorImage.rectTransform.rect.width, Is.EqualTo(expectedSize.x).Within(0.01f));
+			Assert.That(m_cursorImage.rectTransform.rect.height, Is.EqualTo(expectedSize.y).Within(0.01f));
 		}
 
 		[UnityTest]

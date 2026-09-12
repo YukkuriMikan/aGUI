@@ -188,7 +188,7 @@ namespace ANest.UI {
 
 				if(shouldInstantMove) {
 					m_sizeTween?.Kill();
-					m_cursorRect.sizeDelta = targetSize;
+					ApplyCursorSize(targetSize);
 				} else {
 					if(m_sizeTween != null && m_sizeTween.IsActive()) {
 						// アニメーション中なら、ターゲットのサイズが変わった時だけ終着点を更新する（追従）
@@ -196,14 +196,19 @@ namespace ANest.UI {
 							m_sizeTween.ChangeEndValue(targetSize, true);
 							m_sizeTweenTarget = targetSize;
 						}
-					} else if((m_cursorRect.sizeDelta - targetSize).sqrMagnitude > TweenTargetEpsilon) {
+					} else if((m_cursorRect.rect.size - targetSize).sqrMagnitude > TweenTargetEpsilon) {
 						// 目標サイズに未到達の場合のみ Tween を生成する（毎フレームの生成を防ぐ）
-						m_sizeTween = DOTween.To(() => m_cursorRect.sizeDelta, x => m_cursorRect.sizeDelta = x, targetSize, m_sizeChangeDuration)
+						m_sizeTween = DOTween.To(() => m_cursorRect.rect.size, ApplyCursorSize, targetSize, m_sizeChangeDuration)
 							.SetEase(m_sizeChangeEase);
 						m_sizeTweenTarget = targetSize;
 					}
 				}
 			}
+		}
+
+		private void ApplyCursorSize(Vector2 size) {
+			m_cursorRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
+			m_cursorRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
 		}
 
 		/// <summary>ターゲット配下のテキストコンポーネントをキャッシュ付きで取得する</summary>

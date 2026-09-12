@@ -63,6 +63,7 @@ namespace ANest.UI {
 			newValues.m_anchoredPosition = rect.anchoredPosition;
 			newValues.m_anchorMin = rect.anchorMin;
 			newValues.m_anchorMax = rect.anchorMax;
+			// アンカーに対する差分を保存し、親のサイズ変更に追従する元の設定を復元する。
 			newValues.m_sizeDelta = rect.sizeDelta;
 			newValues.m_pivot = rect.pivot;
 			newValues.m_rect = rect.rect;

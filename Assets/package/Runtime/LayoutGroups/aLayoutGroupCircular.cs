@@ -45,7 +45,11 @@ namespace ANest.UI {
 		#endregion
 		
 		#region Fields
-		private readonly System.Collections.Generic.Dictionary<RectTransform, CircularTarget> _circularTargets = new();
+		private System.Collections.Generic.Dictionary<RectTransform, CircularTarget> _circularTargets = new();
+		private System.Collections.Generic.Dictionary<RectTransform, CircularTarget> _previousCircularTargets = new();
+		private readonly System.Collections.Generic.List<RectTransform> _navigationOrder = new();
+		private Selectable[] _navigationSelectables = System.Array.Empty<Selectable>();
+		private float[] _navigationAngles = System.Array.Empty<float>();
 		#endregion
 
 		#region Properties
@@ -83,8 +87,9 @@ namespace ANest.UI {
 		#endregion
 
 		#region Structs
-		private struct CircularTarget {
+		private sealed class CircularTarget {
 			public Vector2 CenterAnchored;
+			public Vector2 TargetPosition;
 			public float Radius;
 			public float TargetAngleRad;
 		}
@@ -110,10 +115,16 @@ namespace ANest.UI {
 			if(RectTransform == null) return;
 
 			int count = rectChildren.Count;
-			if(count == 0) return;
-
+			var previous = _previousCircularTargets;
+			_previousCircularTargets = _circularTargets;
+			_circularTargets = previous;
 			_circularTargets.Clear();
-			System.Collections.Generic.List<RectTransform> navOrder = setNavigation ? new System.Collections.Generic.List<RectTransform>(count) : null;
+			_navigationOrder.Clear();
+			if(count == 0) {
+				_previousCircularTargets.Clear();
+				return;
+			}
+			var navOrder = setNavigation ? _navigationOrder : null;
 
 			float width = RectTransform.rect.width;
 			float height = RectTransform.rect.height;
@@ -155,8 +166,8 @@ namespace ANest.UI {
 
 				GetChildSizes(child, 0, childControlWidth, childForceExpandWidth, out var sizeX);
 				GetChildSizes(child, 1, childControlHeight, childForceExpandHeight, out var sizeY);
-				float scaleX = childScaleWidth ? child.localScale.x : 1f;
-				float scaleY = childScaleHeight ? child.localScale.y : 1f;
+				float scaleX = childScaleWidth ? Mathf.Abs(child.localScale.x) : 1f;
+				float scaleY = childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f;
 
 				float childWidth = childControlWidth ? sizeX.preferred : sizeX.preferred;
 				float childHeight = childControlHeight ? sizeY.preferred : sizeY.preferred;
@@ -169,11 +180,12 @@ namespace ANest.UI {
 				float alignedPosX = posX - childWidth * child.pivot.x * scaleX;
 				float alignedPosY = posY - childHeight * (1f - child.pivot.y) * scaleY;
 
-				_circularTargets[child] = new CircularTarget {
-					CenterAnchored = new Vector2(center.x, -center.y),
-					Radius = actualRadius,
-					TargetAngleRad = rad
-				};
+				// 同じ子のデータだけを再利用する。対象外になった子のTweenとは共有しない。
+				if(!_previousCircularTargets.TryGetValue(child, out var target)) target = new CircularTarget();
+				target.CenterAnchored = new Vector2(center.x, -center.y);
+				target.Radius = actualRadius;
+				target.TargetAngleRad = rad;
+				_circularTargets[child] = target;
 
 				SetChildAlongBothAxes(child, alignedPosX, alignedPosY, childWidth, childHeight, scaleX, scaleY);
 
@@ -182,6 +194,7 @@ namespace ANest.UI {
 				}
 			}
 
+			_previousCircularTargets.Clear();
 			if(navOrder != null) {
 				ApplyNavigationCircular(navOrder, new Vector2(center.x, -center.y));
 			}
@@ -192,13 +205,18 @@ namespace ANest.UI {
 			if(!setNavigation) return;
 
 			int n = order.Count;
-			var selectables = new Selectable[n];
-			var angles = new float[n];
+			if(_navigationSelectables.Length < n) {
+				var capacity = Mathf.NextPowerOfTwo(n);
+				_navigationSelectables = new Selectable[capacity];
+				_navigationAngles = new float[capacity];
+			}
+			var selectables = _navigationSelectables;
+			var angles = _navigationAngles;
 
 			for (int i = 0; i < n; i++) {
 				var rect = order[i];
 				if(rect == null) continue;
-				selectables[i] = rect.GetComponent<Selectable>();
+				selectables[i] = GetSelectable(rect);
 
 				if(_circularTargets.TryGetValue(rect, out var info)) {
 					angles[i] = Mathf.Repeat(90f - info.TargetAngleRad * Mathf.Rad2Deg, 360f); // 0度=上, 時計回り
@@ -367,6 +385,16 @@ namespace ANest.UI {
 				nav.selectOnRight = right;
 				selectable.navigation = nav;
 			}
+			System.Array.Clear(selectables, 0, n);
+		}
+
+		internal override void OffsetChildLayoutTarget(RectTransform child, Vector2 offset) {
+			base.OffsetChildLayoutTarget(child, offset);
+			if(_circularTargets.TryGetValue(child, out var info)) {
+				// Tweenのクロージャと共有する中心・終了位置も新しい座標系へ移す。
+				info.CenterAnchored += offset;
+				info.TargetPosition += offset;
+			}
 		}
 
 		/// <summary> 必要に応じて円周移動のアニメーションを適用 </summary>
@@ -377,10 +405,12 @@ namespace ANest.UI {
 			}
 
 			m_lastTargetPositions[rect] = targetPos;
+			info.TargetPosition = targetPos;
 
 			Vector2 delta = rect.anchoredPosition - targetPos;
 			float distance = Mathf.Max(Mathf.Abs(delta.x), Mathf.Abs(delta.y));
-			bool shouldAnimate = !m_positionTweens.ContainsKey(rect) && distance <= animationDistanceThreshold && (animationMode == AnimationMode.Speed ? animationSpeed > 0f : animationDuration > 0f);
+			// 既存Tweenの有無で直線移動へ切り替えない。後続のKillTweenで置き換える。
+			bool shouldAnimate = distance <= animationDistanceThreshold && (animationMode == AnimationMode.Speed ? animationSpeed > 0f : animationDuration > 0f);
 			if(m_suppressAnimation || !shouldAnimate) {
 				base.ApplyPosition(rect, targetPos);
 				return;
@@ -391,7 +421,7 @@ namespace ANest.UI {
 			float currentAngleRad;
 			{
 				Vector2 currentVec = rect.anchoredPosition - info.CenterAnchored;
-				currentAngleRad = Mathf.Atan2(-currentVec.y, currentVec.x);
+				currentAngleRad = Mathf.Atan2(currentVec.y, currentVec.x);
 			}
 
 			float currentDeg = currentAngleRad * Mathf.Rad2Deg;
@@ -418,6 +448,10 @@ namespace ANest.UI {
 				return;
 			}
 
+			StartCircularTween(rect, info, currentDeg, endDeg, duration);
+		}
+
+		private void StartCircularTween(RectTransform rect, CircularTarget info, float currentDeg, float endDeg, float duration) {
 			Tween tween = DG.Tweening.DOTween.To(
 				() => currentDeg,
 				v => {
@@ -434,7 +468,7 @@ namespace ANest.UI {
 				tween.SetEase(animationEase);
 			}
 			tween.SetLink(rect.gameObject);
-			tween.OnComplete(() => rect.anchoredPosition = targetPos);
+			tween.OnComplete(() => rect.anchoredPosition = info.TargetPosition);
 			m_positionTweens[rect] = tween;
 		}
 		#endregion

@@ -29,6 +29,7 @@ namespace ANest.UI {
 		// 同じ点を別の計算経路で求めた際に生じる丸め誤差を吸収する。
 		// 座標値に対して十分小さく、float の数 ULP 程度になる相対値を使用する。
 		private const float PointMergeRelativeTolerance = 1e-6f;
+		private const float ReversalDotThreshold = -0.999999f;
 
 		#region SerializeFields
 		[Tooltip("線の太さ（ローカル座標）")]
@@ -365,8 +366,7 @@ namespace ANest.UI {
 			var vertPairCount = baseCount + (isLoop ? 1 : 0);
 			for (var i = 0; i < vertPairCount - 1; i++) {
 				var baseIndex = i * 2;
-				vh.AddTriangle(baseIndex, baseIndex + 1, baseIndex + 3);
-				vh.AddTriangle(baseIndex, baseIndex + 3, baseIndex + 2);
+				AddStripQuad(vh, baseIndex, baseIndex + 1, baseIndex + 2, baseIndex + 3);
 			}
 
 
@@ -381,14 +381,21 @@ namespace ANest.UI {
 			if(count < 2) return;
 
 			for (var i = 0; i < count - 1; i++) {
-				var trimStart = isLoop || i > 0;
-				var trimEnd = isLoop || i < count - 2;
+				var trimStart = (isLoop || i > 0) && !IsReversalAt(points, i);
+				var trimEnd = (isLoop || i < count - 2) && !IsReversalAt(points, i + 1);
 				AddSegmentStrip(vh, points[i], points[i + 1], lengths[i], lengths[i + 1], totalLength, trimStart, trimEnd);
 			}
 
 			if(isLoop) {
-				AddSegmentStrip(vh, points[count - 1], points[0], lengths[count - 1], totalLength, totalLength, true, true);
+				AddSegmentStrip(vh, points[count - 1], points[0], lengths[count - 1], totalLength, totalLength,
+					!IsReversalAt(points, count - 1), !IsReversalAt(points, 0));
 			}
+		}
+
+		private static bool IsReversalAt(IReadOnlyList<Vector2> points, int index) {
+			var incoming = (points[index] - points[(index - 1 + points.Count) % points.Count]).normalized;
+			var outgoing = (points[(index + 1) % points.Count] - points[index]).normalized;
+			return Vector2.Dot(incoming, outgoing) <= ReversalDotThreshold;
 		}
 
 		/// <summary>1セグメント分のストリップを追加する</summary>
@@ -412,9 +419,9 @@ namespace ANest.UI {
 			var uvXEnd = (endNormalized * m_uvTiling.x) + m_uvOffset.x;
 
 
-			var startCut = trimStart ? startHalf : 0f;
-			var endCut = trimEnd ? endHalf : 0f;
 			var segmentLength = Vector2.Distance(start, end);
+			var startCut = trimStart ? Mathf.Min(startHalf, segmentLength * 0.5f) : 0f;
+			var endCut = trimEnd ? Mathf.Min(endHalf, segmentLength * 0.5f) : 0f;
 			if(segmentLength <= startCut + endCut) return;
 
 			var startPos = start + dir * startCut;
@@ -429,8 +436,7 @@ namespace ANest.UI {
 			AddVertex(vh, endPos - endOffset, TransformUV(new Vector2(uvXEnd, uvBottom)));
 			AddVertex(vh, endPos + endOffset, TransformUV(new Vector2(uvXEnd, uvTop)));
 
-			vh.AddTriangle(baseIndex, baseIndex + 1, baseIndex + 3);
-			vh.AddTriangle(baseIndex, baseIndex + 3, baseIndex + 2);
+			AddStripQuad(vh, baseIndex, baseIndex + 1, baseIndex + 2, baseIndex + 3);
 		}
 
 		/// <summary>角部分のメッシュを追加する</summary>
@@ -462,6 +468,13 @@ namespace ANest.UI {
 
 				var normalPrev = new Vector2(-dirPrev.y, dirPrev.x);
 				var normalNext = new Vector2(-dirNext.y, dirNext.x);
+				if(dot <= ReversalDotThreshold) {
+					// 折り返しでは通常の角ストリップが一直線に潰れるため、端まで線分を残す。
+					if(cornerType == CornerType.Round) {
+						AddCapMesh(vh, current, dirPrev, normalPrev, lengths[i], totalLength, CapType.Round, m_cornerVertices, false);
+					}
+					continue;
+				}
 				// 外側（凸側）の法線を使用する。左回り（cross>0）の場合は右側の法線、右回りの場合は左側の法線を選ぶ。
 				var fromNormal = leftTurn ? -normalPrev : normalPrev;
 				var toNormal = leftTurn ? -normalNext : normalNext;
@@ -470,6 +483,9 @@ namespace ANest.UI {
 				var normalized = totalLength <= Mathf.Epsilon ? 0f : Mathf.Clamp01(lengthAt / totalLength);
 				var halfThickness = EvaluateThickness(normalized) * 0.5f;
 				if(halfThickness <= Mathf.Epsilon) continue;
+				// 隣接ストリップと同じ切り詰め量を使い、短い線分の端を越えない。
+				var cutPrev = Mathf.Min(halfThickness, Vector2.Distance(prev, current) * 0.5f);
+				var cutNext = Mathf.Min(halfThickness, Vector2.Distance(current, next) * 0.5f);
 
 				var uvX = (normalized * m_uvTiling.x) + m_uvOffset.x;
 				var uvBottom = m_uvOffset.y;
@@ -481,17 +497,17 @@ namespace ANest.UI {
 
 				switch(cornerType) {
 					case CornerType.Bevel:
-						AddBevelCornerMesh(vh, current, fromNormal, toNormal, halfThickness, uvX, uvBottom, uvTop, leftTurn);
+						AddBevelCornerMesh(vh, current, fromNormal, toNormal, halfThickness, cutPrev, cutNext, uvX, uvBottom, uvTop, leftTurn);
 						break;
 					case CornerType.Round:
-						AddRoundCornerMesh(vh, current, fromNormal, toNormal, halfThickness, uvX, uvBottom, uvTop, leftTurn);
+						AddRoundCornerMesh(vh, current, fromNormal, toNormal, halfThickness, cutPrev, cutNext, uvX, uvBottom, uvTop, leftTurn);
 						break;
 				}
 			}
 		}
 
 		/// <summary>ベベルタイプの角メッシュを追加する</summary>
-		private void AddBevelCornerMesh(VertexHelper vh, Vector2 center, Vector2 fromNormal, Vector2 toNormal, float halfThickness, float uvX, float uvBottom, float uvTop, bool leftTurn) {
+		private void AddBevelCornerMesh(VertexHelper vh, Vector2 center, Vector2 fromNormal, Vector2 toNormal, float halfThickness, float cutPrev, float cutNext, float uvX, float uvBottom, float uvTop, bool leftTurn) {
 			// セグメントの進行方向を復元（法線の外向き符号を考慮）
 			var baseFromDir = new Vector2(fromNormal.y, -fromNormal.x);
 			var baseToDir = new Vector2(toNormal.y, -toNormal.x);
@@ -499,10 +515,10 @@ namespace ANest.UI {
 			var dirNext = leftTurn ? -baseToDir : baseToDir;
 
 			// トリム済みストリップ端点（外側／内側）を算出
-			var outerPrev = center - dirPrev * halfThickness + fromNormal * halfThickness;
-			var innerPrev = center - dirPrev * halfThickness - fromNormal * halfThickness;
-			var outerNext = center + dirNext * halfThickness + toNormal * halfThickness;
-			var innerNext = center + dirNext * halfThickness - toNormal * halfThickness;
+			var outerPrev = center - dirPrev * cutPrev + fromNormal * halfThickness;
+			var innerPrev = center - dirPrev * cutPrev - fromNormal * halfThickness;
+			var outerNext = center + dirNext * cutNext + toNormal * halfThickness;
+			var innerNext = center + dirNext * cutNext - toNormal * halfThickness;
 
 			var baseIndex = vh.currentVertCount;
 			AddVertex(vh, outerPrev, TransformUV(new Vector2(uvX, uvTop)));
@@ -510,17 +526,11 @@ namespace ANest.UI {
 			AddVertex(vh, innerPrev, TransformUV(new Vector2(uvX, uvBottom)));
 			AddVertex(vh, innerNext, TransformUV(new Vector2(uvX, uvBottom)));
 
-			if(leftTurn) {
-				vh.AddTriangle(baseIndex, baseIndex + 1, baseIndex + 3);
-				vh.AddTriangle(baseIndex, baseIndex + 3, baseIndex + 2);
-			} else {
-				vh.AddTriangle(baseIndex, baseIndex + 1, baseIndex + 2);
-				vh.AddTriangle(baseIndex + 1, baseIndex + 3, baseIndex + 2);
-			}
+			AddStripQuad(vh, baseIndex + 2, baseIndex, baseIndex + 3, baseIndex + 1);
 		}
 
 		/// <summary>丸め角タイプのメッシュを追加する</summary>
-		private void AddRoundCornerMesh(VertexHelper vh, Vector2 center, Vector2 fromNormal, Vector2 toNormal, float halfThickness, float uvX, float uvBottom, float uvTop, bool leftTurn) {
+		private void AddRoundCornerMesh(VertexHelper vh, Vector2 center, Vector2 fromNormal, Vector2 toNormal, float halfThickness, float cutPrev, float cutNext, float uvX, float uvBottom, float uvTop, bool leftTurn) {
 			var segments = Mathf.Max(1, m_cornerVertices);
 			var baseIndex = vh.currentVertCount;
 
@@ -531,10 +541,10 @@ namespace ANest.UI {
 			var dirNext = leftTurn ? -baseToDir : baseToDir;
 
 			// トリム後の外側／内側端点（メインストリップ端に対応）
-			var outerStart = center - dirPrev * halfThickness + fromNormal * halfThickness;
-			var outerEnd = center + dirNext * halfThickness + toNormal * halfThickness;
-			var innerStart = center - dirPrev * halfThickness - fromNormal * halfThickness;
-			var innerEnd = center + dirNext * halfThickness - toNormal * halfThickness;
+			var outerStart = center - dirPrev * cutPrev + fromNormal * halfThickness;
+			var outerEnd = center + dirNext * cutNext + toNormal * halfThickness;
+			var innerStart = center - dirPrev * cutPrev - fromNormal * halfThickness;
+			var innerEnd = center + dirNext * cutNext - toNormal * halfThickness;
 
 			// 内外オフセットラインの交点を制御点として使用（平行時は二等分線で代替）
 			bool TryIntersect(Vector2 p, Vector2 dir, Vector2 q, Vector2 dirQ, out Vector2 hit) {
@@ -574,13 +584,7 @@ namespace ANest.UI {
 				var idxOuter0 = idxInner0 + 1;
 				var idxInner1 = idxInner0 + 2;
 				var idxOuter1 = idxInner0 + 3;
-				if(leftTurn) {
-					vh.AddTriangle(idxInner0, idxOuter0, idxOuter1);
-					vh.AddTriangle(idxInner0, idxOuter1, idxInner1);
-				} else {
-					vh.AddTriangle(idxInner0, idxOuter1, idxOuter0);
-					vh.AddTriangle(idxInner0, idxInner1, idxOuter1);
-				}
+				AddStripQuad(vh, idxInner0, idxOuter0, idxInner1, idxOuter1);
 			}
 		}
 
@@ -629,8 +633,7 @@ namespace ANest.UI {
 				AddVertex(vh, p2, TransformUV(new Vector2(uvX, uvTop)));
 				AddVertex(vh, p3, TransformUV(new Vector2(uvX, uvBottom)));
 
-				vh.AddTriangle(baseIndex, baseIndex + 1, baseIndex + 2);
-				vh.AddTriangle(baseIndex, baseIndex + 2, baseIndex + 3);
+				AddStripQuad(vh, baseIndex, baseIndex + 1, baseIndex + 3, baseIndex + 2);
 				return;
 			}
 
@@ -654,8 +657,8 @@ namespace ANest.UI {
 				}
 
 				for (var i = 0; i < segments; i++) {
-					if(isStart) vh.AddTriangle(baseIndex, baseIndex + i + 2, baseIndex + i + 1);
-					else vh.AddTriangle(baseIndex, baseIndex + i + 1, baseIndex + i + 2);
+					// 弧の角度は始点・終点とも反時計回りに増えるため、三角形は常に逆順。
+					vh.AddTriangle(baseIndex, baseIndex + i + 2, baseIndex + i + 1);
 				}
 			}
 		}
@@ -672,6 +675,60 @@ namespace ANest.UI {
 
 			AddVertex(vh, point - offset, TransformUV(new Vector2(uvX, uvBottom)));
 			AddVertex(vh, point + offset, TransformUV(new Vector2(uvX, uvTop)));
+		}
+
+		/// <summary>凹形状では対角線を選び直し、交差したストリップは中心線で分割する。</summary>
+		private static void AddStripQuad(VertexHelper vh, int startBottom, int startTop, int endBottom, int endTop) {
+			var a = UIVertex.simpleVert;
+			var b = UIVertex.simpleVert;
+			var c = UIVertex.simpleVert;
+			var d = UIVertex.simpleVert;
+			vh.PopulateUIVertex(ref a, startBottom);
+			vh.PopulateUIVertex(ref b, startTop);
+			vh.PopulateUIVertex(ref c, endBottom);
+			vh.PopulateUIVertex(ref d, endTop);
+			var firstArea = SignedArea(a.position, b.position, d.position);
+			var secondArea = SignedArea(a.position, d.position, c.position);
+			if(SameFacing(firstArea, secondArea)) {
+				AddClockwiseTriangle(vh, startBottom, startTop, endTop, firstArea);
+				AddClockwiseTriangle(vh, startBottom, endTop, endBottom, secondArea);
+				return;
+			}
+
+			firstArea = SignedArea(a.position, b.position, c.position);
+			secondArea = SignedArea(b.position, d.position, c.position);
+			if(SameFacing(firstArea, secondArea)) {
+				AddClockwiseTriangle(vh, startBottom, startTop, endBottom, firstArea);
+				AddClockwiseTriangle(vh, startTop, endTop, endBottom, secondArea);
+				return;
+			}
+
+			// 太い線の急カーブでは左右の境界が交差し、対角線だけでは中心線付近が欠ける。
+			// 位置とUVの中点を使って左右を別々に埋める。通常の区間には頂点を増やさない。
+			var startMid = a;
+			startMid.position = (a.position + b.position) * 0.5f;
+			startMid.uv0 = (a.uv0 + b.uv0) * 0.5f;
+			var endMid = c;
+			endMid.position = (c.position + d.position) * 0.5f;
+			endMid.uv0 = (c.uv0 + d.uv0) * 0.5f;
+			var midIndex = vh.currentVertCount;
+			vh.AddVert(startMid);
+			vh.AddVert(endMid);
+			AddClockwiseTriangle(vh, startBottom, midIndex, midIndex + 1, SignedArea(a.position, startMid.position, endMid.position));
+			AddClockwiseTriangle(vh, startBottom, midIndex + 1, endBottom, SignedArea(a.position, endMid.position, c.position));
+			AddClockwiseTriangle(vh, midIndex, startTop, endTop, SignedArea(startMid.position, b.position, d.position));
+			AddClockwiseTriangle(vh, midIndex, endTop, midIndex + 1, SignedArea(startMid.position, d.position, endMid.position));
+		}
+
+		private static float SignedArea(Vector3 a, Vector3 b, Vector3 c) {
+			return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+		}
+
+		private static bool SameFacing(float a, float b) => (a <= 0f && b <= 0f) || (a >= 0f && b >= 0f);
+
+		private static void AddClockwiseTriangle(VertexHelper vh, int a, int b, int c, float area) {
+			if(area > 0f) vh.AddTriangle(a, c, b);
+			else vh.AddTriangle(a, b, c);
 		}
 
 		/// <summary>指定座標とUVで頂点を追加する</summary>

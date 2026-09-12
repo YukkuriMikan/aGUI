@@ -13,9 +13,39 @@ namespace ANest.UI {
 
 		#region Fields
 		protected readonly List<RectTransform> m_orderBuffer = new(); // 子の並び順を都度newせず再利用するバッファ
+		protected float[] m_allocatedSlotsScaled = System.Array.Empty<float>();
+		protected float[] m_finalWidths = System.Array.Empty<float>();
+		protected float[] m_finalHeights = System.Array.Empty<float>();
+		protected float[] m_crossPositions = System.Array.Empty<float>();
 		#endregion
 
 		#region Methods
+		/// <summary>破棄済みの子だけを除去する。再収集せず、明示的な子の選択と順序を維持する。</summary>
+		protected void RemoveMissingChildren() {
+			var remaining = 0;
+			for(var i = 0; i < rectChildren.Count; i++) {
+				var child = rectChildren[i];
+				if(child == null) {
+					KillTween(child);
+					if(!ReferenceEquals(child, null)) m_lastTargetPositions.Remove(child);
+					continue;
+				}
+				if(remaining != i) rectChildren[remaining] = child;
+				remaining++;
+			}
+			if(remaining < rectChildren.Count) rectChildren.RemoveRange(remaining, rectChildren.Count - remaining);
+			if(remaining == 0) m_orderBuffer.Clear();
+		}
+
+		protected void EnsureLayoutBufferCapacity(int count) {
+			if(m_finalWidths.Length >= count) return;
+			var capacity = Mathf.NextPowerOfTwo(count);
+			m_allocatedSlotsScaled = new float[capacity];
+			m_finalWidths = new float[capacity];
+			m_finalHeights = new float[capacity];
+			m_crossPositions = new float[capacity];
+		}
+
 		/// <summary> 線形方向のNavigationを設定 </summary>
 		protected void ApplyNavigationLinear(List<RectTransform> order, bool isHorizontal) {
 			if(!setNavigation) return;
@@ -26,7 +56,7 @@ namespace ANest.UI {
 			for (int i = 0; i < n; i++) {
 				var current = order[i];
 				if(current == null) continue;
-				var selectable = current.GetComponent<Selectable>();
+				var selectable = GetSelectable(current);
 				if(selectable == null) {
 					continue;
 				}
@@ -40,14 +70,14 @@ namespace ANest.UI {
 				for (int j = i + 1; j < n; j++) {
 					var next = order[j];
 					if(next == null) continue;
-					var s = next.GetComponent<Selectable>();
+					var s = GetSelectable(next);
 					if(s != null) {
 						nextSelectable = s;
 						break;
 					}
 				}
 
-				var prev = prevSelectable != null ? prevSelectable.GetComponent<Selectable>() : null;
+				var prev = GetSelectable(prevSelectable);
 
 				if(isHorizontal) {
 					nav.selectOnLeft = prev;
@@ -70,7 +100,7 @@ namespace ANest.UI {
 				Selectable last = null;
 				
 				for (int i = 0; i < n; i++) {
-					var s = order[i] != null ? order[i].GetComponent<Selectable>() : null;
+					var s = GetSelectable(order[i]);
 					if(s != null) {
 						first = s;
 						break;
@@ -78,7 +108,7 @@ namespace ANest.UI {
 				}
 				
 				for (int i = n - 1; i >= 0; i--) {
-					var s = order[i] != null ? order[i].GetComponent<Selectable>() : null;
+					var s = GetSelectable(order[i]);
 					if(s != null) {
 						last = s;
 						break;

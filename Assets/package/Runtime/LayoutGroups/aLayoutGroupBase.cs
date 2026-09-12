@@ -5,7 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
 using UniRx;
-using UniRx.Triggers;
 
 namespace ANest.UI {
 	/// <summary>LayoutGroupを継承せず子RectTransformを直接制御し、uGUI LayoutGroup相当の配置・アニメーション・Navigation設定を提供する基底クラス。</summary>
@@ -42,10 +41,8 @@ namespace ANest.UI {
 		[SerializeField] protected bool reverseArrangement; // 並び順を反転するか
 		[Tooltip("レイアウトを更新するタイミング")]
 		[SerializeField] protected UpdateMode updateMode = UpdateMode.Manual; // レイアウト更新モード
-		[Tooltip("レイアウト更新の実行タイミング")]
-		[SerializeField] protected UpdateTiming updateTiming = UpdateTiming.Immediate; // レイアウト実行タイミング
-		[Tooltip("整列実行を1フレーム遅らせるか")]
-		[SerializeField] protected bool delayAlignByOneFrame; // 整列を1フレーム遅延するか
+		// 旧シーン・派生クラスとの互換用。自動整列は常にuGUI更新後に行う。
+		[SerializeField, HideInInspector] protected UpdateTiming updateTiming = UpdateTiming.Immediate;
 		[Tooltip("子の幅を制御するか")]
 		[SerializeField] protected bool childControlWidth = false; // 子幅を制御するか
 		[Tooltip("子の高さを制御するか")]
@@ -89,10 +86,10 @@ namespace ANest.UI {
 		private RectTransform m_rectTransform;                                                               // 自身のRectTransformキャッシュ
 		private bool m_initialized;                                                                          // 初期化済みか
 		private bool m_dirty;                                                                                // 再計算が必要か
-		private bool m_isScheduled = false;
-		private bool m_isFrameDelayScheduled;
-		private bool m_delayedAlignWithCollection;
-		private IDisposable m_scheduledLayoutProcess;
+		private bool m_isScheduled;
+		private bool m_pendingWithCollection;
+		private bool m_pendingInitialization;
+		private uint m_layoutRequestVersion; // 古い待機処理を、実行せずに失効させる。
 
 		private Subject<Rect> m_completeLayoutSubject = new(); // レイアウト完了通知Subject
 		#endregion
@@ -103,6 +100,9 @@ namespace ANest.UI {
 
 		/// <summary> レイアウト完了を通知するObservable </summary>
 		public IObservable<Rect> CompleteLayoutAsObservable => m_completeLayoutSubject;
+
+		/// <summary>少なくとも一度レイアウトが完了しているか（Fitterの再同期用）</summary>
+		internal bool HasCompletedLayout { get; private set; }
 
 		/// <summary> アニメーションの再生方式 </summary>
 		public AnimationMode Mode => animationMode;
@@ -123,6 +123,7 @@ namespace ANest.UI {
 		#region Unity Methods
 		/// <summary> 有効化時の初期化 </summary>
 		protected virtual void OnEnable() {
+			CancelPendingLayout();
 			m_initialized = false;
 			m_dirty = false;
 			if(updateMode == UpdateMode.InitializeOnly) {
@@ -134,48 +135,27 @@ namespace ANest.UI {
 		protected virtual void OnDisable() {
 			m_initialized = false;
 			m_dirty = false;
-			m_isScheduled = false;
-			m_isFrameDelayScheduled = false;
-
-			m_scheduledLayoutProcess?.Dispose();
-			m_scheduledLayoutProcess = null;
+			CancelPendingLayout();
 			KillAllTweens();
 		}
 
 		/// <summary> 破棄時にTweenを停止 </summary>
 		protected virtual void OnDestroy() {
-			m_isFrameDelayScheduled = false;
-			m_scheduledLayoutProcess?.Dispose();
-			m_scheduledLayoutProcess = null;
+			CancelPendingLayout();
 			KillAllTweens();
 		}
 
 		/// <summary> 子Transform変更時の処理 </summary>
 		protected virtual void OnTransformChildrenChanged() {
+			if(!isActiveAndEnabled) return;
 			if(updateMode == UpdateMode.OnTransformChildrenChanged) {
-				if(updateTiming == UpdateTiming.Immediate) {
-					AlignWithCollection();
-				} else if(updateTiming == UpdateTiming.Update) {
-					if(m_isScheduled) return;
-					m_isScheduled = true;
-
-					m_scheduledLayoutProcess = this.UpdateAsObservable()
-						.First()
-						.Subscribe(_ => AlignWithCollection());
-				} else if(updateTiming == UpdateTiming.LateUpdate) {
-					if(m_isScheduled) return;
-					m_isScheduled = true;
-
-					m_scheduledLayoutProcess = this.LateUpdateAsObservable()
-						.First()
-						.Subscribe(_ => AlignWithCollection());
-				}
+				ScheduleLayout(true, false);
 			}
 		}
 
 		/// <summary> RectTransform寸法変更時の処理 </summary>
 		protected virtual void OnRectTransformDimensionsChange() {
-			if(!gameObject.activeSelf) return;
+			if(!isActiveAndEnabled) return;
 			if(updateMode != UpdateMode.InitializeOnly) return;
 			m_dirty = true;
 		}
@@ -193,80 +173,138 @@ namespace ANest.UI {
 		/// <summary> アニメーションを強制無効化してレイアウトを適用 </summary>
 		[ContextMenu("Rebuild Layout")]
 		public void AlignWithCollectionNonAnimate() {
-			if(!gameObject.activeSelf) return; // 無効時は処理しない
-			m_isScheduled = false;
+			AlignNonAnimate(true);
+		}
+
+		/// <summary>収集の有無を指定して、遅延・アニメーションなしで整列する。</summary>
+		public void AlignNonAnimate(bool collectChildren) {
+			if(!CanAlignNow()) return;
+			CancelPendingLayout();
 
 			bool previousSuppress = useAnimation; // 元の抑制状態を保存
 			useAnimation = false;
 			KillAllTweens();
-			AlignWithCollectionCore();
-			useAnimation = previousSuppress;
+			try {
+				AlignWithCollectionCore(collectChildren);
+			} finally {
+				useAnimation = previousSuppress;
+			}
 		}
 
-		/// <summary> 子要素を収集して整列 </summary>
+		/// <summary>子要素を収集して即時整列する。uGUI待ちにはAlignWithFrameWaitAndCollectionAsyncを使用する。</summary>
 		public void AlignWithCollection() {
-			if(!gameObject.activeSelf) return; // 無効時は処理しない
-			if(delayAlignByOneFrame) {
-				ScheduleDelayedAlign(true);
-				return;
-			}
+			if(!CanAlignNow()) return;
 
+			CancelPendingLayout();
 			AlignWithCollectionCore();
 		}
 
 		/// <summary> 子要素を収集して整列（即時実行本体） </summary>
-		private void AlignWithCollectionCore() {
-			m_isScheduled = false;
-
+		private void AlignWithCollectionCore(bool collectChildren = true) {
 			m_lastTargetPositions.Clear();
-			CollectRectChildren();
+			if(collectChildren) CollectRectChildren();
 			CalculateLayout();
-			m_completeLayoutSubject.OnNext(CalculateContentRect());
+			CompleteLayout();
 		}
 
-		/// <summary> 子要素を整列 </summary>
+		/// <summary>収集済みの子要素を即時整列する。uGUI待ちにはAlignWithFrameWaitAsyncを使用する。</summary>
 		public void Align() {
-			if(!gameObject.activeSelf) return; // 無効時は処理しない
-			if(delayAlignByOneFrame) {
-				ScheduleDelayedAlign(false);
-				return;
-			}
+			if(!CanAlignNow()) return;
 
+			CancelPendingLayout();
 			AlignCore();
 		}
 
 		/// <summary> 子要素を整列（即時実行本体） </summary>
 		private void AlignCore() {
-			m_isScheduled = false;
-
 			m_lastTargetPositions.Clear();
 			if(rectChildren.Count == 0) {
 				CollectRectChildren();
 			}
 			CalculateLayout();
+			CompleteLayout();
+		}
+
+		private bool CanAlignNow() {
+			// 編集時の手動Rebuildは、無効なコンポーネントでも使用できる。
+			return Application.isPlaying ? isActiveAndEnabled : gameObject.activeInHierarchy;
+		}
+
+		private bool HasUsableSize() {
+			if(RectTransform == null) return false;
+			var size = RectTransform.rect.size;
+			return size.x > 0f && size.y > 0f;
+		}
+
+		private void CompleteLayout() {
+			HasCompletedLayout = true;
+			if(updateMode == UpdateMode.InitializeOnly && isActiveAndEnabled && HasUsableSize()) m_initialized = true;
 			m_completeLayoutSubject.OnNext(CalculateContentRect());
 		}
 
-		/// <summary>1フレーム遅延の整列要求をスケジュールする</summary>
-		private void ScheduleDelayedAlign(bool withCollection) {
-			// 収集ありの要求は同フレーム内の後続要求で打ち消さない
-			m_delayedAlignWithCollection |= withCollection;
-			if(m_isFrameDelayScheduled) return;
-
-			m_isFrameDelayScheduled = true;
-			AlignDelayedByOneFrameAsync().Forget();
+		/// <summary>フィット後の寸法で収集済みの子を再配置する。完了通知は再送せず、再帰的なフィットを防ぐ。</summary>
+		internal void RecalculateLayoutAfterFitting() {
+			var previousSuppress = m_suppressAnimation;
+			m_suppressAnimation |= !Application.isPlaying;
+			try {
+				m_lastTargetPositions.Clear();
+				CalculateLayout();
+			} finally {
+				m_suppressAnimation = previousSuppress;
+			}
 		}
 
-		/// <summary>次フレームで整列を実行する</summary>
-		private async UniTaskVoid AlignDelayedByOneFrameAsync() {
-			await UniTask.DelayFrame(1);
+		/// <summary>親の寸法が変わる前の座標系でTweenの開始値を確定する。</summary>
+		internal void InitializeChildLayoutTween(RectTransform child) {
+			if(m_positionTweens.TryGetValue(child, out var tween) && tween.IsActive()) tween.ForceInit();
+		}
 
-			m_isFrameDelayScheduled = false;
-			var withCollection = m_delayedAlignWithCollection;
-			m_delayedAlignWithCollection = false;
-			if(!this || !gameObject.activeSelf) return;
+		/// <summary>アンカー補正に合わせて、保存済みの目標と進行中のTweenの座標系もずらす。</summary>
+		internal virtual void OffsetChildLayoutTarget(RectTransform child, Vector2 offset) {
+			if(m_lastTargetPositions.TryGetValue(child, out var target)) m_lastTargetPositions[child] = target + offset;
+			if(m_positionTweens.TryGetValue(child, out var tween) &&
+				tween is DG.Tweening.Core.TweenerCore<Vector2, Vector2, DG.Tweening.Plugins.Options.VectorOptions> positionTween && tween.IsActive()) {
+				positionTween.startValue += offset;
+				positionTween.endValue += offset;
+			}
+		}
 
-			if(withCollection) {
+		private void CancelPendingLayout() {
+			unchecked { m_layoutRequestVersion++; }
+			m_isScheduled = false;
+			m_pendingWithCollection = false;
+			m_pendingInitialization = false;
+		}
+
+		/// <summary>要求をまとめ、初期化・フレーム待ちはuGUI更新後に実行する。</summary>
+		private void ScheduleLayout(bool withCollection, bool initialization) {
+			if(!isActiveAndEnabled) return;
+			m_pendingWithCollection |= withCollection;
+			m_pendingInitialization |= initialization;
+			if(m_isScheduled) return;
+			unchecked { m_layoutRequestVersion++; }
+			m_isScheduled = true;
+			RunScheduledLayoutAsync(m_layoutRequestVersion).Forget();
+		}
+
+		private async UniTaskVoid RunScheduledLayoutAsync(uint version) {
+			await UniTask.DelayFrame(1, PlayerLoopTiming.LastPostLateUpdate);
+			if(!this || version != m_layoutRequestVersion || !isActiveAndEnabled) return;
+			ExecuteScheduledLayout(version);
+		}
+
+		private void ExecuteScheduledLayout(uint version) {
+			if(version != m_layoutRequestVersion || !m_isScheduled) return;
+			var withCollection = m_pendingWithCollection;
+			var initialization = m_pendingInitialization;
+			m_isScheduled = false;
+			m_pendingWithCollection = false;
+			m_pendingInitialization = false;
+			if(initialization) {
+				// 予約時に正のサイズでも、uGUIの更新後に0へ戻っている場合がある。
+				if(updateMode != UpdateMode.InitializeOnly || m_initialized || !HasUsableSize()) return;
+				AlignNonAnimate(withCollection);
+			} else if(withCollection) {
 				AlignWithCollectionCore();
 			} else {
 				AlignCore();
@@ -306,39 +344,24 @@ namespace ANest.UI {
 		}
 
 		/// <summary> 1フレーム待ってから整列する </summary>
-		public async UniTask AlignWithFrameWaitAndCollectionAsync() {
-			await UniTask.DelayFrame(1);
-
-			AlignWithCollection();
-		}
+		public UniTask AlignWithFrameWaitAndCollectionAsync() => AlignAfterUGUIAsync(true);
 
 		/// <summary> 1フレーム待ってから整列する </summary>
-		public async UniTask AlignWithFrameWaitAsync() {
-			await UniTask.DelayFrame(1);
+		public UniTask AlignWithFrameWaitAsync() => AlignAfterUGUIAsync(false);
 
-			Align();
+		private async UniTask AlignAfterUGUIAsync(bool withCollection) {
+			if(!isActiveAndEnabled) return;
+			ScheduleLayout(withCollection, false);
+			var version = m_layoutRequestVersion;
+			await UniTask.DelayFrame(1, PlayerLoopTiming.LastPostLateUpdate);
+			if(!this || version != m_layoutRequestVersion || !isActiveAndEnabled) return;
+			ExecuteScheduledLayout(version);
 		}
 
 		/// <summary> 初期化条件を満たした際にレイアウトを構築 </summary>
 		private void TryInit() {
-			if(m_initialized) return;
-			if(updateMode != UpdateMode.InitializeOnly) return;
-			if(RectTransform == null) return;
-			var size = RectTransform.rect.size;
-			if(size.x <= 0f || size.y <= 0f) return; // サイズ未確定（0以下）の間のみ初期化を保留する
-			m_initialized = true;
-
-			if(!this || !gameObject.activeSelf) return;
-			if(updateMode != UpdateMode.InitializeOnly) return;
-
-			InitializeOnlyAlignWithDelayAsync().Forget();
-		}
-
-		/// <summary> InitializeOnly時の初回整列を1フレーム遅延して実行 </summary>
-		private async UniTask InitializeOnlyAlignWithDelayAsync() {
-			await UniTask.DelayFrame(1);
-
-			AlignWithCollectionNonAnimate();
+			if(m_initialized || !isActiveAndEnabled || updateMode != UpdateMode.InitializeOnly || !HasUsableSize()) return;
+			ScheduleLayout(true, true);
 		}
 
 		/// <summary> レイアウト対象となる子RectTransformを収集 </summary>
@@ -381,6 +404,10 @@ namespace ANest.UI {
 		protected void SetChildAlongBothAxes(RectTransform rect, float posX, float posY, float sizeX, float sizeY, float scaleX = 1f, float scaleY = 1f) {
 			if(rect == null) return;
 
+			// 範囲計算と同様、反転は無視してスケールの大きさだけで配置する。
+			scaleX = Mathf.Abs(scaleX);
+			scaleY = Mathf.Abs(scaleY);
+
 			var anchorMin = rect.anchorMin;
 			var anchorMax = rect.anchorMax;
 
@@ -416,23 +443,19 @@ namespace ANest.UI {
 			KillTween(rect);
 
 			if(shouldAnimate) {
-				var tween =
-					DOTween.To(() =>
-							rect.anchoredPosition,
-						v => rect.anchoredPosition = v,
-						targetPos,
-						duration);
-
-				if(useAnimationCurve && animationCurve != null) {
-					tween.SetEase(animationCurve);
-				} else {
-					tween.SetEase(animationEase);
-				}
-				tween.SetLink(rect.gameObject);
-				m_positionTweens[rect] = tween;
+				StartPositionTween(rect, targetPos, duration);
 			} else {
 				rect.anchoredPosition = targetPos;
 			}
+		}
+
+		// ラムダのキャプチャは、実際にアニメーションを開始するときだけ生成する。
+		private void StartPositionTween(RectTransform rect, Vector2 targetPos, float duration) {
+			var tween = DOTween.To(() => rect.anchoredPosition, v => rect.anchoredPosition = v, targetPos, duration);
+			if(useAnimationCurve && animationCurve != null) tween.SetEase(animationCurve);
+			else tween.SetEase(animationEase);
+			tween.SetLink(rect.gameObject);
+			m_positionTweens[rect] = tween;
 		}
 
 		/// <summary> アニメーション方式に応じた再生時間を算出 </summary>
@@ -448,7 +471,8 @@ namespace ANest.UI {
 
 		/// <summary> 指定RectTransformに紐づくTweenを停止 </summary>
 		protected void KillTween(RectTransform rect) {
-			if(rect == null) return;
+			// 破棄済みUnityオブジェクトも辞書のキーとして残るため、実際のnullだけを除外する。
+			if(ReferenceEquals(rect, null)) return;
 
 			if(m_positionTweens.TryGetValue(rect, out Tween tween)) {
 				if(tween.IsActive()) tween.Kill();
@@ -468,6 +492,16 @@ namespace ANest.UI {
 		/// <summary> 子要素の範囲をRectとして取得 </summary>
 		/// <returns>子要素が含まれるRect</returns>
 		public Rect CalculateContentRect() {
+			return CalculateContentRect(false);
+		}
+
+		/// <summary>収集の有無を指定し、現在位置または配置先からフィット範囲を計算する。</summary>
+		internal Rect CalculateContentRectForFitting(bool useCurrentTransforms, bool collectChildren) {
+			if(collectChildren) CollectRectChildren();
+			return CalculateContentRect(useCurrentTransforms);
+		}
+
+		private Rect CalculateContentRect(bool useCurrentTransforms) {
 			if(rectChildren.Count == 0) {
 				return new Rect();
 			}
@@ -482,21 +516,31 @@ namespace ANest.UI {
 				if(child == null) continue;
 
 				Vector2 pos;
-				if(!m_lastTargetPositions.TryGetValue(child, out pos)) {
+				if(useCurrentTransforms) {
+					pos = child.localPosition;
+				} else if(!m_lastTargetPositions.TryGetValue(child, out pos)) {
 					pos = child.anchoredPosition;
 				}
 
-				var width = child.sizeDelta.x * Mathf.Abs(child.localScale.x);
-				var height = child.sizeDelta.y * Mathf.Abs(child.localScale.y);
-				var left = pos.x - width * child.pivot.x;
-				var right = left + width;
-				var bottom = pos.y - height * child.pivot.y;
-				var top = bottom + height;
-
-				if(left < minX) minX = left;
-				if(bottom < minY) minY = bottom;
-				if(right > maxX) maxX = right;
-				if(top > maxY) maxY = top;
+				var size = child.rect.size;
+				var scale = child.localScale;
+				var pivot = child.pivot;
+				var rotation = child.localRotation;
+				var width = size.x * Mathf.Abs(scale.x);
+				var height = size.y * Mathf.Abs(scale.y);
+				// スケールの符号は無視し、ピボット周りで回転した四隅の範囲を求める。
+				for(var corner = 0; corner < 4; corner++) {
+					var offset = new Vector3(
+						((corner & 1) - pivot.x) * width,
+						((corner >> 1) - pivot.y) * height, 0f);
+					var rotated = rotation * offset;
+					var x = pos.x + rotated.x;
+					var y = pos.y + rotated.y;
+					minX = Mathf.Min(minX, x);
+					minY = Mathf.Min(minY, y);
+					maxX = Mathf.Max(maxX, x);
+					maxY = Mathf.Max(maxY, y);
+				}
 			}
 
 			if(float.IsInfinity(minX) || float.IsInfinity(minY) || float.IsInfinity(maxX) || float.IsInfinity(maxY)) {
@@ -511,11 +555,18 @@ namespace ANest.UI {
 
 			var paddedMinX = minX - paddingLeft;
 			var paddedMaxX = maxX + paddingRight;
-			var paddedMinY = minY - paddingTop;
-			var paddedMaxY = maxY + paddingBottom;
+			var paddedMinY = minY - paddingBottom;
+			var paddedMaxY = maxY + paddingTop;
 
 			var rect = Rect.MinMaxRect(paddedMinX, paddedMinY, paddedMaxX, paddedMaxY);
 			return rect;
+		}
+
+		/// <summary>コンポーネント未装着時もEditorで割り当てを発生させずに取得する。</summary>
+		protected static Selectable GetSelectable(RectTransform rect) {
+			if(rect == null) return null;
+			rect.TryGetComponent<Selectable>(out var selectable);
+			return selectable;
 		}
 
 		/// <summary> レイアウト計算で使用する子サイズ情報 </summary>
@@ -527,15 +578,16 @@ namespace ANest.UI {
 
 		/// <summary> 子要素の最小/推奨/柔軟サイズを取得（制御フラグを考慮） </summary>
 		protected void GetChildSizes(RectTransform child, int axis, bool controlSize, bool forceExpand, out ChildSizes sizes) {
+			if(!controlSize) {
+				float current = child.rect.size[axis];
+				sizes = new ChildSizes { min = current, preferred = current, flexible = 0f };
+				return;
+			}
 			float min = LayoutUtility.GetMinSize(child, axis);
 			float preferred = LayoutUtility.GetPreferredSize(child, axis);
 			float flexible = LayoutUtility.GetFlexibleSize(child, axis);
 
-			if(!controlSize) {
-				float current = child.rect.size[axis];
-				min = preferred = current;
-				flexible = 0f;
-			} else if(forceExpand) {
+			if(forceExpand) {
 				flexible = Mathf.Max(flexible, 1f);
 			}
 

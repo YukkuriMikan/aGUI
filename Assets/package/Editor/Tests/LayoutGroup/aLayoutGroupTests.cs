@@ -9,6 +9,116 @@ using UnityEngine.UI;
 /// <summary> aLayoutGroup 系の基本動作を確認するためのテストクラス </summary>
 public class aLayoutGroupTests {
 	#region Methods
+	[TestCase(false)]
+	[TestCase(true)]
+	public void RepeatedCircularAnimationStaysOnCircumference(bool interruptFirstTween) {
+		var root = new GameObject("Repeated circular animation", typeof(RectTransform));
+		try {
+			((RectTransform)root.transform).sizeDelta = new Vector2(300, 300);
+			var layout = root.AddComponent<aLayoutGroupCircular>();
+			SetField(layout, "useAnimation", true);
+			SetField(layout, "useCircularMove", true);
+			SetField(layout, "animationEase", DG.Tweening.Ease.Linear);
+			SetField(layout, "setNavigation", false);
+			var child = (RectTransform)new GameObject("Child", typeof(RectTransform)).transform;
+			child.SetParent(root.transform, false);
+			child.anchorMin = child.anchorMax = new Vector2(0, 1);
+			var center = new Vector2(150, -150);
+			child.anchoredPosition = center + new Vector2(100, 0);
+			layout.AlignWithCollection();
+			var tweens = (System.Collections.IDictionary)typeof(aLayoutGroupBase)
+				.GetField("m_positionTweens", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(layout);
+			var first = (DG.Tweening.Tween)tweens[child];
+			if(interruptFirstTween) DG.Tweening.TweenExtensions.Goto(first, layout.AnimationDuration * 0.5f, false);
+			else DG.Tweening.TweenExtensions.Complete(first);
+			var before = child.anchoredPosition;
+			layout.StartAngle = 90;
+			layout.Align();
+			var next = (DG.Tweening.Tween)tweens[child];
+			DG.Tweening.TweenExtensions.Goto(next, 0, false);
+			Assert.That(Vector2.Distance(child.anchoredPosition, before), Is.LessThan(0.001f));
+			foreach(var progress in new[] { 0.25f, 0.5f, 0.75f }) {
+				DG.Tweening.TweenExtensions.Goto(next, layout.AnimationDuration * progress, false);
+				Assert.That(Vector2.Distance(child.anchoredPosition, center), Is.EqualTo(100f).Within(0.001f),
+					"Subsequent animations must follow the circle, including retargeting during playback.");
+			}
+			DG.Tweening.TweenExtensions.Complete(next);
+			Assert.That(Vector2.Distance(child.anchoredPosition, center + new Vector2(100, 0)), Is.LessThan(0.001f));
+		} finally { Object.DestroyImmediate(root); }
+	}
+
+	[TestCase(typeof(aLayoutGroupHorizontal))]
+	[TestCase(typeof(aLayoutGroupVertical))]
+	[TestCase(typeof(aLayoutGroupGrid))]
+	[TestCase(typeof(aLayoutGroupCircular))]
+	public void ContentBoundsExpandTopUpwardAndBottomDownward(System.Type layoutType) {
+		var root = new GameObject("Asymmetric padding bounds", typeof(RectTransform));
+		try {
+			var layout = (aLayoutGroupBase)root.AddComponent(layoutType);
+			var child = (RectTransform)new GameObject("Child", typeof(RectTransform)).transform;
+			child.SetParent(root.transform, false);
+			child.sizeDelta = new Vector2(100, 80);
+			child.anchoredPosition = new Vector2(40, -30);
+			layout.AddRectChild(child);
+			SetField(layout, "padding", new RectOffset(7, 13, 17, 23));
+			var bounds = layout.CalculateContentRect();
+			Assert.That(bounds.xMin, Is.EqualTo(-17f).Within(0.001f));
+			Assert.That(bounds.xMax, Is.EqualTo(103f).Within(0.001f));
+			Assert.That(bounds.yMin, Is.EqualTo(-93f).Within(0.001f));
+			Assert.That(bounds.yMax, Is.EqualTo(27f).Within(0.001f));
+			layout.AlignWithCollectionNonAnimate();
+			SetField(layout, "padding", new RectOffset());
+			var content = layout.CalculateContentRect();
+			SetField(layout, "padding", new RectOffset(7, 13, 17, 23));
+			bounds = layout.CalculateContentRect();
+			Assert.That(bounds.yMin, Is.EqualTo(content.yMin - 23f).Within(0.001f));
+			Assert.That(bounds.yMax, Is.EqualTo(content.yMax + 17f).Within(0.001f));
+		} finally { Object.DestroyImmediate(root); }
+	}
+
+	[TestCase(typeof(aLayoutGroupHorizontal), false)]
+	[TestCase(typeof(aLayoutGroupHorizontal), true)]
+	[TestCase(typeof(aLayoutGroupVertical), false)]
+	[TestCase(typeof(aLayoutGroupVertical), true)]
+	public void DestroyedChildrenAreRemovedWithoutRecollecting(System.Type layoutType, bool reverse) {
+		var root = new GameObject("Destroyed children", typeof(RectTransform));
+		try {
+			((RectTransform)root.transform).sizeDelta = new Vector2(500, 500);
+			var layout = (aLayoutGroupBase)root.AddComponent(layoutType);
+			SetField(layout, "childForceExpandWidth", false);
+			SetField(layout, "childForceExpandHeight", false);
+			SetField(layout, "spacing", 10f);
+			SetField(layout, "reverseArrangement", reverse);
+			var children = new RectTransform[4];
+			for(var i = 0; i < children.Length; i++) {
+				children[i] = (RectTransform)new GameObject("Child", typeof(RectTransform), typeof(Button)).transform;
+				children[i].SetParent(root.transform, false);
+				children[i].sizeDelta = new Vector2(100, 80);
+				layout.AddRectChild(children[i]);
+			}
+			layout.Align();
+			Object.DestroyImmediate(children[1].gameObject);
+			Object.DestroyImmediate(children[2].gameObject);
+			var excluded = (RectTransform)new GameObject("Not collected", typeof(RectTransform)).transform;
+			excluded.SetParent(root.transform, false);
+			excluded.anchoredPosition = new Vector2(900, 900);
+			var before = excluded.anchoredPosition;
+			Assert.DoesNotThrow(() => layout.Align());
+			var axis = layoutType == typeof(aLayoutGroupHorizontal) ? 0 : 1;
+			var separation = children[3].anchoredPosition[axis] - children[0].anchoredPosition[axis];
+			var expected = axis == 0 ? 110f : -90f;
+			Assert.That(separation, Is.EqualTo(reverse ? -expected : expected).Within(0.001f));
+			Assert.That(excluded.anchoredPosition, Is.EqualTo(before));
+			var nav = children[0].GetComponent<Button>().navigation;
+			var neighbor = axis == 0 ? (reverse ? nav.selectOnLeft : nav.selectOnRight) : (reverse ? nav.selectOnUp : nav.selectOnDown);
+			Assert.That(neighbor, Is.SameAs(children[3].GetComponent<Button>()));
+			Object.DestroyImmediate(children[0].gameObject);
+			Object.DestroyImmediate(children[3].gameObject);
+			Assert.DoesNotThrow(() => layout.Align());
+			Assert.That(layout.CalculateContentRect(), Is.EqualTo(new Rect()));
+		} finally { Object.DestroyImmediate(root); }
+	}
+
 	/// <summary> シンプルな同期待ちなしテストの雛形 </summary>
 	[Test]
 	public void aLayoutGroupTestsSimplePasses() {
@@ -55,6 +165,117 @@ public class aLayoutGroupTests {
 		} finally {
 			Object.DestroyImmediate(root);
 		}
+	}
+
+	[TestCase(typeof(aLayoutGroupHorizontal), false)]
+	[TestCase(typeof(aLayoutGroupHorizontal), true)]
+	[TestCase(typeof(aLayoutGroupVertical), false)]
+	[TestCase(typeof(aLayoutGroupVertical), true)]
+	[TestCase(typeof(aLayoutGroupGrid), false)]
+	[TestCase(typeof(aLayoutGroupGrid), true)]
+	[TestCase(typeof(aLayoutGroupCircular), false)]
+	[TestCase(typeof(aLayoutGroupCircular), true)]
+	public void NegativeChildScalesMatchAbsoluteScales(System.Type layoutType, bool forceExpand) {
+		var roots = new GameObject[2];
+		var children = new RectTransform[2, 3];
+		var bounds = new Rect[2];
+		try {
+			for (int variant = 0; variant < roots.Length; variant++) {
+				var root = roots[variant] = new GameObject("Scale comparison", typeof(RectTransform));
+				((RectTransform)root.transform).sizeDelta = new Vector2(900f, 800f);
+				for (int i = 0; i < 3; i++) {
+					var child = new GameObject("Child", typeof(RectTransform)).GetComponent<RectTransform>();
+					children[variant, i] = child;
+					child.SetParent(root.transform, false);
+					child.sizeDelta = new Vector2(40f + 10f * i, 30f + 5f * i);
+					child.pivot = new Vector2(0.2f * i, 1f - 0.3f * i);
+					// Xのみ、Yのみ、両軸の反転を非中央ピボットで比較する。
+					child.localScale = new Vector3(variant == 1 && i != 1 ? -2f : 2f,
+						variant == 1 && i != 0 ? -3f : 3f, 1f);
+				}
+
+				var layout = (aLayoutGroupBase)root.AddComponent(layoutType);
+				SetField(layout, "childScaleWidth", true);
+				SetField(layout, "childScaleHeight", true);
+				SetField(layout, "childForceExpandWidth", forceExpand);
+				SetField(layout, "childForceExpandHeight", forceExpand);
+				SetField(layout, "childAlignment", TextAnchor.LowerRight);
+				SetField(layout, "padding", new RectOffset(7, 13, 17, 23));
+				layout.AlignWithCollectionNonAnimate();
+				bounds[variant] = layout.CalculateContentRect();
+
+				var fitter = root.AddComponent<aContentSizeFitter>();
+				SetField(fitter, "m_fitWidth", true);
+				SetField(fitter, "m_fitHeight", true);
+				fitter.ApplyFitting();
+			}
+
+			Assert.That(Vector2.Distance(bounds[0].min, bounds[1].min), Is.LessThan(0.001f));
+			Assert.That(Vector2.Distance(bounds[0].max, bounds[1].max), Is.LessThan(0.001f));
+			Assert.That(Vector2.Distance(((RectTransform)roots[0].transform).rect.size,
+				((RectTransform)roots[1].transform).rect.size), Is.LessThan(0.001f), "Fitted sizes must match.");
+			for (int i = 0; i < 3; i++) {
+				Assert.That(Vector3.Distance(children[0, i].position, children[1, i].position),
+					Is.LessThan(0.001f), "Placement must ignore scale signs.");
+				Assert.That(Vector2.Distance(children[0, i].rect.size, children[1, i].rect.size), Is.LessThan(0.001f));
+				Assert.That(children[1, i].localScale,
+					Is.EqualTo(new Vector3(i != 1 ? -2f : 2f, i != 0 ? -3f : 3f, 1f)),
+					"Fitting must preserve the actual reflection.");
+			}
+		} finally {
+			foreach (var root in roots) {
+				if(root != null) Object.DestroyImmediate(root);
+			}
+		}
+	}
+
+	[TestCase(typeof(aLayoutGroupHorizontal))]
+	[TestCase(typeof(aLayoutGroupVertical))]
+	[TestCase(typeof(aLayoutGroupGrid))]
+	[TestCase(typeof(aLayoutGroupCircular))]
+	public void ReusedBuffersMatchFreshLayoutAfterChildCountAndOrderChanges(System.Type layoutType) {
+		GameObject CreateRoot() {
+			var root = new GameObject("Buffer check", typeof(RectTransform));
+			((RectTransform)root.transform).sizeDelta = new Vector2(900, 800);
+			root.AddComponent(layoutType);
+			for(var i = 0; i < 17; i++) {
+				var child = new GameObject("Child " + i, typeof(RectTransform));
+				child.transform.SetParent(root.transform, false);
+				((RectTransform)child.transform).sizeDelta = new Vector2(40 + i, 30 + i);
+				if(i % 3 != 0) child.AddComponent<UnityEngine.UI.Button>();
+			}
+			return root;
+		}
+		var reused = CreateRoot();
+		try {
+			foreach(var count in new[] { 1, 9, 3, 17, 0, 5 }) {
+				var fresh = CreateRoot();
+				try {
+					foreach(var root in new[] { reused, fresh }) {
+						var layout = root.GetComponent<aLayoutGroupBase>();
+						SetField(layout, "reverseArrangement", count % 2 == 1);
+						SetField(layout, "childAlignment", TextAnchor.LowerRight);
+						layout.ClearRectChildren();
+						for(var i = count - 1; i >= 0; i--) layout.AddRectChild((RectTransform)root.transform.GetChild(i));
+						layout.AlignNonAnimate(false);
+					}
+					for(var i = 0; i < count; i++) {
+						var actual = (RectTransform)reused.transform.GetChild(i);
+						var expected = (RectTransform)fresh.transform.GetChild(i);
+						Assert.That(Vector2.Distance(actual.anchoredPosition, expected.anchoredPosition), Is.LessThan(0.001f));
+						Assert.That(Vector2.Distance(actual.rect.size, expected.rect.size), Is.LessThan(0.001f));
+						if(actual.TryGetComponent<UnityEngine.UI.Button>(out var button)) {
+							var a = button.navigation;
+							var b = expected.GetComponent<UnityEngine.UI.Button>().navigation;
+							Assert.That(a.selectOnLeft?.name, Is.EqualTo(b.selectOnLeft?.name));
+							Assert.That(a.selectOnRight?.name, Is.EqualTo(b.selectOnRight?.name));
+							Assert.That(a.selectOnUp?.name, Is.EqualTo(b.selectOnUp?.name));
+							Assert.That(a.selectOnDown?.name, Is.EqualTo(b.selectOnDown?.name));
+						}
+					}
+				} finally { Object.DestroyImmediate(fresh); }
+			}
+		} finally { Object.DestroyImmediate(reused); }
 	}
 
 	private static void SetField(object target, string fieldName, object value) {

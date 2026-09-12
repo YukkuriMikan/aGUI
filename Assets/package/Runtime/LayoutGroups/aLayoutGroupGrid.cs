@@ -383,7 +383,7 @@ namespace ANest.UI {
 					var rect = GetGridCell(x, y, columns, rows);
 					if(rect == null) continue;
 
-					var selectable = rect.GetComponent<Selectable>();
+					var selectable = GetSelectable(rect);
 					if(selectable == null) continue;
 
 					Navigation navigation = selectable.navigation;
@@ -483,7 +483,7 @@ namespace ANest.UI {
 
 		private Selectable GetSelectableAt(int x, int y, int columns, int rows, RectTransform origin) {
 			var rect = GetGridCell(x, y, columns, rows);
-			return rect != null && rect != origin ? rect.GetComponent<Selectable>() : null;
+			return rect != null && rect != origin ? GetSelectable(rect) : null;
 		}
 
 		private static int PositiveModulo(int value, int divisor)

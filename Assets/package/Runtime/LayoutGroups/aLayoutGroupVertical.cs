@@ -9,6 +9,7 @@ namespace ANest.UI {
 		protected override void CalculateLayout() {
 			if(RectTransform == null) return;
 
+			RemoveMissingChildren();
 			int count = rectChildren.Count;
 			if(count == 0) return;
 
@@ -28,11 +29,11 @@ namespace ANest.UI {
 			float slotHeightPerWeight = (availableHeight - spacingTotal) / totalWeight; // 重み1あたりの割当高さ
 
 			float usedMain = spacingTotal; // 主軸使用量（スペース含む）
-			float[] allocatedSlots = new float[count];
-			float[] allocatedSlotsScaled = new float[count];
-			float[] finalWidths = new float[count];
-			float[] finalHeights = new float[count];
-			float[] crossPositions = new float[count];
+			EnsureLayoutBufferCapacity(count);
+			var allocatedSlotsScaled = m_allocatedSlotsScaled;
+			var finalWidths = m_finalWidths;
+			var finalHeights = m_finalHeights;
+			var crossPositions = m_crossPositions;
 			float alignmentX = GetAlignmentOnAxis(0);
 			float alignmentY = GetAlignmentOnAxis(1);
 
@@ -59,7 +60,6 @@ namespace ANest.UI {
 				float childWidthScaled = childWidth * scaleX;
 				float posX = childControlWidth ? startOffsetX : startOffsetX + (requiredSpaceScaled - childWidthScaled) * alignmentX; // 整列後のX位置
 
-				allocatedSlots[i] = allocated;
 				allocatedSlotsScaled[i] = allocatedScaled;
 				finalWidths[i] = childWidth;
 				finalHeights[i] = childHeight;
@@ -75,8 +75,8 @@ namespace ANest.UI {
 			for (int i = 0; i < count; i++) {
 				int src = reverseArrangement ? (count - 1 - i) : i; // 元のインデックス
 				var child = order[i];
-				float scaleX = childScaleWidth ? child.localScale.x : 1f;
-				float scaleY = childScaleHeight ? child.localScale.y : 1f;
+				float scaleX = childScaleWidth ? Mathf.Abs(child.localScale.x) : 1f;
+				float scaleY = childScaleHeight ? Mathf.Abs(child.localScale.y) : 1f;
 
 				float alignedPosY = posY + (allocatedSlotsScaled[src] - finalHeights[src] * scaleY) * alignmentY; // 整列後Y位置
 				SetChildAlongBothAxes(child, crossPositions[src], alignedPosY, finalWidths[src], finalHeights[src], scaleX, scaleY);

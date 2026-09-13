@@ -14,6 +14,52 @@ using UniRx;
 using Object = UnityEngine.Object;
 
 public class aGuiLifecycleRegressionTests {
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void SharedAnimationSettingsPreserveInterpolationAndRoundTrip(bool useCurve, bool yoyo) {
+        var root = Rect("Animation settings");
+        try {
+            foreach(var animation in new IUiAnimation[] { new Move(), new MoveTarget(), new Rotate(), new RotateTarget(), new Fade(), new FadeCanvasGroup() }) {
+                var rect = Rect(animation.GetType().Name, root);
+                var graphic = rect.gameObject.AddComponent<Image>();
+                var group = rect.gameObject.AddComponent<CanvasGroup>();
+                var info = rect.gameObject.AddComponent<aGuiInfo>();
+                Set(info, "m_rectTransform", rect); info.Refresh();
+                if(animation is MoveTarget || animation is RotateTarget) Set(animation, "m_target", info);
+                bool move = animation is Move || animation is MoveTarget;
+                bool rotate = animation is Rotate || animation is RotateTarget;
+                if(move) {
+                    Set(animation, "m_startValue", Vector2.zero); Set(animation, "m_endValue", new Vector2(100f, 0f));
+                } else if(rotate) {
+                    Set(animation, "m_startValue", Vector3.zero); Set(animation, "m_endValue", new Vector3(0f, 0f, 100f));
+                } else {
+                    Set(animation, "m_startValue", 0f); Set(animation, "m_endValue", 1f);
+                }
+                Set(animation, "m_duration", 1f); Set(animation, "m_delay", .3f);
+                Set(animation, "m_useCurve", useCurve); Set(animation, "m_isYoYo", yoyo);
+                Set(animation, "m_ease", Ease.InQuad);
+                Set(animation, "m_curve", AnimationCurve.Linear(0f, 0f, 1f, 1f));
+                var tween = animation.DoAnimate(graphic, rect, info.OriginalRectTransformValues);
+                try {
+                    Assert.That(tween.Delay(), Is.EqualTo(.3f));
+                    Assert.That(tween.Duration(true), Is.EqualTo(1f));
+                    // Gotoは遅延を含まない再生位置。往復時は片道の中間を調べる。
+                    tween.Goto(yoyo ? .25f : .5f);
+                    var progress = useCurve ? .5f : .25f;
+                    var actual = move ? rect.anchoredPosition.x / 100f : rotate ? rect.localEulerAngles.z / 100f
+                        : animation is Fade ? graphic.color.a : group.alpha;
+                    Assert.That(actual, Is.EqualTo(progress).Within(.001f), animation.GetType().Name);
+                    tween.Complete();
+                    actual = move ? rect.anchoredPosition.x / 100f : rotate ? rect.localEulerAngles.z / 100f
+                        : animation is Fade ? graphic.color.a : group.alpha;
+                    Assert.That(actual, Is.EqualTo(yoyo ? 0f : 1f).Within(.001f), animation.GetType().Name);
+                } finally { tween.Kill(); }
+            }
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
     [UnityTest]
     public IEnumerator InitialGuardResetsDeadlineAndStopsWithScaledTime() {
         var root = Rect("Guard deadline");

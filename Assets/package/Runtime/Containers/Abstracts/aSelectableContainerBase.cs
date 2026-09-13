@@ -58,9 +58,9 @@ namespace ANest.UI {
 		protected int m_currentSelectableIndex = -1;                        // 現在選択されているSelectableのインデックス
 		protected T m_lastSelected;                                         // 非表示時に記録した、最後に選択されていたSelectable
 		protected readonly CompositeDisposable m_eventDisposables = new(); // イベント用
-		private bool m_initialGuardPending;
-		private bool m_initialGuardQueued;
-		private double m_initialGuardDeadline;
+		private bool m_initialGuardPending;   // ガードの期限到達を待っているか。Hideで即座に取り消す。
+		private bool m_initialGuardQueued;    // PlayerLoopに登録済みか。取り消し後も次のMoveNextまではtrue。
+		private double m_initialGuardDeadline; // Time.timeAsDouble基準の解除期限。timeScaleによる停止・拡縮に従う。
 		#endregion
 
 
@@ -336,7 +336,7 @@ namespace ANest.UI {
 		protected override void HideInternal() {
 			base.HideInternal();
 
-			// 進行中のInitialGuardタイマーを破棄（非表示中の解除でblocksRaycastsが戻るのを防ぐ）
+			// ガードの解除待ちを取り消す。PlayerLoopの登録は次のMoveNextで終了する。
 			m_initialGuardPending = false;
 
 			//選択状態を保存
@@ -428,6 +428,8 @@ namespace ANest.UI {
 			return false;
 		}
 
+		// コンポーネントのUpdateではなく、ガード中だけ登録したPlayerLoopから呼ばれる。
+		// pending=falseでもqueued=trueなら、再表示時に同じ登録を使って新しい期限を待てる。
 		bool IPlayerLoopItem.MoveNext() {
 			if(this == null || !m_initialGuardPending) {
 				m_initialGuardQueued = false;

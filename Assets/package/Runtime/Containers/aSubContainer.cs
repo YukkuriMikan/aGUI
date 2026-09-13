@@ -134,15 +134,7 @@ namespace ANest.UI {
 			return true;
 		}
 
-		#if UNITY_EDITOR
-		protected override void OnValidate() {
-			base.OnValidate();
-			if(!Application.isPlaying || !m_initialized || m_refreshConnectionQueued) return;
-			// OnValidateではSetActiveせず、Inspectorからの参照変更をメインスレッドで適用する。
-			m_refreshConnectionQueued = true;
-			UnityEditor.EditorApplication.delayCall += RefreshMainConnectionInEditor;
-		}
-
+		/// <summary>非アクティブ中のコンポーネント再有効化を、EditorとPlayerの両方で監視する</summary>
 		private void WaitForEnable() {
 			if(!Application.isPlaying || IsStandalone || m_pendingEnabledSync != null) return;
 			// 非アクティブなGameObjectではenabledをONにしてもOnEnableが来ない。
@@ -157,6 +149,15 @@ namespace ANest.UI {
 		private void StopWaitingForEnable() {
 			m_pendingEnabledSync?.Dispose();
 			m_pendingEnabledSync = null;
+		}
+
+		#if UNITY_EDITOR
+		protected override void OnValidate() {
+			base.OnValidate();
+			if(!Application.isPlaying || !m_initialized || m_refreshConnectionQueued) return;
+			// OnValidateではSetActiveせず、Inspectorからの参照変更をメインスレッドで適用する。
+			m_refreshConnectionQueued = true;
+			UnityEditor.EditorApplication.delayCall += RefreshMainConnectionInEditor;
 		}
 
 		private void RefreshMainConnectionInEditor() {

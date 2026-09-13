@@ -327,12 +327,13 @@ namespace ANest.UI {
 		/// <summary>補間設定から実際に使用する角タイプを算出する</summary>
 		private CornerType EffectiveCornerType => m_enableCornerInterpolation ? CornerType.Default : m_cornerType;
 
-		/// <summary>ストリップメッシュを構築する</summary>
+		// メッシュ再構築のたびにリスト・配列を生成しないための作業バッファ。
 		private readonly List<Vector2> m_localPointsBuffer = new();
 		private readonly List<Vector2> m_drawablePointsBuffer = new();
 		private readonly List<Vector2> m_normalsBuffer = new();
 		private float[] m_lengthsBuffer = System.Array.Empty<float>();
 
+		/// <summary>ストリップメッシュを構築する</summary>
 		private void BuildStripMesh(VertexHelper vh, IReadOnlyList<Vector2> points) {
 			var baseCount = points.Count;
 			var isLoop = m_loop && baseCount > 2;

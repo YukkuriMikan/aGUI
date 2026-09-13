@@ -41,13 +41,13 @@ namespace ANest.UI {
 		private aGuiInfo m_guiInfo; // GUI情報の参照
 
 		[Header("Event")]
-		[Tooltip("表示(Show)完了時のイベント")]
+		[Tooltip("表示開始時のイベント（表示状態の更新後、アニメーション開始前）")]
 		[SerializeField]
-		private UnityEvent m_onShow = new(); // 表示(Show)完了時のイベント
+		private UnityEvent m_onShow = new(); // 表示開始時のイベント
 		[FormerlySerializedAs("m_hideEvent")]
-		[Tooltip("非表示(Hide)完了時のイベント")]
+		[Tooltip("非表示開始時のイベント（表示状態の更新後、アニメーション開始前）")]
 		[SerializeField]
-		private UnityEvent m_onHide = new(); // 非表示(Hide)完了時のイベント
+		private UnityEvent m_onHide = new(); // 非表示開始時のイベント
 
 		protected RectTransform m_rectTransform;                   // 自身のRectTransformのキャッシュ
 		protected bool m_initialized;                              // 初期化が完了しているかどうか
@@ -105,10 +105,10 @@ namespace ANest.UI {
 		/// <summary>非表示時に再生するアニメーション配列</summary>
 		private IUiAnimation[] HideAnimations => m_hideAnimations;
 
-		/// <summary>表示完了時のイベント</summary>
+		/// <summary>表示状態の更新後、アニメーション開始前のイベント。完了通知はShowEndObservableを使用する。</summary>
 		public UnityEvent OnShow => m_onShow;
 
-		/// <summary>非表示完了時のイベント</summary>
+		/// <summary>非表示状態の更新後、アニメーション開始前のイベント。完了通知はHideEndObservableを使用する。</summary>
 		public UnityEvent OnHide => m_onHide;
 
 		/// <summary>表示開始時の通知用Observable</summary>

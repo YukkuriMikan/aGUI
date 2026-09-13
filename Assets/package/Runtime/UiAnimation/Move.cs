@@ -72,19 +72,7 @@ namespace ANest.UI {
 				.OnKill(m_clearTween)
 				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
-			if(UseCurve) {
-				if(IsYoYo) {
-					m_tween.SetEase(Curve).SetLoops(2, LoopType.Yoyo);
-				} else {
-					m_tween.SetEase(Curve);
-				}
-			} else {
-				if(IsYoYo) {
-					m_tween.SetEase(Ease).SetLoops(2, LoopType.Yoyo);
-				} else {
-					m_tween.SetEase(Ease);
-				}
-			}
+			UiAnimationTweenSettings.Apply(m_tween, this);
 
 			return m_tween;
 		}

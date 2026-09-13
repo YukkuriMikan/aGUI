@@ -18,7 +18,6 @@ namespace ANest.UI {
 		private static readonly Vector3[] s_worldCornersBuffer = new Vector3[4]; // GetWorldCorners用の共有バッファ（GC Alloc回避）
 
 		private CancellationTokenSource m_scrollCancelSource; // スクロールキャンセル用CTS
-		private T m_previousSelectable;              // 直前に選択されていたSelectable
 
 		/// <summary>初期化時に選択変更リスナーを登録する</summary>
 		public override void Initialize() {
@@ -52,7 +51,6 @@ namespace ANest.UI {
 			m_scrollCancelSource = null;
 			source?.Cancel();
 			source?.Dispose();
-			m_previousSelectable = null;
 		}
 
 		/// <summary>選択対象が変わった際にスクロールを開始する</summary>
@@ -61,17 +59,13 @@ namespace ANest.UI {
 			if(!isActiveAndEnabled || !IsVisible) return;
 
 			var item = selectable != null ? selectable.GetComponent<RectTransform>() : null;
-			var previousItem = m_previousSelectable != null ? m_previousSelectable.GetComponent<RectTransform>() : null;
-
-			ScrollToItem(m_scrollRect, item, previousItem, m_scrollDuration, m_scrollPadding, ref m_scrollCancelSource);
-
-			m_previousSelectable = selectable;
+			ScrollToItem(m_scrollRect, item, null, m_scrollDuration, m_scrollPadding, ref m_scrollCancelSource);
 		}
 
 		/// <summary>指定したアイテムが画面内に表示されるようにスクロール位置を調整します</summary>
 		/// <param name="scrollRect">対象のScrollRect</param>
 		/// <param name="item">表示対象のアイテムのRectTransform</param>
-		/// <param name="previousItem">前回のアイテムのRectTransform（null可）</param>
+		/// <param name="previousItem">既存の呼び出しとの互換性のために残している引数。現在の計算では使用しない（null可）。</param>
 		/// <param name="scrollDuration">スクロールアニメーションの時間（秒）</param>
 		/// <param name="scrollPadding">スクロール時の余白（ピクセル）</param>
 		/// <param name="cancellationTokenSource">スクロールアニメーション用キャンセルトークン（参照渡し）</param>

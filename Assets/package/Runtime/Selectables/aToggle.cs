@@ -108,7 +108,7 @@ namespace ANest.UI {
 		#endregion
 
 		#region Unity Methods
-		/// <summary>有効化時に初期化とRectTransformの初期値取得を行う</summary>
+		/// <summary>有効化時に共有設定とフォーカス制御を反映し、入力状態とToggleの購読を準備する</summary>
 		protected override void OnEnable() {
 			ApplySharedParametersIfNeeded();
 			ApplyPreventFocusState();
@@ -119,7 +119,7 @@ namespace ANest.UI {
 			RegisterToggleListener(true);
 		}
 
-		/// <summary>無効化時にリスナー解除やアニメーションのキャンセルを行う</summary>
+		/// <summary>無効化時にToggleの購読を解除し、文字色の遷移とショートカット入力状態をリセットする</summary>
 		protected override void OnDisable() {
 			ClearPreventedFocusIfNeeded();
 			base.OnDisable();

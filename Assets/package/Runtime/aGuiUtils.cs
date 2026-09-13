@@ -83,17 +83,18 @@ namespace ANest.UI {
 
 		// Tweenごとに独立した通知状態を持ち、Kill後に再利用する。
 		// 既存の通知は合成デリゲートを生成せずに引き継ぐ。
+		// 完了後のAutoKillでは中断通知を出さない。AutoKill無効時は明示的なKillまで状態を保持する。
 		private sealed class AnimationCallbacks {
 			private static readonly System.Collections.Generic.Stack<AnimationCallbacks> s_pool = new();
 			private readonly TweenCallback m_onComplete;
 			private readonly TweenCallback m_onKill;
-			private TweenCallback m_originalComplete;
+			private TweenCallback m_originalComplete; // アニメーション自身の通知。利用側の通知より先に実行する。
 			private TweenCallback m_originalKill;
-			private Action m_complete;
-			private Action m_kill;
-			private bool m_notified;
-			private bool m_killed;
-			private int m_callbackDepth;
+			private Action m_complete; // PlayAnimationの利用側へ渡す完了通知。
+			private Action m_kill;     // 完了せず中断された場合だけ呼ぶ通知。
+			private bool m_notified;   // 利用側へ完了・中断のいずれかを通知済みか。
+			private bool m_killed;     // Tweenの寿命が終わり、プールへ返却可能になったか。
+			private int m_callbackDepth; // 通知内でKillされる場合も、全通知を抜けるまでは返却しない。
 
 			private AnimationCallbacks() {
 				m_onComplete = OnComplete;

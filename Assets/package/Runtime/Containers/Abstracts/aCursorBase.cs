@@ -60,8 +60,8 @@ namespace ANest.UI {
 	    #region Private Fields
 		private const float TweenTargetEpsilon = 0.0001f;                                      // Tween更新/生成の要否を判定する距離閾値（sqrMagnitude比較用）
 		private RectTransform m_currentTargetRect;                                             // 現在のターゲットRectTransform
-		private Tweener m_moveTween;                                                           // 移動アニメーション用Tween
-		private Tweener m_sizeTween;                                                           // サイズ変更アニメーション用Tween
+		private DG.Tweening.Core.TweenerCore<Vector3, Vector3, DG.Tweening.Plugins.Options.VectorOptions> m_moveTween;
+		private DG.Tweening.Core.TweenerCore<Vector2, Vector2, DG.Tweening.Plugins.Options.VectorOptions> m_sizeTween;
 		private Vector3 m_moveTweenTarget;                                                     // 移動Tweenの終着点キャッシュ
 		private Vector2 m_sizeTweenTarget;                                                     // サイズTweenの終着点キャッシュ
 		private readonly Dictionary<RectTransform, TextMeshProUGUI> m_targetTextCache = new(); // ターゲット配下テキストのキャッシュ

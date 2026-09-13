@@ -78,17 +78,73 @@ namespace ANest.UI {
 		}
 
 		private static void AttachAnimationCallbacks(Tween lastEndTween, Action completeCallback, Action killCallback) {
-			bool callbackInvoked = false;
-			lastEndTween.onKill += () => {
-				if(callbackInvoked) return;
-				callbackInvoked = true;
-				killCallback?.Invoke();
-			};
-			lastEndTween.onComplete += () => {
-				if(callbackInvoked) return;
-				callbackInvoked = true;
-				completeCallback?.Invoke();
-			};
+			AnimationCallbacks.Attach(lastEndTween, completeCallback, killCallback);
+		}
+
+		// Tweenごとに独立した通知状態を持ち、Kill後に再利用する。
+		// 既存の通知は合成デリゲートを生成せずに引き継ぐ。
+		private sealed class AnimationCallbacks {
+			private static readonly System.Collections.Generic.Stack<AnimationCallbacks> s_pool = new();
+			private readonly TweenCallback m_onComplete;
+			private readonly TweenCallback m_onKill;
+			private TweenCallback m_originalComplete;
+			private TweenCallback m_originalKill;
+			private Action m_complete;
+			private Action m_kill;
+			private bool m_notified;
+			private bool m_killed;
+			private int m_callbackDepth;
+
+			private AnimationCallbacks() {
+				m_onComplete = OnComplete;
+				m_onKill = OnKill;
+			}
+
+			public static void Attach(Tween tween, Action complete, Action kill) {
+				var callbacks = s_pool.Count > 0 ? s_pool.Pop() : new AnimationCallbacks();
+				callbacks.m_originalComplete = tween.onComplete;
+				callbacks.m_originalKill = tween.onKill;
+				callbacks.m_complete = complete;
+				callbacks.m_kill = kill;
+				callbacks.m_notified = false;
+				callbacks.m_killed = false;
+				tween.onComplete = callbacks.m_onComplete;
+				tween.onKill = callbacks.m_onKill;
+			}
+
+			private void OnComplete() {
+				m_callbackDepth++;
+				try {
+					m_originalComplete?.Invoke();
+					if(m_notified) return;
+					m_notified = true;
+					m_complete?.Invoke();
+				} finally { EndCallback(); }
+			}
+
+			private void OnKill() {
+				m_callbackDepth++;
+				try {
+					m_originalKill?.Invoke();
+					if(m_notified) return;
+					m_notified = true;
+					m_kill?.Invoke();
+				} finally {
+					m_killed = true;
+					EndCallback();
+				}
+			}
+
+			private void EndCallback() {
+				m_callbackDepth--;
+				// 通知内で別のアニメーションが始まっても、実行中の通知状態を再利用しない。
+				if(!m_killed || m_callbackDepth != 0) return;
+				m_originalComplete = null;
+				m_originalKill = null;
+				m_complete = null;
+				m_kill = null;
+				s_pool.Push(this);
+			}
 		}
 
 		/// <summary>ステートに応じてテキストカラー遷移を適用する</summary>

@@ -87,6 +87,7 @@ using TMPro;
 		private float _pointerDownTime;                           // 押下開始時間
 		private bool _loggedInvalidLongPressImage;                // 不正なImageタイプ警告を出したか
 		private CancellationTokenSource _textColorTransitionCts;  // テキストカラー遷移のCTS
+		private Action _textColorTransitionComplete;
 		private bool _submitPressActive;                          // Submit入力による押下中か
 		private BaseEventData _cachedSubmitEventData;             // Submit入力を後段処理に渡すためのキャッシュ
 		private object _inputSystemSubmitAction;                  // Input SystemのSubmitアクション（リフレクションで扱う）
@@ -403,7 +404,8 @@ using TMPro;
 
 			switch(textTransition) {
 				case TextTransitionType.TextColor:
-					aGuiUtils.ApplyTextColorTransition(this, targetText, textColors, (int)state, instant, ref _textColorTransitionCts, () => _textColorTransitionCts = null);
+					_textColorTransitionComplete ??= () => _textColorTransitionCts = null;
+					aGuiUtils.ApplyTextColorTransition(this, targetText, textColors, (int)state, instant, ref _textColorTransitionCts, _textColorTransitionComplete);
 					break;
 				case TextTransitionType.TextSwap:
 					aGuiUtils.ApplyTextSwapTransition(targetText, textSwapState, (int)state);

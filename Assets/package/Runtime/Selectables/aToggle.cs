@@ -66,6 +66,7 @@ namespace ANest.UI {
  	#region Fields
 		private float _lastAcceptedClickTime = -999f;            // 最後に受理した入力時刻
 		private CancellationTokenSource _textColorTransitionCts; // テキストカラー遷移のCTS
+		private System.Action _textColorTransitionComplete;
 		private bool _shortCutPressed;                           // ショートカット押下状態
 		private bool _shortCutPressAccepted;                     // ショートカット入力がガードを通過したか
 		#endregion
@@ -210,7 +211,8 @@ namespace ANest.UI {
 
 			switch(textTransition) {
 				case TextTransitionType.TextColor:
-					aGuiUtils.ApplyTextColorTransition(this, targetText, textColors, (int)state, instant, ref _textColorTransitionCts, () => _textColorTransitionCts = null);
+					_textColorTransitionComplete ??= () => _textColorTransitionCts = null;
+					aGuiUtils.ApplyTextColorTransition(this, targetText, textColors, (int)state, instant, ref _textColorTransitionCts, _textColorTransitionComplete);
 					break;
 				case TextTransitionType.TextSwap:
 					aGuiUtils.ApplyTextSwapTransition(targetText, textSwapState, (int)state);

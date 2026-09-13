@@ -40,6 +40,10 @@ namespace ANest.UI {
 
 		#region Fields
 		private Tween m_tween;
+		private RectTransform m_target;
+		private DG.Tweening.Core.DOGetter<Vector2> m_getPosition;
+		private DG.Tweening.Core.DOSetter<Vector2> m_setPosition;
+		private TweenCallback m_clearTween;
 		#endregion
 
 		#region Methods
@@ -51,16 +55,21 @@ namespace ANest.UI {
 			if(callerRect == null) return null;
 
 			m_tween.Kill();
+			m_target = callerRect;
+			m_getPosition ??= () => m_target.anchoredPosition;
+			m_setPosition ??= value => m_target.anchoredPosition = value;
+			// リサイクルされたTweenを次回の再生で誤ってKillしないよう参照を解除する。
+			m_clearTween ??= () => { m_tween = null; m_target = null; };
 
 			callerRect.anchoredPosition = original.AnchoredPosition + m_startValue; //開始座標へ
 
 			m_tween = DOTween
-				.To(() =>
-					callerRect.anchoredPosition,
-					x => callerRect.anchoredPosition = x,
+				.To(m_getPosition, m_setPosition,
 					original.AnchoredPosition + m_endValue,
 					IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
 				.SetDelay(Delay)
+				.SetRecyclable(true)
+				.OnKill(m_clearTween)
 				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 
 			if(UseCurve) {

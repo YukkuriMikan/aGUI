@@ -14,6 +14,78 @@ using UniRx;
 using Object = UnityEngine.Object;
 
 public class aGuiLifecycleRegressionTests {
+    [UnityTest]
+    public IEnumerator InitialGuardResetsDeadlineAndStopsWithScaledTime() {
+        var root = Rect("Guard deadline");
+        var originalScale = Time.timeScale;
+        try {
+            Time.timeScale = 1;
+            var container = InactiveContainer<aNormalSelectableContainer>(root, true);
+            container.DisallowNullSelection = false;
+            Set(container, "m_initialGuardDuration", .2f);
+            container.gameObject.SetActive(true);
+            yield return new WaitForSecondsRealtime(.1f);
+            container.Hide(); container.Show();
+            Time.timeScale = 0;
+            yield return new WaitForSecondsRealtime(.25f);
+            Assert.That(container.CanvasGroup.blocksRaycasts, Is.False, "Guard uses scaled time.");
+            Time.timeScale = 1;
+            yield return new WaitForSecondsRealtime(.1f);
+            Assert.That(container.CanvasGroup.blocksRaycasts, Is.False, "A previous deadline must not release the new guard.");
+            yield return new WaitForSecondsRealtime(.15f);
+            Assert.That(container.CanvasGroup.blocksRaycasts, Is.True);
+            container.Hide(); container.Show(); container.Hide();
+            yield return new WaitForSecondsRealtime(.25f);
+            Assert.That(container.CanvasGroup.blocksRaycasts, Is.False, "Hidden containers must not be released by a stale timer.");
+        } finally { Object.DestroyImmediate(root.gameObject); Time.timeScale = originalScale; }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RecycledMoveUsesNewTargetAndKeepsYoyo(bool yoyo) {
+        var root = Rect("Move recycling");
+        try {
+            var first = Rect("First", root);
+            var second = Rect("Second", root);
+            var move = new Move();
+            Set(move, "m_startValue", Vector2.zero); Set(move, "m_endValue", new Vector2(100, 0));
+            Set(move, "m_duration", 1f); Set(move, "m_isYoYo", yoyo); Set(move, "m_ease", Ease.Linear);
+            var firstTween = move.DoAnimate(null, first, RectTransformValues.CreateValues(first));
+            firstTween.Kill();
+            var tween = move.DoAnimate(null, second, RectTransformValues.CreateValues(second));
+            tween.Goto(yoyo ? .25f : .5f);
+            Assert.That(first.anchoredPosition.x, Is.Zero);
+            Assert.That(second.anchoredPosition.x, Is.EqualTo(50).Within(.001f));
+            tween.Complete();
+            Assert.That(second.anchoredPosition.x, Is.EqualTo(yoyo ? 0 : 100).Within(.001f));
+        } finally { foreach(var rect in root.GetComponentsInChildren<RectTransform>()) rect.DOKill(); Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnimationCallbackCanStartAnotherAnimation(bool interrupt) {
+        var root = Rect("Reentrant callbacks");
+        var next = Rect("Next callback", root);
+        try {
+            var animations = new IUiAnimation[] { new Move() };
+            var values = RectTransformValues.CreateValues(root);
+            int completed = 0, killed = 0, nextCompleted = 0;
+            Action startNext = () => aGuiUtils.PlayAnimation(new IUiAnimation[] { new Move() }, next, null,
+                RectTransformValues.CreateValues(next), () => nextCompleted++);
+            aGuiUtils.PlayAnimation(animations, root, null, values,
+                () => { completed++; startNext(); }, () => { killed++; startNext(); });
+            if(interrupt) root.DOKill(); else root.DOComplete();
+            Assert.That(completed, Is.EqualTo(interrupt ? 0 : 1));
+            Assert.That(killed, Is.EqualTo(interrupt ? 1 : 0));
+            // 別の再生で通知状態が再利用されても、まだ進行中の通知に混ざらない。
+            aGuiUtils.PlayAnimation(animations, root, null, values, () => completed++);
+            next.DOComplete(); root.DOComplete();
+            Assert.That(nextCompleted, Is.EqualTo(1));
+            Assert.That(completed, Is.EqualTo(interrupt ? 1 : 2));
+            Assert.That(killed, Is.EqualTo(interrupt ? 1 : 0));
+        } finally { root.DOKill(); next.DOKill(); Object.DestroyImmediate(root.gameObject); }
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void ContainerActiveWarningStillDetectsDirectChangesDuringPlay(bool useShowHide) {

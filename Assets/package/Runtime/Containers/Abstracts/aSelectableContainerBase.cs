@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using UniRx;
 using UniRx.Triggers;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace ANest.UI {
 	/// <summary>Selectableを子要素として管理するコンテナの基底クラス</summary>
-	public abstract class aSelectableContainerBase<T> : aContainerBase where T : Selectable {
+	public abstract class aSelectableContainerBase<T> : aContainerBase, IPlayerLoopItem where T : Selectable {
 		#region Enum
 		/// <summary>CurrentSelectableIndexに範囲外の値を設定した時の挙動</summary>
 		public enum SelectableIndexMode {
@@ -57,15 +58,11 @@ namespace ANest.UI {
 		protected int m_currentSelectableIndex = -1;                        // 現在選択されているSelectableのインデックス
 		protected T m_lastSelected;                                         // 非表示時に記録した、最後に選択されていたSelectable
 		protected readonly CompositeDisposable m_eventDisposables = new(); // イベント用
-		private readonly Action<long> m_releaseInitialGuardAction;          // InitialGuard解除処理（GC削減用キャッシュ）
-		private IDisposable m_initialGuardDisposable;                       // InitialGuard解除タイマーの購読
+		private bool m_initialGuardPending;
+		private bool m_initialGuardQueued;
+		private double m_initialGuardDeadline;
 		#endregion
 
-		#region Constructor
-		protected aSelectableContainerBase() {
-			m_releaseInitialGuardAction = ReleaseInitialGuard;
-		}
-		#endregion
 
 		#region Property
 		/// <summary>CanvasGroupのinteractableへのアクセサ</summary>
@@ -168,7 +165,7 @@ namespace ANest.UI {
 			base.OnDestroy();
 
 			m_eventDisposables.Dispose();
-			m_initialGuardDisposable?.Dispose();
+			m_initialGuardPending = false;
 		}
 		#endregion
 
@@ -317,12 +314,15 @@ namespace ANest.UI {
 			if(m_initialGuard && m_initialGuardDuration > 0) {
 				ApplyInitialGuardToChildren(true);
 				CanvasGroup.blocksRaycasts = false;
-				// 前回のタイマーが残っているとガードが早期解除されるため破棄してから開始する
-				m_initialGuardDisposable?.Dispose();
-				m_initialGuardDisposable = Observable.Timer(TimeSpan.FromSeconds(m_initialGuardDuration))
-					.TakeUntilDestroy(this)
-					.Subscribe(m_releaseInitialGuardAction);
+				// 再表示時は期限を更新し、同じフレーム内でも更新予約を重複させない。
+				m_initialGuardDeadline = Time.timeAsDouble + m_initialGuardDuration;
+				m_initialGuardPending = true;
+				if(!m_initialGuardQueued) {
+					m_initialGuardQueued = true;
+					PlayerLoopHelper.AddAction(PlayerLoopTiming.Update, this);
+				}
 			} else {
+				m_initialGuardPending = false;
 				ApplyInitialGuardToChildren(false);
 			}
 
@@ -337,8 +337,7 @@ namespace ANest.UI {
 			base.HideInternal();
 
 			// 進行中のInitialGuardタイマーを破棄（非表示中の解除でblocksRaycastsが戻るのを防ぐ）
-			m_initialGuardDisposable?.Dispose();
-			m_initialGuardDisposable = null;
+			m_initialGuardPending = false;
 
 			//選択状態を保存
 			CaptureCurrentSelection();
@@ -354,8 +353,8 @@ namespace ANest.UI {
 		protected void ApplySkipNavigationToChildren() {
 			if(ChildSelectableList == null) return;
 
-			foreach(var selectable in ChildSelectableList) {
-				ApplySkipNavigationToSelectable(selectable);
+			for(var i = 0; i < ChildSelectableList.Count; i++) {
+				ApplySkipNavigationToSelectable(ChildSelectableList[i]);
 			}
 		}
 
@@ -377,8 +376,8 @@ namespace ANest.UI {
 		private void ApplyInitialGuardToChildren(bool guardActive) {
 			if(ChildSelectableList == null) return;
 
-			foreach(var selectable in ChildSelectableList) {
-				ApplyInitialGuardToSelectable(selectable, guardActive);
+			for(var i = 0; i < ChildSelectableList.Count; i++) {
+				ApplyInitialGuardToSelectable(ChildSelectableList[i], guardActive);
 			}
 		}
 
@@ -429,7 +428,19 @@ namespace ANest.UI {
 			return false;
 		}
 
-		private void ReleaseInitialGuard(long _) {
+		bool IPlayerLoopItem.MoveNext() {
+			if(this == null || !m_initialGuardPending) {
+				m_initialGuardQueued = false;
+				return false;
+			}
+			if(Time.timeAsDouble < m_initialGuardDeadline) return true;
+			m_initialGuardPending = false;
+			m_initialGuardQueued = false;
+			ReleaseInitialGuard();
+			return false;
+		}
+
+		private void ReleaseInitialGuard() {
 			if(this != null && CanvasGroup != null) {
 				CanvasGroup.blocksRaycasts = true;
 			}

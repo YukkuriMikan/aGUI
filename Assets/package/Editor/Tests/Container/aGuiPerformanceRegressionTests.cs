@@ -43,7 +43,77 @@ public class aGuiPerformanceRegressionTests {
         return rect;
     }
 
-    private static void Set(object target, string field, object value) => target.GetType().GetField(field, Private).SetValue(target, value);
+    private static void Set(object target, string field, object value) {
+        for(var type = target.GetType(); type != null; type = type.BaseType) {
+            var info = type.GetField(field, Private);
+            if(info == null) continue;
+            info.SetValue(target, value); return;
+        }
+        throw new MissingFieldException(field);
+    }
+
+    [Test]
+    public void CursorFollowingMovingAndResizingTargetDoesNotAllocate() {
+        var cursorRect = Rect("Following cursor", root);
+        var cursor = cursorRect.gameObject.AddComponent<aCursorBase>();
+        Set(cursor, "m_cursorRect", cursorRect);
+        Set(cursor, "m_sizeMode", aCursorBase.SizeMode.MatchSelectable);
+        var target = Rect("Moving target", root);
+        var update = (Action<RectTransform>)Delegate.CreateDelegate(typeof(Action<RectTransform>), cursor,
+            typeof(aCursorBase).GetMethod("UpdateCursor", Private));
+        update(target);
+        try {
+            AssertNoAlloc(() => {
+                target.localPosition += Vector3.right;
+                target.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, target.rect.width + 1);
+                update(target);
+            });
+        } finally {
+            var kill = (Action)Delegate.CreateDelegate(typeof(Action), cursor, typeof(aCursorBase).GetMethod("KillTweens", Private));
+            kill();
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ImmediateTextTransitionsReuseCallback(bool toggle) {
+        var rect = Rect("Text color control", root);
+        rect.gameObject.SetActive(false);
+        var control = toggle ? (Selectable)rect.gameObject.AddComponent<aToggle>() : rect.gameObject.AddComponent<aButton>();
+        var text = Rect("Text", rect).gameObject.AddComponent<TextMeshProUGUI>();
+        Set(control, "targetText", text);
+        rect.gameObject.SetActive(true);
+        var method = control.GetType().GetMethod("DoStateTransition", Private);
+        var call = System.Linq.Expressions.Expression.Call(System.Linq.Expressions.Expression.Constant(control), method,
+            System.Linq.Expressions.Expression.Constant(Enum.ToObject(method.GetParameters()[0].ParameterType, 0)),
+            System.Linq.Expressions.Expression.Constant(true));
+        var transition = System.Linq.Expressions.Expression.Lambda<Action>(call).Compile();
+        AssertNoAlloc(transition);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MoveAnimationReusesTweenAndCompletionState(bool withCallback) {
+        var rect = Rect("Reusable move", root);
+        var animations = new IUiAnimation[] { new Move() };
+        var original = RectTransformValues.CreateValues(rect);
+        Action complete = withCallback ? () => { } : null;
+        try { AssertNoAlloc(() => aGuiUtils.PlayAnimation(animations, rect, null, original, complete)); }
+        finally { DG.Tweening.DOTween.Kill(rect); }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RepeatedInitialGuardDoesNotAllocate(bool guard) {
+        var rect = Rect("Guard", root); rect.gameObject.SetActive(false);
+        var group = rect.gameObject.AddComponent<CanvasGroup>();
+        var info = rect.gameObject.AddComponent<aGuiInfo>(); Set(info, "m_rectTransform", rect); info.Refresh();
+        var container = rect.gameObject.AddComponent<aNormalSelectableContainer>();
+        Set(container, "m_canvasGroup", group); Set(container, "m_guiInfo", info);
+        Set(container, "m_initialGuard", guard); container.DisallowNullSelection = false;
+        rect.gameObject.SetActive(true);
+        AssertNoAlloc(() => { container.Hide(); container.Show(); });
+    }
 
     private static void AssertNoAlloc(Action action) {
         for(var i = 0; i < 32; i++) action();

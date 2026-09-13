@@ -200,6 +200,8 @@ using TMPro;
 		#region Pointer Events
 		/// <summary> ポインタ押下時の処理。ガード判定と長押し開始を管理する </summary>
 		public override void OnPointerDown(PointerEventData eventData) {
+			// 対象外のボタンは入力ガードや進行中の押下状態にも影響させない。
+			if(eventData.button != PointerEventData.InputButton.Left && eventData.button != PointerEventData.InputButton.Right) return;
 			ApplyPreventFocusNavigation();
 			base.OnPointerDown(eventData);
 

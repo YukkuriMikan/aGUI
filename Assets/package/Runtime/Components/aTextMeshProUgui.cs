@@ -41,6 +41,8 @@ namespace ANest.UI {
 		private string m_rubySource;
 		private bool m_hasRubySource;
 		private bool m_isUpdatingRuby;                                            // ルビ更新中の再帰防止フラグ
+		private aRubyTextPreprocessor m_rubyPreprocessor;
+		private bool m_preparingRubyInput;
 		#endregion
 
 		#region Properties
@@ -96,6 +98,7 @@ namespace ANest.UI {
 		#region Unity Methods
 		/// <summary>有効化時にイベント購読とLocalization適用を行う</summary>
 		protected override void OnEnable() {
+			EnsureRubyPreprocessor();
 			base.OnEnable();
 			// シーン再読み込み時に残存するルビオブジェクトを回収
 			CollectExistingRubyObjects();
@@ -119,6 +122,50 @@ namespace ANest.UI {
 		#endregion
 
 		#region Private Methods
+		private void EnsureRubyPreprocessor() {
+			m_rubyPreprocessor ??= new aRubyTextPreprocessor(this);
+			if(ReferenceEquals(m_TextPreprocessor, m_rubyPreprocessor)) return;
+			m_rubyPreprocessor.Input = m_TextPreprocessor;
+			m_TextPreprocessor = m_rubyPreprocessor;
+		}
+
+		public override void SetVerticesDirty() {
+			EnsureRubyPreprocessor();
+			if(!m_preparingRubyInput && !m_isUpdatingRuby) {
+				m_rubyPreprocessor.InvalidateLayout();
+				// 配列・数値書式のSetTextはTMPのプリプロセッサを通らないため、ルビ入力のみ文字列経路へ戻す。
+				var source = base.text;
+				if(source != null && source.IndexOf("ruby:", System.StringComparison.Ordinal) >= 0) {
+					m_preparingRubyInput = true;
+					try { base.SetText(source); }
+					finally { m_preparingRubyInput = false; }
+				}
+			}
+			base.SetVerticesDirty();
+		}
+
+		public override void ForceMeshUpdate(bool ignoreActiveState = false, bool forceTextReparsing = false) {
+			EnsureRubyPreprocessor();
+			base.ForceMeshUpdate(ignoreActiveState, forceTextReparsing);
+		}
+
+		public override void Rebuild(UnityEngine.UI.CanvasUpdate update) {
+			EnsureRubyPreprocessor();
+			base.Rebuild(update);
+		}
+
+		protected override void GenerateTextMesh() {
+			var wrapping = m_TextWrappingMode;
+			if(m_rubyPreprocessor != null && m_rubyPreprocessor.UseManualWrapping) m_TextWrappingMode = TextWrappingModes.NoWrap;
+			try { base.GenerateTextMesh(); }
+			finally { m_TextWrappingMode = wrapping; }
+		}
+
+		protected override Vector2 CalculatePreferredValues(ref float fontSize, Vector2 marginSize, bool isTextAutoSizingEnabled, TextWrappingModes textWrapMode) {
+			if(m_rubyPreprocessor != null && m_rubyPreprocessor.UseManualWrapping) textWrapMode = TextWrappingModes.NoWrap;
+			return base.CalculatePreferredValues(ref fontSize, marginSize, isTextAutoSizingEnabled, textWrapMode);
+		}
+
 		/// <summary>テキスト変更イベントのコールバック</summary>
 		private void OnTextChanged(Object obj) {
 			if(obj != this) return;
@@ -127,6 +174,11 @@ namespace ANest.UI {
 			try {
 				// TMP自身の通知はメッシュ生成完了後。外部からの未反映通知だけ更新する。
 				if(havePropertiesChanged) ForceMeshUpdate();
+				UpdateRubyTextCache(textInfo);
+				if(m_rubyPreprocessor.TryCreateOverflowLayout(textInfo, m_rubyTextByLink)) {
+					Debug.LogWarning("[aTextMeshProUgui] ルビ本文が1行の幅を超えるため、途中で分割せず横にはみ出して表示します。", this);
+					ForceMeshUpdate();
+				}
 				UpdateRubyObjects();
 			} finally {
 				m_isUpdatingRuby = false;
@@ -167,7 +219,7 @@ namespace ANest.UI {
 			// ルビ用linkの数を集計
 			int rubyCount = 0;
 			for (int i = 0; i < info.linkCount; i++) {
-				if(m_rubyTextByLink[i] != null) rubyCount++;
+				if(m_rubyTextByLink[i] != null && HasRubyBody(info, info.linkInfo[i])) rubyCount++;
 			}
 
 			// 不要なルビオブジェクトを破棄
@@ -175,21 +227,18 @@ namespace ANest.UI {
 				int last = m_rubyObjects.Count - 1;
 				var obj = m_rubyObjects[last];
 				m_rubyObjects.RemoveAt(last);
-				if(obj != null) {
-					if(Application.isPlaying) Destroy(obj);
-					else DestroyImmediate(obj);
-				}
+				DestroyRubyObject(obj);
 			}
 
 			int rubyIndex = 0;
 			for (int i = 0; i < info.linkCount; i++) {
 				var linkInfo = info.linkInfo[i];
 				var rubyText = m_rubyTextByLink[i];
-				if(rubyText == null) continue;
+				if(rubyText == null || !HasRubyBody(info, linkInfo)) continue;
 
 				// ルビオブジェクトの取得または生成
 				GameObject rubyObj;
-				if(rubyIndex < m_rubyObjects.Count) {
+				if(rubyIndex < m_rubyObjects.Count && m_rubyObjects[rubyIndex] != null) {
 					rubyObj = m_rubyObjects[rubyIndex];
 				} else {
 					rubyObj = new GameObject($"Ruby_{rubyIndex}", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -205,7 +254,8 @@ namespace ANest.UI {
 					rubyTmp.textWrappingMode = TextWrappingModes.NoWrap;
 					rubyTmp.overflowMode = TextOverflowModes.Overflow;
 					rubyTmp.raycastTarget = false;
-					m_rubyObjects.Add(rubyObj);
+					if(rubyIndex < m_rubyObjects.Count) m_rubyObjects[rubyIndex] = rubyObj;
+					else m_rubyObjects.Add(rubyObj);
 				}
 
 				// ルビテキストの設定
@@ -273,9 +323,9 @@ namespace ANest.UI {
 
 
 		private void UpdateRubyTextCache(TMP_TextInfo info) {
-			var source = text;
-			// 独自プリプロセッサは同じ入力から別のリンクを生成できるため再解析する。
-			if(m_hasRubySource && m_rubySource == source && m_rubyTextByLink.Count == info.linkCount && textPreprocessor == null) return;
+			var source = m_rubyPreprocessor?.Output ?? text;
+			// 外部プリプロセッサの結果も含め、実際に解析された文字列で判定する。
+			if(m_hasRubySource && m_rubySource == source && m_rubyTextByLink.Count == info.linkCount) return;
 			m_rubySource = source;
 			m_hasRubySource = true;
 			m_rubyTextByLink.Clear();
@@ -283,6 +333,23 @@ namespace ANest.UI {
 				var id = info.linkInfo[i].GetLinkID();
 				m_rubyTextByLink.Add(id.StartsWith(RubyPrefix, System.StringComparison.Ordinal) ? id.Substring(RubyPrefix.Length) : null);
 			}
+		}
+
+
+		private static bool HasRubyBody(TMP_TextInfo info, TMP_LinkInfo link) {
+			return link.linkTextLength > 0 && link.linkTextfirstCharacterIndex >= 0
+				&& link.linkTextfirstCharacterIndex < info.characterCount
+				&& link.linkTextLength <= info.characterCount - link.linkTextfirstCharacterIndex;
+		}
+
+		private void DestroyRubyObject(GameObject obj) {
+			if(obj == null) return;
+			if(Application.isPlaying) {
+				// Destroyはフレーム末まで遅延する。再有効化時の回収対象から即座に外す。
+				obj.name = "Retired ruby";
+				obj.SetActive(false);
+				Destroy(obj);
+			} else DestroyImmediate(obj);
 		}
 
 		/// <summary>シーン再読み込み時に残存するルビ子オブジェクトをリストに回収する</summary>
@@ -304,10 +371,7 @@ namespace ANest.UI {
 			m_rubySource = null;
 			m_hasRubySource = false;
 			for (int i = 0; i < m_rubyObjects.Count; i++) {
-				if(m_rubyObjects[i] != null) {
-					if(Application.isPlaying) Destroy(m_rubyObjects[i]);
-					else DestroyImmediate(m_rubyObjects[i]);
-				}
+				DestroyRubyObject(m_rubyObjects[i]);
 			}
 			m_rubyObjects.Clear();
 		}

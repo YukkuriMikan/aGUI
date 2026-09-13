@@ -1,0 +1,162 @@
+using System;
+using System.Text;
+using System.Collections.Generic;
+using TMPro;
+
+namespace ANest.UI {
+	/// <summary>ルビ本文を一つの改行単位にする。著者の入力文字列は変更しない。</summary>
+	internal sealed class aRubyTextPreprocessor : ITextPreprocessor {
+		private readonly aTextMeshProUgui m_owner;
+		private readonly StringBuilder m_buffer = new();
+		private string m_source;
+		private bool m_richText;
+		private bool m_parseEscapes;
+		private bool m_hasSource;
+		private readonly SortedSet<int> m_lineBreaks = new();
+		internal ITextPreprocessor Input;
+		internal string Output { get; private set; }
+		internal bool UseManualWrapping { get; private set; }
+
+		internal aRubyTextPreprocessor(aTextMeshProUgui owner) => m_owner = owner;
+
+		internal void InvalidateLayout() {
+			m_hasSource = false;
+			UseManualWrapping = false;
+		}
+
+		// TMPはnobrでも長すぎる単語を分割する。その場合のみ、決定済みの改行位置を固定し、
+		// ルビの途中の改行を直前・直後へ移す。NoWrapで再描画すれば他の行幅を変えずにはみ出せる。
+		internal bool TryCreateOverflowLayout(TMP_TextInfo info, List<string> rubyTextByLink) {
+			if(UseManualWrapping || string.IsNullOrEmpty(Output)) return false;
+			bool needsOverflow = false;
+			for(var i = 0; i < info.linkCount; i++) {
+				var link = info.linkInfo[i];
+				if(rubyTextByLink[i] == null || link.linkTextLength <= 0) continue;
+				int first = link.linkTextfirstCharacterIndex, last = first + link.linkTextLength - 1;
+				if(first < 0 || last >= info.characterCount) continue;
+				if(info.characterInfo[first].lineNumber != info.characterInfo[last].lineNumber) needsOverflow = true;
+			}
+			if(!needsOverflow) return false;
+
+			m_lineBreaks.Clear();
+			for(var i = 1; i < info.characterCount; i++) {
+				var previous = info.characterInfo[i - 1];
+				var current = info.characterInfo[i];
+				if(current.lineNumber != previous.lineNumber && previous.character != '\n' && previous.character != '\r')
+					m_lineBreaks.Add(current.index);
+			}
+			for(var i = 0; i < info.linkCount; i++) {
+				var link = info.linkInfo[i];
+				if(rubyTextByLink[i] == null || link.linkTextLength <= 0) continue;
+				int first = link.linkTextfirstCharacterIndex, last = first + link.linkTextLength - 1;
+				if(first < 0 || last >= info.characterCount || info.characterInfo[first].lineNumber == info.characterInfo[last].lineNumber) continue;
+				for(var j = first; j <= last; j++) m_lineBreaks.Remove(info.characterInfo[j].index);
+				var start = Output.LastIndexOf("<link", info.characterInfo[first].index, StringComparison.OrdinalIgnoreCase);
+				var end = Output.IndexOf("</link>", info.characterInfo[last].index, StringComparison.OrdinalIgnoreCase);
+				// 追加したゼロ幅スペースや既存の明示改行と重複して空行を作らない。
+				int previous = first - 1, next = last + 1;
+				while(previous >= 0 && !info.characterInfo[previous].isVisible && info.characterInfo[previous].character != '\n') {
+					m_lineBreaks.Remove(info.characterInfo[previous--].index);
+				}
+				while(next < info.characterCount && !info.characterInfo[next].isVisible && info.characterInfo[next].character != '\n') {
+					m_lineBreaks.Remove(info.characterInfo[next++].index);
+				}
+				if(start >= 0 && previous >= 0 && info.characterInfo[previous].character != '\n'
+					&& !HasBreakBetween(info.characterInfo[previous].index, start)) m_lineBreaks.Add(start);
+				if(end >= 0 && next < info.characterCount && info.characterInfo[next].character != '\n') {
+					m_lineBreaks.Remove(info.characterInfo[next].index);
+					m_lineBreaks.Add(end + 7);
+				}
+			}
+			m_buffer.Clear();
+			var copied = 0;
+			foreach(var index in m_lineBreaks) {
+				if(index < copied || index > Output.Length) continue;
+				m_buffer.Append(Output, copied, index - copied).Append('\n');
+				copied = index;
+			}
+			m_buffer.Append(Output, copied, Output.Length - copied);
+			Output = m_buffer.ToString();
+			UseManualWrapping = true;
+			return true;
+		}
+
+		private bool HasBreakBetween(int after, int through) {
+			foreach(var index in m_lineBreaks) {
+				if(index > through) break;
+				if(index > after) return true;
+			}
+			return false;
+		}
+
+		public string PreprocessText(string text) {
+			var source = Input != null ? Input.PreprocessText(text) : text;
+			if(m_hasSource && source == m_source && m_richText == m_owner.richText && m_parseEscapes == m_owner.parseCtrlCharacters) return Output;
+			m_hasSource = true;
+			UseManualWrapping = false;
+			m_source = source;
+			m_richText = m_owner.richText;
+			m_parseEscapes = m_owner.parseCtrlCharacters;
+			if(!m_richText || string.IsNullOrEmpty(source) || source.IndexOf("ruby:", StringComparison.Ordinal) < 0) return Output = source;
+
+			m_buffer.Clear();
+			bool noParse = false, noBreak = false, ruby = false, addedNoBreak = false;
+			for(var i = 0; i < source.Length; i++) {
+				if(source[i] == '<') {
+					var end = TagEnd(source, i);
+					if(end >= 0) {
+						if(TagIs(source, i, end, "/noparse")) noParse = false;
+						else if(noParse) { m_buffer.Append(source, i, end - i + 1); i = end; continue; }
+						else if(TagIs(source, i, end, "noparse")) noParse = true;
+						else if(TagIs(source, i, end, "nobr")) noBreak = true;
+						else if(TagIs(source, i, end, "/nobr")) noBreak = false;
+						else if(IsRubyLink(source, i, end)) {
+							ruby = true;
+							addedNoBreak = !noBreak;
+							if(addedNoBreak) m_buffer.Append('\u200B').Append("<nobr>");
+						} else if(ruby && TagIs(source, i, end, "/link")) {
+							m_buffer.Append(source, i, end - i + 1);
+							if(addedNoBreak) m_buffer.Append("</nobr>").Append('\u200B');
+							ruby = false;
+							i = end;
+							continue;
+						} else if(ruby && (TagIs(source, i, end, "br") || TagIs(source, i, end, "br/"))) {
+							i = end;
+							continue;
+						}
+						m_buffer.Append(source, i, end - i + 1);
+						i = end;
+						continue;
+					}
+				}
+				if(ruby && !noParse) {
+					if(source[i] == '\n' || source[i] == '\r' || source[i] == '\u2028' || source[i] == '\u2029') continue;
+					if(m_parseEscapes && source[i] == '\\' && i + 1 < source.Length && (source[i + 1] == 'n' || source[i + 1] == 'r')) { i++; continue; }
+				}
+				m_buffer.Append(source[i]);
+			}
+			return Output = m_buffer.ToString();
+		}
+
+		private static int TagEnd(string source, int start) {
+			char quote = '\0';
+			for(var i = start + 1; i < source.Length; i++) {
+				var c = source[i];
+				if(quote != '\0') { if(c == quote) quote = '\0'; }
+				else if(c == '"' || c == '\'') quote = c;
+				else if(c == '>') return i;
+			}
+			return -1;
+		}
+
+		private static bool TagIs(string source, int start, int end, string tag) => end - start - 1 == tag.Length
+			&& string.Compare(source, start + 1, tag, 0, tag.Length, StringComparison.OrdinalIgnoreCase) == 0;
+
+		private static bool IsRubyLink(string source, int start, int end) {
+			if(end - start < 11 || string.Compare(source, start + 1, "link=", 0, 5, StringComparison.OrdinalIgnoreCase) != 0) return false;
+			var value = start + 6;
+			if(source[value] == '"' || source[value] == '\'') value++;
+			return end - value >= 5 && string.Compare(source, value, "ruby:", 0, 5, StringComparison.Ordinal) == 0;
+		}
+	}
+}

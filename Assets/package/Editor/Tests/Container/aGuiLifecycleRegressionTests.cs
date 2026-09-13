@@ -10,9 +10,163 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using UniRx;
 using Object = UnityEngine.Object;
 
 public class aGuiLifecycleRegressionTests {
+    private static T InactiveContainer<T>(Transform parent, bool visible, aContainerBase main = null) where T : aContainerBase {
+        var rect = Rect(typeof(T).Name, parent);
+        rect.gameObject.SetActive(false);
+        var group = rect.gameObject.AddComponent<CanvasGroup>();
+        var info = rect.gameObject.AddComponent<aGuiInfo>();
+        Set(info, "m_rectTransform", rect);
+        info.Refresh();
+        var container = rect.gameObject.AddComponent<T>();
+        Set(container, "m_canvasGroup", group);
+        Set(container, "m_guiInfo", info);
+        Set(container, "m_isVisible", visible);
+        if(container is aSubContainer sub) sub.MainContainer = main;
+        return container;
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, false)]
+    [TestCase(true, true)]
+    [TestCase(false, true)]
+    public void ReentrantVisibilityChangeKeepsLatestRequestAndSubInSync(bool requestShow, bool useObservable) {
+        var root = Rect("Reentrant visibility");
+        IDisposable subscription = null;
+        try {
+            var main = InactiveContainer<aStaticContainer>(root, !requestShow);
+            main.gameObject.SetActive(true);
+            var sub = InactiveContainer<aSubContainer>(root, !requestShow, main);
+            sub.gameObject.SetActive(true);
+            var show = new FadeCanvasGroup();
+            var hide = new FadeCanvasGroup();
+            Set(show, "m_startValue", 0f); Set(show, "m_endValue", 1f);
+            Set(hide, "m_startValue", 1f); Set(hide, "m_endValue", 0f);
+            Set(main, "m_showAnimations", new IUiAnimation[] { show });
+            Set(main, "m_hideAnimations", new IUiAnimation[] { hide });
+            Action reverse = () => { if(requestShow) main.Hide(); else main.Show(); };
+            if(useObservable) subscription = (requestShow ? main.ShowStartObservable : main.HideStartObservable).Subscribe(_ => reverse());
+            else if(requestShow) main.OnShow.AddListener(() => reverse());
+            else main.OnHide.AddListener(() => reverse());
+            if(requestShow) main.Show(); else main.Hide();
+            main.RectTransform.DOComplete();
+            Assert.That(main.IsVisible, Is.EqualTo(!requestShow));
+            Assert.That(main.gameObject.activeSelf, Is.EqualTo(!requestShow));
+            Assert.That(main.CanvasGroup.alpha, Is.EqualTo(requestShow ? 0f : 1f).Within(.001f));
+            Assert.That(main.CanvasGroup.blocksRaycasts, Is.EqualTo(!requestShow));
+            Assert.That(sub.IsVisible, Is.EqualTo(main.IsVisible));
+            Assert.That(sub.gameObject.activeSelf, Is.EqualTo(main.IsVisible));
+        } finally {
+            subscription?.Dispose();
+            foreach(var rect in root.GetComponentsInChildren<RectTransform>(true)) rect.DOKill();
+            Object.DestroyImmediate(root.gameObject);
+        }
+    }
+
+    [TestCase(true, true)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(false, false)]
+    public void SubInitialSyncFiresVisibilityEventOnce(bool mainVisible, bool subVisible) {
+        var root = Rect("Initial sub sync");
+        try {
+            var main = InactiveContainer<aStaticContainer>(root, mainVisible);
+            main.gameObject.SetActive(true);
+            var sub = InactiveContainer<aSubContainer>(root, subVisible, main);
+            int shows = 0, hides = 0;
+            sub.OnShow.AddListener(() => shows++);
+            sub.OnHide.AddListener(() => hides++);
+            sub.gameObject.SetActive(true);
+            Assert.That(shows, Is.EqualTo(mainVisible ? 1 : 0));
+            Assert.That(hides, Is.EqualTo(mainVisible ? 0 : 1));
+            Assert.That(sub.IsVisible, Is.EqualTo(mainVisible));
+            Assert.That(sub.gameObject.activeSelf, Is.EqualTo(mainVisible));
+            main.IsVisible = !mainVisible;
+            Assert.That(sub.IsVisible, Is.EqualTo(!mainVisible));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [UnityTest]
+    public IEnumerator InspectorMainChangeDisconnectsOldMain() {
+        var root = Rect("Inspector sub sync");
+        try {
+            var a = InactiveContainer<aStaticContainer>(root, true);
+            var b = InactiveContainer<aStaticContainer>(root, true);
+            a.gameObject.SetActive(true); b.gameObject.SetActive(true);
+            var sub = InactiveContainer<aSubContainer>(root, true, a);
+            sub.gameObject.SetActive(true);
+#if UNITY_EDITOR
+            var serialized = new UnityEditor.SerializedObject(sub);
+            serialized.FindProperty("m_mainContainer").objectReferenceValue = b;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+#endif
+            yield return null;
+            yield return null;
+            a.Hide();
+            Assert.That(sub.IsVisible, Is.True, "The old main must no longer control the sub.");
+            b.Hide();
+            Assert.That(sub.IsVisible, Is.False);
+            b.Show();
+            Assert.That(sub.gameObject.activeSelf, Is.True);
+#if UNITY_EDITOR
+            serialized.Update();
+            serialized.FindProperty("m_mainContainer").objectReferenceValue = null;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+#endif
+            yield return null;
+            yield return null;
+            b.Hide();
+            Assert.That(sub.IsVisible, Is.True, "Clearing the reference must disconnect the previous main.");
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [Test]
+    public void DisabledSubStopsSyncAndResyncsOnEnable() {
+        var root = Rect("Disabled sub sync");
+        try {
+            var main = InactiveContainer<aStaticContainer>(root, true);
+            main.gameObject.SetActive(true);
+            var sub = InactiveContainer<aSubContainer>(root, true, main);
+            sub.gameObject.SetActive(true);
+            int shows = 0, hides = 0;
+            sub.OnShow.AddListener(() => shows++); sub.OnHide.AddListener(() => hides++);
+            sub.enabled = false;
+            main.Hide(); main.Show(); main.Hide();
+            Assert.That(sub.gameObject.activeSelf, Is.True);
+            Assert.That(shows + hides, Is.Zero);
+            sub.enabled = true;
+            Assert.That(sub.IsVisible, Is.False);
+            Assert.That(hides, Is.EqualTo(1));
+            main.Show();
+            Assert.That(sub.gameObject.activeSelf, Is.True, "Normal Hide must not break the connection needed for Show.");
+            Assert.That(shows, Is.EqualTo(1));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [Test]
+    public void MainPropertyChangeWhileDisabledUsesNewMainOnEnable() {
+        var root = Rect("Disabled main reassignment");
+        try {
+            var a = InactiveContainer<aStaticContainer>(root, true);
+            var b = InactiveContainer<aStaticContainer>(root, false);
+            a.gameObject.SetActive(true); b.gameObject.SetActive(true);
+            var sub = InactiveContainer<aSubContainer>(root, true, a);
+            sub.gameObject.SetActive(true);
+            sub.enabled = false;
+            sub.MainContainer = b;
+            Assert.That(sub.IsVisible, Is.True);
+            sub.enabled = true;
+            Assert.That(sub.IsVisible, Is.False);
+            a.Hide(); a.Show();
+            Assert.That(sub.IsVisible, Is.False);
+            b.Show();
+            Assert.That(sub.IsVisible, Is.True);
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
     private static void Set(object target, string name, object value) {
         for(var type = target.GetType(); type != null; type = type.BaseType) {
             var field = type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);

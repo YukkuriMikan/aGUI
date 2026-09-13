@@ -56,6 +56,7 @@ namespace ANest.UI {
 		private bool m_suppressActiveWarning;                      // 内部処理用：SetActive実行時の警告を一時的に抑制するフラグ
 		private bool m_nowShowing;                                 // 現在表示処理中かどうか
 		private bool m_nowHiding;                                  // 現在非表示処理中かどうか
+		private uint m_visibilityRevision;                         // イベント内で開始された新しい表示処理を識別する
 		private readonly Action m_showAnimationCompleteAction;     // Showアニメーション完了時コールバック（GC削減用キャッシュ）
 		private readonly Action m_showAnimationKillAction;         // Showアニメーション中断時コールバック（GC削減用キャッシュ）
 		private readonly Action m_hideAnimationCompleteAction;     // Hideアニメーション完了時コールバック（GC削減用キャッシュ）
@@ -246,6 +247,7 @@ namespace ANest.UI {
 		#region Protected Method
 		/// <summary>表示処理の実装</summary>
 		protected virtual void ShowInternal() {
+			var revision = ++m_visibilityRevision;
 			// 進行中のHideを中断してShowを優先する
 			m_nowHiding = false;
 			m_nowShowing = true;
@@ -263,11 +265,15 @@ namespace ANest.UI {
 
 			// 1. 状態の更新とGameObjectの有効化
 			UpdateStateForShow();
+			if(!IsCurrentVisibilityChange(revision)) return;
 			SetActiveInternal(true);
+			if(!IsCurrentVisibilityChange(revision)) return;
 			m_onShow?.Invoke();
+			if(!IsCurrentVisibilityChange(revision)) return;
 
 			// アニメーションなしの場合は完了通知が同期で飛ぶため、開始通知はアニメーション再生より先に発火する
 			m_showStartSubject.OnNext(Unit.Default);
+			if(!IsCurrentVisibilityChange(revision)) return;
 
 			// 2. アニメーションの再生（完了を待たずに選択復帰へ進む）
 			TryPlayAnimations(ShowAnimations, m_showAnimationCompleteAction, m_showAnimationKillAction);
@@ -277,6 +283,7 @@ namespace ANest.UI {
 
 		/// <summary>非表示処理の実装</summary>
 		protected virtual void HideInternal() {
+			var revision = ++m_visibilityRevision;
 			// 進行中のShowを中断してHideを優先する
 			m_nowShowing = false;
 			m_nowHiding = true;
@@ -294,13 +301,16 @@ namespace ANest.UI {
 
 			// 2. 状態の更新
 			UpdateStateForHide();
+			if(!IsCurrentVisibilityChange(revision)) return;
 			m_onHide?.Invoke();
+			if(!IsCurrentVisibilityChange(revision)) return;
 
 			// アニメーションなしの場合は完了通知が同期で飛ぶため、開始通知はアニメーション再生より先に発火する
 			// 初期化中（m_suppressAnimation）の初期状態適用では通知しない
 			if(!m_suppressAnimation) {
 				m_hideStartSubject.OnNext(Unit.Default);
 			}
+			if(!IsCurrentVisibilityChange(revision)) return;
 
 			// 3. アニメーションの再生。完了時にGameObjectを非アクティブにする
 			TryPlayAnimations(HideAnimations, m_hideAnimationCompleteAction, m_hideAnimationKillAction);
@@ -310,6 +320,8 @@ namespace ANest.UI {
 		#endregion
 
 		#region Private Method
+		private bool IsCurrentVisibilityChange(uint revision) => this != null && revision == m_visibilityRevision;
+
 		/// <summary>SetActive時の警告を回避しつつ、GameObjectの活性状態を切り替える</summary>
 		private void SetActiveInternal(bool active) {
 			if(gameObject.activeSelf == active) return;

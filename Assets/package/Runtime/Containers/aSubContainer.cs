@@ -6,6 +6,10 @@ namespace ANest.UI {
 		[Header("Sub Container")]
 		[Tooltip("紐付けるメインコンテナ")]
 		[SerializeField] private aContainerBase m_mainContainer; // メインコンテナ参照
+		private aContainerBase m_subscribedMainContainer;
+#if UNITY_EDITOR
+		private bool m_refreshConnectionQueued;
+#endif
 
 		/// <summary>従属するメインコンテナ</summary>
 		public aContainerBase MainContainer {
@@ -13,14 +17,8 @@ namespace ANest.UI {
 			set {
 				if(m_mainContainer == value) return;
 
-				UnsubscribeFromMainContainer();
-
 				m_mainContainer = value;
-
-				if(!IsStandalone) {
-					SubscribeToMainContainer();
-					SyncWithMainVisibility();
-				}
+				RefreshMainConnection();
 			}
 		}
 
@@ -28,16 +26,15 @@ namespace ANest.UI {
 		public override void Initialize() {
 			if(m_initialized) return;
 
-			m_suppressAnimation = true;
-
-			if(!IsStandalone) {
-				SubscribeToMainContainer();
-				SyncWithMainVisibility();
-			}
-
-			m_suppressAnimation = false;
-			
+			// 初期状態だけを合わせ、参照の準備とイベント発火は基底の初期化で一度だけ行う。
+			if(enabled && !IsStandalone) m_isVisible = m_mainContainer.IsVisible;
 			base.Initialize();
+			RefreshMainConnection();
+		}
+
+		protected override void OnEnable() {
+			base.OnEnable();
+			RefreshMainConnection();
 		}
 
 		/// <summary>破棄時にメインコンテナの購読を解除する</summary>
@@ -63,23 +60,34 @@ namespace ANest.UI {
 
 		/// <summary>メインコンテナの表示イベントへ購読する</summary>
 		private void SubscribeToMainContainer() {
-			if(m_mainContainer == null) return;
-			m_mainContainer.OnShow.RemoveListener(OnMainContainerShow);
-			m_mainContainer.OnHide.RemoveListener(OnMainContainerHide);
-			m_mainContainer.OnShow.AddListener(OnMainContainerShow);
-			m_mainContainer.OnHide.AddListener(OnMainContainerHide);
+			if(m_subscribedMainContainer == m_mainContainer) return;
+			UnsubscribeFromMainContainer();
+			m_subscribedMainContainer = m_mainContainer;
+			if(m_subscribedMainContainer == null) return;
+			m_subscribedMainContainer.OnShow.AddListener(OnMainContainerShow);
+			m_subscribedMainContainer.OnHide.AddListener(OnMainContainerHide);
 		}
 
 		/// <summary>メインコンテナのイベント購読を解除する</summary>
 		private void UnsubscribeFromMainContainer() {
-			if(m_mainContainer == null) return;
-			m_mainContainer.OnShow.RemoveListener(OnMainContainerShow);
-			m_mainContainer.OnHide.RemoveListener(OnMainContainerHide);
+			if(m_subscribedMainContainer != null) {
+				m_subscribedMainContainer.OnShow.RemoveListener(OnMainContainerShow);
+				m_subscribedMainContainer.OnHide.RemoveListener(OnMainContainerHide);
+			}
+			m_subscribedMainContainer = null;
+		}
+
+		private void RefreshMainConnection() {
+			if(!m_initialized) return;
+			SubscribeToMainContainer();
+			SyncWithMainVisibility();
 		}
 
 		/// <summary>メインコンテナの表示状態に合わせて自分を表示/非表示にする</summary>
 		private void SyncWithMainVisibility() {
-			if(IsStandalone) return;
+			// Hideで自身のGameObjectを非表示にした後もMainのShowは受け取る。
+			// コンポーネントのチェックをOFFにした場合は同期を止める。
+			if(!enabled || IsStandalone) return;
 
 			if(IsMainContainerHidden()) {
 				Hide();
@@ -90,12 +98,12 @@ namespace ANest.UI {
 
 		/// <summary>メインコンテナのShowイベントに連動して表示する</summary>
 		private void OnMainContainerShow() {
-			Show();
+			RefreshMainConnection();
 		}
 
 		/// <summary>メインコンテナのHideイベントに連動して非表示にする</summary>
 		private void OnMainContainerHide() {
-			Hide();
+			RefreshMainConnection();
 		}
 
 		/// <summary>メインコンテナが非表示かどうかを返す</summary>
@@ -116,6 +124,20 @@ namespace ANest.UI {
 		}
 
 		#if UNITY_EDITOR
+		protected override void OnValidate() {
+			base.OnValidate();
+			if(!Application.isPlaying || !m_initialized || m_refreshConnectionQueued) return;
+			// OnValidateではSetActiveせず、Inspectorからの参照変更をメインスレッドで適用する。
+			m_refreshConnectionQueued = true;
+			UnityEditor.EditorApplication.delayCall += RefreshMainConnectionInEditor;
+		}
+
+		private void RefreshMainConnectionInEditor() {
+			if(this == null) return;
+			m_refreshConnectionQueued = false;
+			if(Application.isPlaying) RefreshMainConnection();
+		}
+
 		/// <summary>エディタ上で自動付与するコンテナ名の接頭辞</summary>
 		protected override string ContainerNamePrefix => "SubContainer - ";
 

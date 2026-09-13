@@ -31,7 +31,13 @@ public class aLayoutGroupUGUITimingTests {
 		}
 	}
 
-	private IEnumerator VerifyUGUIOrder(aLayoutGroupBase.UpdateMode mode, aLayoutGroupBase.UpdateTiming timing) {
+	[UnityTest]
+	public IEnumerator ShowingExistingChildrenWaitsForParentUGUILayout() {
+		yield return VerifyUGUIOrder(aLayoutGroupBase.UpdateMode.OnTransformChildrenChanged,
+			aLayoutGroupBase.UpdateTiming.Immediate, true);
+	}
+
+	private IEnumerator VerifyUGUIOrder(aLayoutGroupBase.UpdateMode mode, aLayoutGroupBase.UpdateTiming timing, bool childrenExistBeforeShowing = false) {
 		var canvasRoot = new GameObject("uGUI timing test", typeof(RectTransform), typeof(Canvas));
 		canvasRoot.SetActive(false);
 		try {
@@ -58,7 +64,8 @@ public class aLayoutGroupUGUITimingTests {
 			Set(group, "childForceExpandHeight", false);
 			Set(group, "setNavigation", false);
 			var child = new GameObject("Child", typeof(RectTransform));
-			child.transform.SetParent(mode == aLayoutGroupBase.UpdateMode.InitializeOnly ? row.transform : canvasRoot.transform, false);
+			child.transform.SetParent(mode == aLayoutGroupBase.UpdateMode.InitializeOnly || childrenExistBeforeShowing
+				? row.transform : canvasRoot.transform, false);
 			((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
 			((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 40);
 			var probe = row.AddComponent<LayoutInputLateUpdateProbe>();
@@ -70,7 +77,8 @@ public class aLayoutGroupUGUITimingTests {
 				canvasRoot.SetActive(true);
 				Canvas.ForceUpdateCanvases(); // 初期状態200を確定。次フレームの更新は通常のuGUIに任せる。
 				Assert.That(rowRect.rect.width, Is.EqualTo(200f).Within(0.001f));
-				if(mode == aLayoutGroupBase.UpdateMode.OnTransformChildrenChanged) child.transform.SetParent(row.transform, false);
+				if(mode == aLayoutGroupBase.UpdateMode.OnTransformChildrenChanged && !childrenExistBeforeShowing)
+					child.transform.SetParent(row.transform, false);
 				for(var i = 0; i < 5; i++) yield return null;
 				Assert.That(probe.Changed, Is.True);
 				Assert.That(observer.Count, Is.EqualTo(1));

@@ -97,4 +97,102 @@ public class aLayoutGroupLifecycleTests {
             }
         } finally { Object.DestroyImmediate(group.gameObject); }
     }
+
+    [UnityTest]
+    public IEnumerator ChildrenCreatedUnderInactiveParentAlignAndFitAfterShowing() {
+        var root = new GameObject("Hidden menu", typeof(RectTransform));
+        root.SetActive(false);
+        try {
+            var content = new GameObject("Content", typeof(RectTransform));
+            content.transform.SetParent(root.transform, false);
+            var rect = (RectTransform)content.transform;
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 342.4f);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 640f);
+            var group = content.AddComponent<aLayoutGroupVertical>();
+            Set(group, "updateMode", aLayoutGroupBase.UpdateMode.OnTransformChildrenChanged);
+            Set(group, "childAlignment", TextAnchor.UpperLeft);
+            Set(group, "childControlWidth", true);
+            Set(group, "childForceExpandHeight", false);
+            Set(group, "spacing", 10f);
+            var fitter = content.AddComponent<aContentSizeFitter>();
+            Set(fitter, "m_fitHeight", true);
+            for(var i = 0; i < 5; i++) {
+                var child = new GameObject("Item", typeof(RectTransform));
+                child.transform.SetParent(content.transform, false);
+                ((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 465f);
+                ((RectTransform)child.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 95f);
+            }
+            var observer = new Observer();
+            using(var subscription = group.CompleteLayoutAsObservable.Subscribe(observer)) {
+                // K2と同じく、非表示中に構築と整列依頼を済ませてから親メニューを表示する。
+                group.AlignWithFrameWaitAndCollectionAsync().Forget();
+                yield return null; yield return null;
+                Assert.That(observer.Count, Is.Zero, "Hidden layouts must not execute.");
+                root.SetActive(true);
+                Assert.That(observer.Count, Is.Zero, "Showing must still wait for uGUI.");
+                yield return null; yield return null; yield return null;
+                Assert.That(observer.Count, Is.EqualTo(1));
+                Assert.That(rect.rect.height, Is.EqualTo(515f).Within(0.001f));
+                for(var i = 0; i < content.transform.childCount; i++) {
+                    var child = (RectTransform)content.transform.GetChild(i);
+                    Assert.That(child.anchoredPosition.y, Is.EqualTo(-47.5f - 105f * i).Within(0.001f));
+                    Assert.That(child.rect.width, Is.EqualTo(342.4f).Within(0.001f));
+                }
+            }
+        } finally { Object.DestroyImmediate(root); }
+    }
+
+    [UnityTest]
+    public IEnumerator ReenabledAutomaticLayoutCollectsChildrenAddedWhileDisabled() {
+        var group = Create();
+        try {
+            Set(group, "updateMode", aLayoutGroupBase.UpdateMode.OnTransformChildrenChanged);
+            group.enabled = false;
+            var child = new GameObject("Added while disabled", typeof(RectTransform));
+            child.transform.SetParent(group.transform, false);
+            var observer = new Observer();
+            using(var subscription = group.CompleteLayoutAsObservable.Subscribe(observer)) {
+                yield return null; yield return null;
+                Assert.That(observer.Count, Is.Zero);
+                group.enabled = true;
+                yield return null; yield return null; yield return null;
+                Assert.That(observer.Count, Is.EqualTo(1));
+                Assert.That(((RectTransform)child.transform).anchoredPosition.x,
+                    Is.GreaterThan(((RectTransform)group.transform.GetChild(0)).anchoredPosition.x));
+            }
+        } finally { Object.DestroyImmediate(group.gameObject); }
+    }
+
+    [UnityTest]
+    public IEnumerator AutomaticReactivationAndExplicitRequestsProduceOneLayout() {
+        var group = Create();
+        try {
+            Set(group, "updateMode", aLayoutGroupBase.UpdateMode.OnTransformChildrenChanged);
+            var observer = new Observer();
+            using(var subscription = group.CompleteLayoutAsObservable.Subscribe(observer)) {
+                group.gameObject.SetActive(false);
+                group.gameObject.SetActive(true);
+                group.AlignWithFrameWaitAndCollectionAsync().Forget();
+                group.gameObject.SetActive(false);
+                group.gameObject.SetActive(true);
+                group.AlignWithCollectionNonAnimate();
+                yield return null; yield return null; yield return null;
+                Assert.That(observer.Count, Is.EqualTo(1), "Immediate rebuild must consume the activation request too.");
+            }
+        } finally { Object.DestroyImmediate(group.gameObject); }
+    }
+
+    [UnityTest]
+    public IEnumerator ManualLayoutDoesNotAlignOnReactivation() {
+        var group = Create();
+        try {
+            var observer = new Observer();
+            using(var subscription = group.CompleteLayoutAsObservable.Subscribe(observer)) {
+                group.gameObject.SetActive(false);
+                group.gameObject.SetActive(true);
+                yield return null; yield return null; yield return null;
+                Assert.That(observer.Count, Is.Zero);
+            }
+        } finally { Object.DestroyImmediate(group.gameObject); }
+    }
 }

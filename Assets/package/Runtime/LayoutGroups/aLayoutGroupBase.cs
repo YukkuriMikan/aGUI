@@ -14,7 +14,7 @@ namespace ANest.UI {
 		public enum UpdateMode {
 			Manual,                     // 手動でのみ更新
 			InitializeOnly,             // 初期化時のみ更新
-			OnTransformChildrenChanged, // 子Transform変更時に更新
+			OnTransformChildrenChanged, // 有効化時と子Transform変更時に更新
 		}
 
 		/// <summary> アニメーションの再生方式 </summary>
@@ -128,6 +128,10 @@ namespace ANest.UI {
 			m_dirty = false;
 			if(updateMode == UpdateMode.InitializeOnly) {
 				TryInit();
+			} else if(updateMode == UpdateMode.OnTransformChildrenChanged) {
+				// 非表示中の子変更や、無効化で取り消された予約を現在の子一覧から回復する。
+				// 表示直後は親のuGUIレイアウトとFitterの購読が未確定のため、通常の待機経路を使う。
+				ScheduleLayout(true, false);
 			}
 		}
 

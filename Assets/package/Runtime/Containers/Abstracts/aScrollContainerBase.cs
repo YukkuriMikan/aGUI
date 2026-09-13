@@ -85,98 +85,42 @@ namespace ANest.UI {
 			// レイアウトを強制更新してcontentのサイズを確定させる
 			Canvas.ForceUpdateCanvases();
 
-			// 変更前のアイテムが画面内にあるかチェック（パディングなしで純粋に画面内かどうか）
-			bool wasPreviousItemVisible = false;
-			if (previousItem != null) {
-				var viewport = scrollRect.viewport;
-				previousItem.GetWorldCorners(s_worldCornersBuffer);
-
-				var prevItemTopInViewport = viewport.InverseTransformPoint(s_worldCornersBuffer[1]).y;
-				var prevItemBottomInViewport = viewport.InverseTransformPoint(s_worldCornersBuffer[0]).y;
-				var vpLocalMin = viewport.rect.yMin;
-				var vpLocalMax = viewport.rect.yMax;
-
-				// パディングなしで、アイテムが完全に画面内にあるかチェック（ビューポートのローカル座標範囲を使用）
-				wasPreviousItemVisible = prevItemBottomInViewport >= vpLocalMin && prevItemTopInViewport <= vpLocalMax;
-			}
-
-			// viewportとcontentのRectTransformを取得
 			var viewportRect = scrollRect.viewport;
 			var contentRect = scrollRect.content;
+			GetVerticalBounds(item, viewportRect, out var itemBottom, out var itemTop);
+			var viewportBottom = viewportRect.rect.yMin;
+			var viewportTop = viewportRect.rect.yMax;
 
-			// アイテムの位置をviewport空間に変換
-			item.GetWorldCorners(s_worldCornersBuffer);
+			// 表示済みなら移動しない。Paddingもviewportのローカル単位で扱う。
+			float offset;
+			if(itemTop > viewportTop) offset = viewportTop - scrollPadding - itemTop;
+			else if(itemBottom < viewportBottom) offset = viewportBottom + scrollPadding - itemBottom;
+			else return;
 
-			// アイテムの上端と下端のローカル位置を計算
-			var itemTopInViewport = viewportRect.InverseTransformPoint(s_worldCornersBuffer[1]).y;
-			var itemBottomInViewport = viewportRect.InverseTransformPoint(s_worldCornersBuffer[0]).y;
-			var viewportHeight = viewportRect.rect.height;
-
-			// ビューポートのローカル座標範囲
-			var viewportLocalMin = viewportRect.rect.yMin;
-			var viewportLocalMax = viewportRect.rect.yMax;
-
-			// アイテムが完全に表示範囲内かどうかをチェック（パディングなしで純粋に画面内かどうか）
-			// ビューポートのローカル座標系での範囲を使用
-			var isItemFullyVisible = itemBottomInViewport >= viewportLocalMin && itemTopInViewport <= viewportLocalMax;
-
-			// 変更前のアイテムが画面内にあり、かつ変更後のアイテムも画面内にある場合はスクロール不要
-			if (wasPreviousItemVisible && isItemFullyVisible) {
-				return;
-			}
-
-			// 変更後のアイテムが完全に表示されている場合もスクロール不要
-			if (isItemFullyVisible) {
-				return;
-			}
-
-			// 目標スクロール位置を計算（アイテム全体が確実に表示されるようにする）
-			float targetScrollPosition;
-
-			// スクロール方向の判定（ビューポートのローカル座標系を使用）
-			var shouldScrollUp = itemTopInViewport > viewportLocalMax;
-			var shouldScrollDown = itemBottomInViewport < viewportLocalMin;
-
-			if (shouldScrollUp) {
-				// アイテムが上にはみ出している場合
-				// アイテムの上端がビューポート上端からpadding分下に来るようにする
-				var itemTopInContent = contentRect.InverseTransformPoint(s_worldCornersBuffer[1]).y;
-				var contentHeight = contentRect.rect.height;
-				var scrollableHeight = contentHeight - viewportHeight;
-
-				if (scrollableHeight > 0) {
-					// contentの上端からアイテムの上端までの距離を計算
-					// アイテムの上端がビューポート上端からpadding分下に来るようにする
-					var distanceFromContentTop = -(itemTopInContent - contentRect.rect.yMax) - scrollPadding;
-					targetScrollPosition = 1f - Mathf.Clamp01(distanceFromContentTop / scrollableHeight);
-				} else {
-					targetScrollPosition = 1f;
-				}
-			} else if (shouldScrollDown) {
-				// アイテムが下にはみ出している場合
-				// アイテムの下端がビューポート下端からpadding分上に来るようにする
-				var itemBottomInContent = contentRect.InverseTransformPoint(s_worldCornersBuffer[0]).y;
-				var contentHeight = contentRect.rect.height;
-				var scrollableHeight = contentHeight - viewportHeight;
-
-				if (scrollableHeight > 0) {
-					// contentの上端からアイテムの下端までの距離を計算
-					// アイテムの下端がビューポート下端からpadding分上に来るようにする
-					var distanceFromContentTop = -(itemBottomInContent - contentRect.rect.yMax) - viewportHeight + scrollPadding;
-					targetScrollPosition = 1f - Mathf.Clamp01(distanceFromContentTop / scrollableHeight);
-				} else {
-					targetScrollPosition = 1f;
-				}
-			} else {
-				// どちらの方向にもはみ出していない場合（理論的にはここには来ないはず）
-				return;
-			}
+			// ScrollRectと同じviewport空間の範囲から移動量を正規化する。
+			// Contentの拡縮・反転があっても、異なるローカル単位を混ぜない。
+			GetVerticalBounds(contentRect, viewportRect, out var contentBottom, out var contentTop);
+			var scrollableHeight = contentTop - contentBottom - viewportRect.rect.height;
+			var targetScrollPosition = scrollableHeight > 0f
+				? Mathf.Clamp01(scrollRect.verticalNormalizedPosition - offset / scrollableHeight)
+				: 1f;
 
 			// 移動が必要な場合だけ新しいキャンセルトークンを作成する。
 			cancellationTokenSource = new CancellationTokenSource();
 
 			// 新しいスクロールアニメーションを開始
 			SmoothScrollAsync(scrollRect, targetScrollPosition, scrollDuration, cancellationTokenSource.Token).Forget();
+		}
+
+		private static void GetVerticalBounds(RectTransform rect, RectTransform viewport, out float bottom, out float top) {
+			rect.GetWorldCorners(s_worldCornersBuffer);
+			bottom = float.PositiveInfinity;
+			top = float.NegativeInfinity;
+			for(var i = 0; i < 4; i++) {
+				var y = viewport.InverseTransformPoint(s_worldCornersBuffer[i]).y;
+				bottom = Mathf.Min(bottom, y);
+				top = Mathf.Max(top, y);
+			}
 		}
 
 		/// <summary>スクロール位置をスムーズにアニメーションさせる非同期メソッド</summary>
@@ -194,6 +138,7 @@ namespace ANest.UI {
 			var elapsed = 0f;
 
 			while (elapsed < scrollDuration) {
+				// timeScale = 0 では自動スクロールも停止する仕様。
 				elapsed += Time.deltaTime;
 				var t = Mathf.Clamp01(elapsed / scrollDuration);
 				// イージング関数（ease-out）を適用

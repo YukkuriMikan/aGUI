@@ -147,11 +147,17 @@ namespace ANest.UI {
 				if(textComponent != null && textComponent.havePropertiesChanged) textComponent.ForceMeshUpdate();
 			}
 
-			// カーソルの位置は CurrentSelectable の位置に移動する
-			// Canvas内での絶対座標を合わせるために、ワールド座標を使用する
 			Vector3 targetWorldPos = targetRect.position;
-			if(textComponent != null) {
-				targetWorldPos = textComponent.transform.TransformPoint(textComponent.textBounds.center);
+			Vector2 targetSize = m_cursorRect.rect.size;
+			if(m_sizeMode != SizeMode.Fixed) {
+				var sizeRect = textComponent != null ? textComponent.rectTransform : targetRect;
+				var bounds = textComponent != null
+					? textComponent.textBounds
+					: new Bounds(targetRect.rect.center, targetRect.rect.size);
+				targetSize = GetCursorSpaceSize(sizeRect, bounds.size) + m_padding;
+				// テキストの中央はPivotではない。カーソル自身のPivotと拡縮を反映する。
+				var pivotOffset = Vector2.Scale(m_cursorRect.pivot - new Vector2(0.5f, 0.5f), targetSize);
+				targetWorldPos = sizeRect.TransformPoint(bounds.center) + m_cursorRect.TransformVector(pivotOffset);
 			}
 
 			// 非表示状態から表示状態に遷移した場合は瞬間移動する
@@ -177,15 +183,6 @@ namespace ANest.UI {
 
 			// サイズ変更
 			if(m_sizeMode == SizeMode.MatchSelectable || m_sizeMode == SizeMode.MatchText) {
-				Vector2 targetSize = targetRect.rect.size + m_padding;
-
-				if(m_sizeMode == SizeMode.MatchText) {
-					if(textComponent != null) {
-						Vector3 textBoundsSize = textComponent.textBounds.size;
-						targetSize = new Vector2(textBoundsSize.x, textBoundsSize.y) + m_padding;
-					}
-				}
-
 				if(shouldInstantMove) {
 					m_sizeTween?.Kill();
 					ApplyCursorSize(targetSize);
@@ -204,6 +201,14 @@ namespace ANest.UI {
 					}
 				}
 			}
+		}
+
+		private Vector2 GetCursorSpaceSize(RectTransform target, Vector3 size) {
+			// カーソルの軸へ投影した幅・高さ。親階層や自身の拡縮・反転も含める。
+			var matrix = m_cursorRect.worldToLocalMatrix * target.localToWorldMatrix;
+			var x = matrix.MultiplyVector(new Vector3(size.x, 0f, 0f));
+			var y = matrix.MultiplyVector(new Vector3(0f, size.y, 0f));
+			return new Vector2(Mathf.Abs(x.x) + Mathf.Abs(y.x), Mathf.Abs(x.y) + Mathf.Abs(y.y));
 		}
 
 		private void ApplyCursorSize(Vector2 size) {

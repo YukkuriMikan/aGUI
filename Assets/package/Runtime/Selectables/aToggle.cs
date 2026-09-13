@@ -183,6 +183,7 @@ namespace ANest.UI {
 
 			StartGuard(now);
 			base.OnSubmit(eventData);
+			PlayClickAnimations();
 		}
 
 		/// <summary>方向入力によるナビゲーション移動（非Interactableを無視）</summary>

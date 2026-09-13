@@ -52,6 +52,9 @@ namespace ANest.UI {
 		/// <param name="___">復元用のRectTransform初期値（未使用）</param>
 		public Tween DoAnimate(Graphic _, RectTransform callerRect, RectTransformValues ___) {
 			m_tween.Kill();
+			m_tween = null;
+			// 対象未設定・破棄済みの場合は、この項目だけをスキップする。
+			if(callerRect == null || m_target == null || m_target.RectTransform == null) return null;
 
 			// 再生中の再トリガーで回転が累積しないよう、基準回転は初回再生時の値を使い続ける
 			if(!m_hasBaseRotation) {

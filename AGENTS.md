@@ -6,5 +6,5 @@
 - 完了報告にはコミットID、更新後のバージョン、検証結果を簡潔に記載する。
 - ユーザーが明示的に別の進め方を指定した場合は、その指示を優先する。
 - RectTransformの実サイズは `rect.size` / `rect.width` / `rect.height` で取得し、`SetSizeWithCurrentAnchors` で設定する。`sizeDelta` はアンカー相対設定の保存・復元など、差分自体を扱う必然性がある場合に限る。
-- 保留中の既知の不具合：`aScrollContainerBase.SmoothScrollAsync` が `Time.deltaTime` を使うため、`Time.timeScale = 0` のポーズ中は自動スクロールが進まない。ユーザーの指示で現状維持。今後、バグ一覧を報告する際もこの項目を引き続き挙げる。
+- 確定仕様：`aScrollContainerBase.SmoothScrollAsync` は `Time.deltaTime` を使い、`Time.timeScale = 0` の停止中は自動スクロールも停止する。ユーザーが仕様として了承済み。不具合一覧には含めない。
 - 相談中の未修正問題：実行中に `AddComponent` で追加したコンテナでは `aGuiInfo` の参照・初期値が設定されず、アニメーションが動かない。ユーザーはこの項目を修正対象から除外し、特に相談が必要と指定。参照取得と初期値の確定タイミングについて相談してから修正する。

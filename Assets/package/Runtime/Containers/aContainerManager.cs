@@ -16,7 +16,6 @@ namespace ANest.UI {
 		#region Fields
 		private static List<aContainerBase> m_containers = new();
 		private static readonly List<aContainerBase> m_selectionPriority = new();
-		private static Dictionary<string, aContainerBase> m_containerNameDictionary = new();
 		private static Dictionary<aContainerBase, double> m_addTimeDictionary = new(); // コンテナと登録時間を保持する辞書
 		#endregion
 
@@ -37,7 +36,6 @@ namespace ANest.UI {
 			if(m_containers.IndexOf(container) < 0) {
 				m_containers.Add(container);
 			}
-			m_containerNameDictionary[container.name] = container;
 			m_addTimeDictionary[container] = Time.realtimeSinceStartupAsDouble;
 			m_selectionPriority.Remove(container);
 			m_selectionPriority.Add(container);
@@ -69,25 +67,6 @@ namespace ANest.UI {
 			}
 			m_addTimeDictionary.Remove(container);
 			m_selectionPriority.Remove(container);
-			// 別の同名コンテナが登録されている場合は、その登録を維持する。
-			if(m_containerNameDictionary.TryGetValue(container.name, out var registered) && registered == container) {
-				RestoreContainerName(container.name);
-			}
-		}
-
-		private static void RestoreContainerName(string containerName) {
-			aContainerBase latest = null;
-			double latestTime = double.NegativeInfinity;
-			foreach(var pair in m_addTimeDictionary) {
-				var candidate = pair.Key;
-				if(candidate == null || candidate.name != containerName) continue;
-				if(pair.Value >= latestTime) {
-					latestTime = pair.Value;
-					latest = candidate;
-				}
-			}
-			if(latest != null) m_containerNameDictionary[containerName] = latest;
-			else m_containerNameDictionary.Remove(containerName);
 		}
 
 		/// <summary>コンテナ名から管理対象のコンテナを取得する</summary>
@@ -95,8 +74,13 @@ namespace ANest.UI {
 		/// <returns>該当するコンテナ。見つからない場合はnull</returns>
 		public static aContainerBase GetContainer(string containerName) {
 			if(string.IsNullOrEmpty(containerName)) return null;
-			m_containerNameDictionary.TryGetValue(containerName, out var container);
-			return container;
+			// Object.nameの変更通知はないため、名前検索時だけ現在名を確認する。
+			// 最新の登録を優先し、改名・同名・再登録・解除を同じ順序で扱う。
+			for(var i = m_selectionPriority.Count - 1; i >= 0; i--) {
+				var container = m_selectionPriority[i];
+				if(container != null && container.name == containerName) return container;
+			}
+			return null;
 		}
 
 		/// <summary>型引数に合ったコンテナを返す</summary>
@@ -116,7 +100,6 @@ namespace ANest.UI {
 		public static void Clear() {
 			m_containers.Clear();
 			m_selectionPriority.Clear();
-			m_containerNameDictionary.Clear();
 			m_addTimeDictionary.Clear();
 		}
 		#endregion
@@ -131,19 +114,6 @@ namespace ANest.UI {
 		private static void RemoveDestroyedContainers() {
 			m_containers.RemoveAll(c => c == null);
 			m_selectionPriority.RemoveAll(c => c == null);
-
-			List<string> staleNames = null;
-			foreach(var pair in m_containerNameDictionary) {
-				if(pair.Value == null) {
-					staleNames ??= new List<string>();
-					staleNames.Add(pair.Key);
-				}
-			}
-			if(staleNames != null) {
-				foreach(var key in staleNames) {
-					m_containerNameDictionary.Remove(key);
-				}
-			}
 
 			List<aContainerBase> staleContainers = null;
 			foreach(var pair in m_addTimeDictionary) {

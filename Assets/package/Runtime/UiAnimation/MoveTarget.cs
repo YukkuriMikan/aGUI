@@ -49,10 +49,12 @@ namespace ANest.UI {
 		/// <param name="callerRect">呼び出し元の RectTransform（DOKillによる中断用ターゲット）</param>
 		/// <param name="___">復元用のRectTransform初期値（未使用）</param>
 		public Tween DoAnimate(Graphic _, RectTransform callerRect, RectTransformValues ___) {
+			m_tween.Kill();
+			m_tween = null;
+			// 対象未設定・破棄済みの場合は、この項目だけをスキップする。
+			if(callerRect == null || m_target == null || m_target.RectTransform == null) return null;
 			var targetRect = m_target.RectTransform;
 			var original = m_target.OriginalRectTransformValues;
-
-			m_tween.Kill();
 
 			targetRect.anchoredPosition = original.AnchoredPosition + m_startValue; //開始座標へ
 

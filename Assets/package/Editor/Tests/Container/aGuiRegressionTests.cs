@@ -168,10 +168,15 @@ public class aGuiRegressionTests {
         CancellationTokenSource cts=null;
         try {
             aNormalScrollContainer.ScrollToItem(scroll,bottom,null,0.3f,0,ref cts);
+            // 最初の非同期処理も開始フレームのdeltaTime分だけ移動する。
+            // 実行中の処理を残しつつ、次の選択先が表示済みという前提を確実に作る。
+            scroll.verticalNormalizedPosition = 1f;
+            var corners=new Vector3[4]; top.GetWorldCorners(corners);
+            Assert.That(scroll.viewport.InverseTransformPoint(corners[1]).y,Is.LessThanOrEqualTo(scroll.viewport.rect.yMax+0.001f));
             aNormalScrollContainer.ScrollToItem(scroll,top,bottom,0.3f,0,ref cts);
             Assert.That(cts,Is.Null,"Visible selection must cancel without creating another scroll task.");
             yield return new WaitForSecondsRealtime(0.4f);
-            var corners=new Vector3[4]; top.GetWorldCorners(corners);
+            top.GetWorldCorners(corners);
             Assert.That(scroll.viewport.InverseTransformPoint(corners[1]).y,Is.LessThanOrEqualTo(scroll.viewport.rect.yMax+0.001f),"Old scroll must not move the newly selected top item out of view.");
         } finally {cts?.Cancel();cts?.Dispose();Object.DestroyImmediate(scroll.gameObject);}
     }

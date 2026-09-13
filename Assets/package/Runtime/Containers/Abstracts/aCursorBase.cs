@@ -66,20 +66,34 @@ namespace ANest.UI {
 		private Vector2 m_sizeTweenTarget;                                                     // サイズTweenの終着点キャッシュ
 		private readonly Dictionary<RectTransform, TextMeshProUGUI> m_targetTextCache = new(); // ターゲット配下テキストのキャッシュ
 		protected bool m_wasHidden = true;                                                     // 前フレームで非表示だったかどうか（瞬間移動判定用）
+		private bool m_hasTargetNotification;
+		private bool m_refreshTargetPending;
 		#endregion
 
 	    #region Lifecycle Methods
+		protected virtual void OnEnable() {
+			m_wasHidden = true;
+			m_refreshTargetPending = m_hasTargetNotification;
+		}
+
+		protected virtual void OnDisable() {
+			KillTweens();
+			m_wasHidden = true;
+		}
+
 		/// <summary>ターゲットの移動に追従するため、設定に応じて位置とサイズを更新する</summary>
 		private void LateUpdate() {
-			if(m_updateMode == UpdateMode.EveryFrame) {
+			if(m_refreshTargetPending) {
+				OnTargetRectChanged(m_currentTargetRect);
+			}
+			if(m_updateMode == UpdateMode.EveryFrame || m_wasHidden) {
 				UpdateCursor(m_currentTargetRect);
 			}
 		}
 
 		/// <summary>破棄時に購読解除とTweenの破棄を行う</summary>
 		protected virtual void OnDestroy() {
-			m_moveTween?.Kill();
-			m_sizeTween?.Kill();
+			KillTweens();
 			m_targetTextCache.Clear();
 		}
 		#endregion
@@ -90,6 +104,10 @@ namespace ANest.UI {
 		protected virtual void OnTargetRectChanged(RectTransform targetRect) {
 			bool wasNull = m_currentTargetRect == null;
 			m_currentTargetRect = targetRect;
+			m_hasTargetNotification = true;
+			// 無効化中は最新の選択だけ記録し、表示やTransformは変更しない。
+			m_refreshTargetPending = !isActiveAndEnabled;
+			if(m_refreshTargetPending) return;
 
 			if(m_cursorRect == null && m_cursorImage != null) {
 				m_cursorRect = m_cursorImage.rectTransform;
@@ -97,6 +115,8 @@ namespace ANest.UI {
 
 			// ターゲットがnullになった場合は非表示にする
 			if(m_currentTargetRect == null) {
+				KillTweens();
+				m_wasHidden = true;
 				SetCursorVisible(false);
 				return;
 			}
@@ -110,15 +130,18 @@ namespace ANest.UI {
 			SetCursorVisible(true);
 
 			if(m_cursorRect != null) {
-				// ターゲットが切り替わった瞬間に、アンカーとピボットを合わせる
+				// アンカー・Pivotを変更しても表示中の矩形を維持し、その位置から移動する。
+				var center = m_cursorRect.TransformPoint(m_cursorRect.rect.center);
+				var size = m_cursorRect.rect.size;
 				m_cursorRect.anchorMin = m_currentTargetRect.anchorMin;
 				m_cursorRect.anchorMax = m_currentTargetRect.anchorMax;
 				m_cursorRect.pivot = m_currentTargetRect.pivot;
+				ApplyCursorSize(size);
+				m_cursorRect.position = center - m_cursorRect.TransformVector(m_cursorRect.rect.center);
 
 				// アニメーションモードの場合、既存のTweenをリセットして再開させる準備をする
 				if(m_moveMode == MoveMode.Animation) {
-					m_moveTween?.Kill();
-					m_sizeTween?.Kill();
+					KillTweens();
 				}
 
 				// 選択変更時のみ更新のモードなら、ここで一度更新を実行する
@@ -132,14 +155,16 @@ namespace ANest.UI {
 		/// <param name="visible">表示するかどうか</param>
 		protected void SetCursorVisible(bool visible) {
 			if(m_cursorImage != null) {
-				m_cursorImage.gameObject.SetActive(visible);
+				// 自身まで無効化すると、選択解除後の通知で表示を復帰できなくなる。
+				if(transform.IsChildOf(m_cursorImage.transform)) m_cursorImage.enabled = visible;
+				else m_cursorImage.gameObject.SetActive(visible);
 			}
 		}
 
 		/// <summary>カーソルの位置とサイズを選択対象に合わせる</summary>
 		/// <param name="targetRect">ターゲットのRectTransform</param>
 		protected virtual void UpdateCursor(RectTransform targetRect) {
-			if(targetRect == null || m_cursorRect == null) return;
+			if(!isActiveAndEnabled || targetRect == null || m_cursorRect == null) return;
 
 			TextMeshProUGUI textComponent = null;
 			if(m_sizeMode == SizeMode.MatchText) {
@@ -214,6 +239,13 @@ namespace ANest.UI {
 		private void ApplyCursorSize(Vector2 size) {
 			m_cursorRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
 			m_cursorRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
+		}
+
+		private void KillTweens() {
+			m_moveTween?.Kill();
+			m_sizeTween?.Kill();
+			m_moveTween = null;
+			m_sizeTween = null;
 		}
 
 		/// <summary>ターゲット配下のテキストコンポーネントをキャッシュ付きで取得する</summary>

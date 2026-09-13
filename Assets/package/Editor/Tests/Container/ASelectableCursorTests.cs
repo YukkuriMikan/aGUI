@@ -51,6 +51,13 @@ namespace ANest.UI.Tests {
 				var method = typeof(aCursorBase).GetMethod("OnTargetRectChanged", BindingFlags.NonPublic | BindingFlags.Instance);
 				method.Invoke(this, new object[] { target });
 			}
+
+			public void Tick() {
+				typeof(aCursorBase).GetMethod("LateUpdate", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(this, null);
+			}
+
+			public Tween MoveTween => (Tween)typeof(aCursorBase).GetField("m_moveTween", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(this);
+			public Tween SizeTween => (Tween)typeof(aCursorBase).GetField("m_sizeTween", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(this);
 		}
 
 		private class TestNormalSelectableContainer : aNormalSelectableContainer {
@@ -107,6 +114,100 @@ namespace ANest.UI.Tests {
 		#endregion
 
 		#region Tests
+		[TestCase(aCursorBase.UpdateMode.EveryFrame)]
+		[TestCase(aCursorBase.UpdateMode.OnSelectChanged)]
+		public void ChangingAnchorsAndPivot_PreservesVisibleRectangleBeforeTween(aCursorBase.UpdateMode mode) {
+			m_cursor.SetUpdateMode(mode);
+			m_cursor.SetMoveMode(aCursorBase.MoveMode.Animation);
+			m_cursor.SetSizeMode(aCursorBase.SizeMode.Fixed);
+			m_cursor.SetMoveDuration(1f);
+			var rect = m_cursorImage.rectTransform;
+			((RectTransform)rect.parent).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 1000f);
+			m_rect1.anchorMin = m_rect1.anchorMax = new Vector2(0f, .5f);
+			m_rect1.position = Vector3.zero;
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			m_cursor.Tick();
+			var corners = new Vector3[4];
+			var after = new Vector3[4];
+			rect.GetWorldCorners(corners);
+			var size = rect.rect.size;
+			m_rect1.anchorMin = Vector2.zero;
+			m_rect1.anchorMax = Vector2.one;
+			m_rect1.pivot = new Vector2(1f, 0f);
+			m_rect1.position = new Vector3(20f, 0f, 0f);
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			m_cursor.Tick();
+			rect.GetWorldCorners(after);
+			for(int i = 0; i < 4; i++) Assert.That(Vector3.Distance(corners[i], after[i]), Is.LessThan(.001f));
+			Assert.That(Vector2.Distance(size, rect.rect.size), Is.LessThan(.001f));
+			Assert.That(m_cursor.MoveTween, Is.Not.Null);
+			m_cursor.MoveTween.Complete();
+			Assert.That(Vector3.Distance(m_rect1.position, rect.position), Is.LessThan(.001f));
+		}
+
+		[TestCase(false, aCursorBase.UpdateMode.EveryFrame)]
+		[TestCase(true, aCursorBase.UpdateMode.EveryFrame)]
+		[TestCase(false, aCursorBase.UpdateMode.OnSelectChanged)]
+		[TestCase(true, aCursorBase.UpdateMode.OnSelectChanged)]
+		public void Reenable_SnapsToCurrentTarget(bool disableObject, aCursorBase.UpdateMode mode) {
+			m_cursor.SetUpdateMode(mode);
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			m_cursor.Tick();
+			if(disableObject) m_cursorObject.SetActive(false);
+			else m_cursor.enabled = false;
+			m_rect1.position += new Vector3(500f, 0f, 0f);
+			if(disableObject) m_cursorObject.SetActive(true);
+			else m_cursor.enabled = true;
+			m_cursor.Tick();
+			Assert.That(Vector3.Distance(m_rect1.position, m_cursorImage.rectTransform.position), Is.LessThan(.001f));
+			Assert.That(m_cursor.MoveTween, Is.Null);
+		}
+
+		[Test]
+		public void Disable_StopsMoveAndSizeTweens() {
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.OnSelectChanged);
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			m_rect1.position += new Vector3(500f, 0f, 0f);
+			m_rect1.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 200f);
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			var move = m_cursor.MoveTween;
+			var size = m_cursor.SizeTween;
+			Assert.That(move.IsActive() && size.IsActive(), Is.True);
+			m_cursor.enabled = false;
+			Assert.That(move.IsActive() || size.IsActive(), Is.False);
+		}
+
+		[UnityTest]
+		public IEnumerator DisabledCursor_RecordsSelectionWithoutMovingOrShowing() {
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.OnSelectChanged);
+			yield return null; // Startで実際のコンテナイベントを購読する。
+			m_container.OnSelectChanged.Invoke(m_selectableObject1.GetComponent<Selectable>());
+			var before = m_cursorImage.rectTransform.position;
+			m_cursor.enabled = false;
+			m_cursorObject.SetActive(false);
+			m_rect1.position += new Vector3(500f, 0f, 0f);
+			m_container.OnSelectChanged.Invoke(m_selectableObject1.GetComponent<Selectable>());
+			Assert.That(m_cursorObject.activeSelf, Is.False);
+			Assert.That(m_cursorImage.rectTransform.position, Is.EqualTo(before));
+			m_cursorObject.SetActive(true);
+			m_cursor.enabled = true;
+			m_cursor.Tick();
+			Assert.That(Vector3.Distance(m_rect1.position, m_cursorImage.rectTransform.position), Is.LessThan(.001f));
+		}
+
+		[Test]
+		public void ClearSelection_OnCursorObject_CanShowAgainWithoutFlyingIn() {
+			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.OnSelectChanged);
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			m_cursor.InvokeOnTargetRectChanged(null);
+			Assert.That(m_cursorImage.isActiveAndEnabled, Is.False);
+			m_rect1.position += new Vector3(500f, 0f, 0f);
+			m_cursor.InvokeOnTargetRectChanged(m_rect1);
+			Assert.That(m_cursorImage.isActiveAndEnabled, Is.True);
+			Assert.That(Vector3.Distance(m_rect1.position, m_cursorImage.rectTransform.position), Is.LessThan(.001f));
+			Assert.That(m_cursor.MoveTween, Is.Null);
+		}
+
 		[UnityTest]
 		public IEnumerator UpdateMode_EveryFrame_FollowsMovingTarget() {
 			m_cursor.SetUpdateMode(aCursorBase.UpdateMode.EveryFrame);

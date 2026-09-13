@@ -14,6 +14,27 @@ using UniRx;
 using Object = UnityEngine.Object;
 
 public class aGuiLifecycleRegressionTests {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ContainerActiveWarningStillDetectsDirectChangesDuringPlay(bool useShowHide) {
+        var root = Rect("Container warning regression");
+        var warnings = 0;
+        Application.LogCallback onLog = (message, stack, type) => {
+            if(message.Contains("[aContainerBase]")) warnings++;
+        };
+        Application.logMessageReceived += onLog;
+        try {
+            var container = InactiveContainer<aStaticContainer>(root, true);
+            container.gameObject.SetActive(true);
+            if(useShowHide) { container.Hide(); container.Show(); }
+            else container.gameObject.SetActive(false);
+            Assert.That(warnings, Is.EqualTo(useShowHide ? 0 : 1));
+        } finally {
+            Application.logMessageReceived -= onLog;
+            Object.DestroyImmediate(root.gameObject);
+        }
+    }
+
     [UnityTest]
     public IEnumerator DisablingScrollContainerStopsAutoScroll() => VerifyScrollInterruption(0);
 

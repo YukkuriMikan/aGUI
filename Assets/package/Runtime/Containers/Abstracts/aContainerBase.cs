@@ -386,6 +386,11 @@ namespace ANest.UI {
 
 		/// <summary>直接GameObject.SetActiveが呼ばれた場合に警告を出力する</summary>
 		private void WarnActiveChange() {
+			if(!Application.isPlaying) return;
+#if UNITY_EDITOR
+			// 停止開始から各コンテナのOnApplicationQuitまでの間も警告を抑制する。
+			if(!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) return;
+#endif
 			if(gameObject.activeSelf) return;
 			if(m_isQuitting) return;
 			Debug.LogWarning($"[{nameof(aContainerBase)}] {name} の gameObject.SetActive が直接変更されました。Show/Hide または表示フラグを使用してください。", this);

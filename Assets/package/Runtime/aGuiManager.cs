@@ -22,9 +22,12 @@ namespace ANest.UI {
 		/// <summary> 現在アクティブな EventSystem を取得する </summary>
 		public static EventSystem EventSystem {
 			get {
-				if(m_eventSystem == null) {
-					// 新設された有効なEventSystemは、検索の待機時間中でも即座に利用できる。
-					if(UnityEngine.EventSystems.EventSystem.current != null || Time.realtimeSinceStartupAsDouble >= m_nextEventSystemSearch)
+				// Unityが実際に入力を処理するEventSystemへ追従する。通常はシーン検索不要。
+				var current = UnityEngine.EventSystems.EventSystem.current;
+				if(current != null && current.isActiveAndEnabled) return m_eventSystem = current;
+				if(m_eventSystem == null || !m_eventSystem.isActiveAndEnabled) {
+					m_eventSystem = null;
+					if(Time.realtimeSinceStartupAsDouble >= m_nextEventSystemSearch)
 						UpdateEventSystem();
 				}
 				return m_eventSystem;
@@ -149,9 +152,15 @@ namespace ANest.UI {
 
 			m_eventSystem = null;
 			m_nextEventSystemSearch = Time.realtimeSinceStartupAsDouble + 0.5;
+			var current = UnityEngine.EventSystems.EventSystem.current;
+			if(current != null && current.isActiveAndEnabled) {
+				m_eventSystem = current;
+				return;
+			}
 			// シーンの取得だけのためにDontDestroyOnLoadオブジェクトを生成しない。
 			var systems = Object.FindObjectsByType<EventSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 			foreach(var es in systems) {
+				if(!es.isActiveAndEnabled) continue;
 				var scene = es.gameObject.scene;
 				if(scene.IsValid() && scene.isLoaded && scene.name == "DontDestroyOnLoad" && es.transform.parent == null) {
 					m_eventSystem = es;

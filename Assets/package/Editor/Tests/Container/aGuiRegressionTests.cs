@@ -13,6 +13,75 @@ using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 public class aGuiRegressionTests {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TextFitterCompletesOnTimeDespiteCanvasRebuilds(bool changeText) {
+        var root = Rect("Animated fitting", null, new Vector2(300, 100));
+        root.gameObject.AddComponent<Canvas>();
+        try {
+            var child = Rect("Text", root, new Vector2(300, 100));
+            var text = child.gameObject.AddComponent<TMPro.TextMeshProUGUI>();
+            text.font = TMPro.TMP_Settings.defaultFontAsset;
+            text.fontSize = 30;
+            text.text = "ABC";
+            text.ForceMeshUpdate();
+            var fitter = root.gameObject.AddComponent<aTextMeshSizeFitter>();
+            Set(fitter, "m_targetText", text);
+            Set(fitter, "m_useAnimation", true);
+            Set(fitter, "m_animationDuration", 1f);
+            Set(fitter, "m_ease", Ease.Linear);
+            Set(fitter, "m_pivotType", aTextMeshSizeFitter.PivotType.MiddleLeft);
+            var lateUpdate = (Action)Delegate.CreateDelegate(typeof(Action), fitter,
+                typeof(aTextMeshSizeFitter).GetMethod("LateUpdate", BindingFlags.Instance | BindingFlags.NonPublic));
+            var left = root.localPosition.x + root.rect.xMin;
+            fitter.ApplyFitting();
+            var sizeTween = TweenField(fitter, "m_sizeTween");
+            var posTween = TweenField(fitter, "m_posTween");
+            if(changeText) {
+                sizeTween.Goto(.2f); posTween.Goto(.2f);
+                text.text = "ABCDEF";
+                text.ForceMeshUpdate();
+                lateUpdate();
+                Assert.That(TweenField(fitter, "m_sizeTween"), Is.Not.SameAs(sizeTween));
+                Assert.That(sizeTween.IsActive(), Is.False);
+                sizeTween = TweenField(fitter, "m_sizeTween");
+                posTween = TweenField(fitter, "m_posTween");
+            }
+            for(int i = 1; i <= 20; i++) {
+                sizeTween.Goto(i * .05f); posTween.Goto(i * .05f);
+                Canvas.ForceUpdateCanvases(); // サイズ変更による実際のTMP再描画通知を経由する。
+                lateUpdate();
+                if(i < 20) {
+                    Assert.That(TweenField(fitter, "m_sizeTween"), Is.SameAs(sizeTween));
+                    Assert.That(TweenField(fitter, "m_posTween"), Is.SameAs(posTween));
+                }
+            }
+            Assert.That(root.rect.width, Is.EqualTo(text.preferredWidth).Within(.001f));
+            Assert.That(root.localPosition.x + root.rect.xMin, Is.EqualTo(left).Within(.001f));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TextFitterCanChangeAnimationOrAxesDuringTween(bool disableAnimation) {
+        var root = Rect("Fitting settings", null, new Vector2(300, 100));
+        try {
+            var text = root.gameObject.AddComponent<TMPro.TextMeshProUGUI>();
+            text.text = "ABC";
+            var fitter = root.gameObject.AddComponent<aTextMeshSizeFitter>();
+            Set(fitter, "m_targetText", text);
+            Set(fitter, "m_useAnimation", true);
+            fitter.ApplyFitting();
+            var tween = TweenField(fitter, "m_sizeTween");
+            tween.Goto(.1f);
+            var width = root.rect.width;
+            Set(fitter, disableAnimation ? "m_useAnimation" : "m_fitWidth", false);
+            fitter.ApplyFitting();
+            Assert.That(tween.IsActive(), Is.False);
+            Assert.That(root.rect.width, Is.EqualTo(disableAnimation ? text.preferredWidth : width).Within(.001f));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
     [TestCase(0, false)]
     [TestCase(1, false)]
     [TestCase(2, false)]

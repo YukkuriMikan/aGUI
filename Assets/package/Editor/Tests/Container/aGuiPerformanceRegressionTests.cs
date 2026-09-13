@@ -143,6 +143,20 @@ public class aGuiPerformanceRegressionTests {
     }
 
     [Test]
+    public void RunningTextFitterAndCurrentEventSystemDoNotAllocate() {
+        var text = Rect("Animated text", root).gameObject.AddComponent<TextMeshProUGUI>();
+        text.text = "ABC";
+        var fitter = text.gameObject.AddComponent<aTextMeshSizeFitter>();
+        Set(fitter, "m_targetText", text);
+        Set(fitter, "m_useAnimation", true);
+        fitter.ApplyFitting();
+        AssertNoAlloc(fitter.ApplyFitting);
+        var go = new GameObject("Current EventSystem", typeof(EventSystem));
+        try { AssertNoAlloc(() => { var system = aGuiManager.EventSystem; }); }
+        finally { Object.DestroyImmediate(go); aGuiManager.UpdateEventSystem(); }
+    }
+
+    [Test]
     public void CursorOnlyRebuildsChangedText() {
         var text = Rect("Text", root).gameObject.AddComponent<TextMeshProUGUI>();
         text.text = "A";

@@ -44,6 +44,12 @@ namespace ANest.UI {
 		private Tween m_sizeTween;             // サイズ変更用Tween
 		private Tween m_posTween;              // 位置補正用Tween
 		private bool m_pendingFitting;         // defer fitting while rebuilding
+		private Vector2 m_tweenTargetSize;
+		private Vector2 m_tweenPivotOffset;
+		private bool m_tweenFitWidth;
+		private bool m_tweenFitHeight;
+		private float m_tweenDuration;
+		private Ease m_tweenEase;
 		#endregion
 
 		#region Properties
@@ -112,6 +118,18 @@ namespace ANest.UI {
 			}
 
 			var deltaSize = targetSize - currentSize;
+			var pivotOffset = rectTransform.pivot - targetPivot;
+			// TMPの再描画でも通知されるため、同じ目標へのTweenは継続する。
+			if(m_useAnimation && Application.isPlaying && m_sizeTween != null && m_sizeTween.IsActive()
+				&& m_posTween != null && m_posTween.IsActive()
+				&& m_tweenFitWidth == m_fitWidth && m_tweenFitHeight == m_fitHeight
+				&& (!m_fitWidth || Mathf.Approximately(m_tweenTargetSize.x, targetSize.x))
+				&& (!m_fitHeight || Mathf.Approximately(m_tweenTargetSize.y, targetSize.y))
+				&& m_tweenPivotOffset == pivotOffset
+				&& m_tweenDuration == m_animationDuration && m_tweenEase == m_ease) {
+				ApplyTextPadding();
+				return;
+			}
 
 			KillTweens();
 			if(deltaSize == Vector2.zero) { ApplyTextPadding(); return; }
@@ -124,6 +142,12 @@ namespace ANest.UI {
 				);
 
 			if(m_useAnimation && Application.isPlaying) {
+				m_tweenTargetSize = targetSize;
+				m_tweenPivotOffset = pivotOffset;
+				m_tweenFitWidth = m_fitWidth;
+				m_tweenFitHeight = m_fitHeight;
+				m_tweenDuration = m_animationDuration;
+				m_tweenEase = m_ease;
 				ApplyTextPadding();
 				StartFittingTweens(rectTransform, targetSize, posOffset);
 			} else {

@@ -13,6 +13,78 @@ using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 public class aGuiRegressionTests {
+    [TestCase(0, false)]
+    [TestCase(1, false)]
+    [TestCase(2, false)]
+    [TestCase(0, true)]
+    [TestCase(1, true)]
+    [TestCase(2, true)]
+    public void TextFitterPadsChildrenWithoutChangingTheirAnchors(int anchorMode, bool animate) {
+        var root = Rect("Text padding", null, new Vector2(300, 100));
+        try {
+            var child = Rect("Text", root, new Vector2(200, 60));
+            if(anchorMode == 1) { child.anchorMin = Vector2.zero; child.anchorMax = Vector2.one; }
+            if(anchorMode == 2) { child.anchorMin = new Vector2(.1f, .3f); child.anchorMax = new Vector2(.7f, .8f); }
+            child.pivot = new Vector2(.2f, .8f);
+            var min = child.anchorMin;
+            var max = child.anchorMax;
+            var text = child.gameObject.AddComponent<TMPro.TextMeshProUGUI>();
+            text.text = "ABC";
+            var fitter = root.gameObject.AddComponent<aTextMeshSizeFitter>();
+            Set(fitter, "m_targetText", text);
+            Set(fitter, "m_padding", new RectOffset(10, 20, 5, 15));
+            Set(fitter, "m_useAnimation", animate);
+            fitter.ApplyFitting();
+            if(animate) {
+                var tween = TweenField(fitter, "m_sizeTween");
+                tween.Goto(.15f);
+                Assert.That(child.rect.width, Is.EqualTo(root.rect.width - 30).Within(.001f));
+                tween.Complete();
+            }
+            Assert.That(child.anchorMin, Is.EqualTo(min));
+            Assert.That(child.anchorMax, Is.EqualTo(max));
+            Assert.That(child.rect.size.x, Is.EqualTo(text.preferredWidth).Within(.001f));
+            Assert.That(child.rect.size.y, Is.EqualTo(80).Within(.001f));
+            Assert.That(child.localPosition.x + child.rect.xMin, Is.EqualTo(root.rect.xMin + 10).Within(.001f));
+            Assert.That(child.localPosition.y + child.rect.yMax, Is.EqualTo(root.rect.yMax - 5).Within(.001f));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [Test] public void TextPaddingLargerThanParentDoesNotInvertChild() {
+        var root = Rect("Small parent", null, new Vector2(20, 10));
+        try {
+            var child = Rect("Text", root, new Vector2(100, 60));
+            var text = child.gameObject.AddComponent<TMPro.TextMeshProUGUI>();
+            var fitter = root.gameObject.AddComponent<aTextMeshSizeFitter>();
+            Set(fitter, "m_targetText", text);
+            Set(fitter, "m_fitWidth", false);
+            Set(fitter, "m_padding", new RectOffset(10, 20, 5, 15));
+            fitter.ApplyFitting();
+            Assert.That(child.rect.size, Is.EqualTo(Vector2.zero));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TextColorIsAppliedOnceToRenderedVertices(bool ruby) {
+        var root = Rect("Color", null, new Vector2(300, 200));
+        root.gameObject.AddComponent<Canvas>();
+        try {
+            var go = Rect("Text", root, new Vector2(250, 150)).gameObject;
+            TMPro.TextMeshProUGUI text = ruby ? go.AddComponent<aTextMeshProUgui>() : go.AddComponent<TMPro.TextMeshProUGUI>();
+            text.text = ruby ? "<ruby=abc>ABC</ruby>" : "ABC";
+            var target = new Color(.4f, .6f, .8f, .5f);
+            text.canvasRenderer.SetColor(new Color(.2f, .2f, .2f, .2f));
+            aGuiUtils.SetTextColorImmediate(text, target);
+            text.ForceMeshUpdate();
+            Assert.That(text.canvasRenderer.GetColor(), Is.EqualTo(Color.white));
+            for(int i = 0; i < text.textInfo.meshInfo[0].vertexCount; i++) {
+                Color rendered = (Color)text.textInfo.meshInfo[0].colors32[i] * text.canvasRenderer.GetColor();
+                Assert.That(rendered.r, Is.EqualTo(target.r).Within(1f / 255));
+                Assert.That(rendered.a, Is.EqualTo(target.a).Within(1f / 255));
+            }
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
     static void SetSize(RectTransform rect, Vector2 size) {
         rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
         rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);

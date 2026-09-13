@@ -192,7 +192,8 @@ namespace ANest.UI {
 		/// <summary>テキストカラーを即時反映する</summary>
 		public static void SetTextColorImmediate(TMP_Text targetText, Color color) {
 			if(targetText == null) return;
-			targetText.canvasRenderer.SetColor(color);
+			// 頂点色へ反映するため、CanvasRenderer側では同じ色を重ねて乗算しない。
+			targetText.canvasRenderer.SetColor(Color.white);
 			targetText.color = color;
 		}
 		#endregion

@@ -137,8 +137,8 @@ namespace ANest.UI {
 						usedLineCount = lineCount;
 						for (int i = 0; i < count; i++) {
 							var child = m_orderedChildren[i];
-							int rawCol = i % columns;
-							int rawRow = i / columns;
+							int rawCol = startAxis == Axis.Horizontal ? i % columns : i / rows;
+							int rawRow = startAxis == Axis.Horizontal ? i / columns : i % rows;
 							int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
 							int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
 							int lineIndex = startAxis == Axis.Horizontal ? row : col;
@@ -167,8 +167,8 @@ namespace ANest.UI {
 						usedLineCount = lineCount;
 						for (int i = 0; i < count; i++) {
 							var child = m_orderedChildren[i];
-							int rawCol = i / rows;
-							int rawRow = i % rows;
+							int rawCol = startAxis == Axis.Horizontal ? i % columns : i / rows;
+							int rawRow = startAxis == Axis.Horizontal ? i / columns : i % rows;
 							int col = cornerX == 0 ? rawCol : (columns - 1 - rawCol);
 							int row = cornerY == 0 ? rawRow : (rows - 1 - rawRow);
 							int lineIndex = startAxis == Axis.Horizontal ? row : col;

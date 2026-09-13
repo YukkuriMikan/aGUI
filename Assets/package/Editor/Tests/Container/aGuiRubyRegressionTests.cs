@@ -28,6 +28,57 @@ public class aGuiRubyRegressionTests {
 
     private aGuiRubyMeshTestUtility.Reading Ruby() => aGuiRubyMeshTestUtility.Get(text);
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PreRenderChangesSurviveAndInvalidateRubyLayout(bool enableCycle) {
+        text.text = "<ruby=abc>ABC</ruby>";
+        text.maxVisibleCharacters = 3;
+        bool invoked = false;
+        Action<TMP_TextInfo> callback = info => {
+            if(invoked) return;
+            invoked = true;
+            Assert.That(text.maxVisibleCharacters, Is.EqualTo(3));
+            Assert.That(text.textWrappingMode, Is.EqualTo(TextWrappingModes.Normal));
+            text.fontSize = 60;
+            text.maxVisibleCharacters = int.MaxValue;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Truncate;
+        };
+        text.OnPreRenderText += callback;
+        try {
+            if(enableCycle) { text.enabled = false; text.enabled = true; }
+            text.ForceMeshUpdate();
+            Assert.That(invoked, Is.True);
+            Assert.That(text.fontSize, Is.EqualTo(60));
+            Assert.That(text.maxVisibleCharacters, Is.EqualTo(int.MaxValue));
+            Assert.That(text.textWrappingMode, Is.EqualTo(TextWrappingModes.NoWrap));
+            Assert.That(text.overflowMode, Is.EqualTo(TextOverflowModes.Truncate));
+            text.ForceMeshUpdate();
+            int first = text.textInfo.linkInfo[0].linkTextfirstCharacterIndex;
+            Assert.That(text.textInfo.characterInfo[first].pointSize, Is.EqualTo(60));
+            Assert.That(Ruby().bounds.size.x, Is.GreaterThan(0));
+        } finally { text.OnPreRenderText -= callback; }
+    }
+
+    [UnityTest] public IEnumerator PreRenderChangeUpdatesOnNextFrameWithoutForcedRebuild() {
+        text.text = "<ruby=abc>ABC</ruby>";
+        bool changed = false;
+        Action<TMP_TextInfo> callback = info => {
+            if(changed) return;
+            changed = true;
+            text.fontSize = 40;
+        };
+        text.OnPreRenderText += callback;
+        try {
+            text.ForceMeshUpdate();
+            yield return null;
+            yield return null;
+            Assert.That(text.fontSize, Is.EqualTo(40));
+            int first = text.textInfo.linkInfo[0].linkTextfirstCharacterIndex;
+            Assert.That(text.textInfo.characterInfo[first].pointSize, Is.EqualTo(40));
+        } finally { text.OnPreRenderText -= callback; }
+    }
+
     [TestCase(TextAlignmentOptions.TopLeft)]
     [TestCase(TextAlignmentOptions.Center)]
     [TestCase(TextAlignmentOptions.BottomRight)]

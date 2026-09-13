@@ -8,6 +8,46 @@ using UnityEngine.UI;
 
 /// <summary> aLayoutGroup 系の基本動作を確認するためのテストクラス </summary>
 public class aLayoutGroupTests {
+	[TestCase(false, false)]
+	[TestCase(false, true)]
+	[TestCase(true, false)]
+	[TestCase(true, true)]
+	public void FixedGridFollowsStartAxisForEveryCorner(bool fixedRows, bool vertical) {
+		var root = new GameObject("Grid axis comparison", typeof(RectTransform));
+		try {
+			var actualRoot = (RectTransform)new GameObject("aGUI", typeof(RectTransform)).transform;
+			actualRoot.SetParent(root.transform, false);
+			var expectedRoot = (RectTransform)new GameObject("Unity", typeof(RectTransform)).transform;
+			expectedRoot.SetParent(root.transform, false);
+			foreach(var rect in new[] { actualRoot, expectedRoot }) {
+				rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 500);
+				rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
+				for(int i = 0; i < 6; i++) new GameObject(i.ToString(), typeof(RectTransform)).transform.SetParent(rect, false);
+			}
+			var actual = actualRoot.gameObject.AddComponent<aLayoutGroupGrid>();
+			var expected = expectedRoot.gameObject.AddComponent<GridLayoutGroup>();
+			SetField(actual, "constraint", fixedRows ? aLayoutGroupGrid.Constraint.FixedRowCount : aLayoutGroupGrid.Constraint.FixedColumnCount);
+			SetField(actual, "constraintCount", 2);
+			SetField(actual, "startAxis", vertical ? aLayoutGroupGrid.Axis.Vertical : aLayoutGroupGrid.Axis.Horizontal);
+			SetField(actual, "childControlWidth", true);
+			SetField(actual, "childControlHeight", true);
+			SetField(actual, "childForceExpandWidth", false);
+			SetField(actual, "childForceExpandHeight", false);
+			SetField(actual, "childAlignment", TextAnchor.MiddleCenter);
+			expected.constraint = fixedRows ? GridLayoutGroup.Constraint.FixedRowCount : GridLayoutGroup.Constraint.FixedColumnCount;
+			expected.constraintCount = 2;
+			expected.startAxis = vertical ? GridLayoutGroup.Axis.Vertical : GridLayoutGroup.Axis.Horizontal;
+			expected.childAlignment = TextAnchor.MiddleCenter;
+			for(int corner = 0; corner < 4; corner++) {
+				SetField(actual, "startCorner", (aLayoutGroupGrid.Corner)corner);
+				expected.startCorner = (GridLayoutGroup.Corner)corner;
+				actual.AlignWithCollectionNonAnimate();
+				LayoutRebuilder.ForceRebuildLayoutImmediate(expectedRoot);
+				for(int i = 0; i < 6; i++) Assert.That(((RectTransform)actualRoot.GetChild(i)).anchoredPosition,
+					Is.EqualTo(((RectTransform)expectedRoot.GetChild(i)).anchoredPosition), "Corner " + corner + ", child " + i);
+			}
+		} finally { Object.DestroyImmediate(root); }
+	}
 	#region Methods
 	[TestCase(false)]
 	[TestCase(true)]

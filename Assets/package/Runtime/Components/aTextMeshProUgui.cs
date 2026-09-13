@@ -101,7 +101,7 @@ namespace ANest.UI {
 			base.OnEnable();
 			// シーン再読み込み時に残存するルビオブジェクトを回収
 			RemoveLegacyRubyObjects();
-			OnPreRenderText += ApplyRubyMesh;
+			base.OnPreRenderText += ApplyRubyMesh;
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
 			if(m_stringTable != null) {
 				m_stringTable.TableChanged += OnStringTableChanged;
@@ -113,7 +113,7 @@ namespace ANest.UI {
 		/// <summary>無効化時にイベント購読とレイアウトキャッシュを解除する</summary>
 		protected override void OnDisable() {
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
-			OnPreRenderText -= ApplyRubyMesh;
+			base.OnPreRenderText -= ApplyRubyMesh;
 			m_rubyPreprocessor?.InvalidateLayout();
 			if(m_stringTable != null) {
 				m_stringTable.TableChanged -= OnStringTableChanged;
@@ -133,6 +133,7 @@ namespace ANest.UI {
 
 		public override void SetVerticesDirty() {
 			EnsureRubyPreprocessor();
+			if(m_generatingRuby) m_rubyInputDirty = true;
 			if(!m_preparingRubyInput && !m_isUpdatingRuby && !m_generatingRuby) {
 				m_rubyPreprocessor.InvalidateLayout();
 				// 配列・数値書式のSetTextはTMPのプリプロセッサを通らないため、ルビ入力のみ文字列経路へ戻す。
@@ -148,6 +149,7 @@ namespace ANest.UI {
 
 		public override void ForceMeshUpdate(bool ignoreActiveState = false, bool forceTextReparsing = false) {
 			EnsureRubyPreprocessor();
+			if(m_generatingRuby) { m_rubyInputDirty = m_havePropertiesChanged = true; return; }
 			base.ForceMeshUpdate(ignoreActiveState, forceTextReparsing);
 		}
 
@@ -161,6 +163,19 @@ namespace ANest.UI {
 		private float m_rubyLossyScale;
 		private bool m_bodyTruncated;
 		private int m_bodyOverflowIndex;
+		private bool m_rubyInputDirty;
+		private bool m_restoreLayoutSettings, m_restoreRenderSettings;
+		private TextWrappingModes m_savedWrapping;
+		private TextRenderFlags m_savedRenderMode;
+		private RubyRenderSettings m_savedRenderSettings;
+		public override event System.Action<TMP_TextInfo> OnPreRenderText;
+
+		private struct RubyRenderSettings {
+			internal TextOverflowModes Overflow;
+			internal bool AutoSize;
+			internal float FontSize;
+			internal int First, Characters, Words, Lines;
+		}
 
 		protected override void GenerateTextMesh() {
 			if(m_generatingRuby) { base.GenerateTextMesh(); return; }
@@ -169,8 +184,10 @@ namespace ANest.UI {
 				m_rubyPreprocessor.InvalidateLayout();
 				ParseInputText();
 			}
-			var wrapping = m_TextWrappingMode;
-			var mode = m_renderMode;
+			m_savedWrapping = m_TextWrappingMode;
+			m_savedRenderMode = m_renderMode;
+			m_restoreLayoutSettings = true;
+			m_rubyInputDirty = false;
 			m_generatingRuby = true;
 			try {
 				if(!m_rubyPreprocessor.ParsedMesh) {
@@ -191,7 +208,7 @@ namespace ANest.UI {
 					m_rubyLossyScale = transform.lossyScale.y;
 					m_bodyTruncated = m_isTextTruncated;
 					m_bodyOverflowIndex = m_firstOverflowCharacterIndex;
-					m_renderMode = mode;
+					m_renderMode = m_savedRenderMode;
 					if(m_rubyMesh.Count == 0) {
 						// Ellipsis / Truncateは生成中に解析バッファを書き換えるため、元の本文から再解析する。
 						ParseInputText();
@@ -203,49 +220,58 @@ namespace ANest.UI {
 				}
 				RenderRubyMesh();
 			} finally {
-				m_renderMode = mode;
-				m_TextWrappingMode = wrapping;
+				RestoreRubySettings();
 				m_generatingRuby = false;
+				// コールバックによる変更を次の本文計算へ反映する。生成途中のキャッシュは壊さない。
+				if(m_rubyInputDirty) SetVerticesDirty();
 			}
 		}
 
 		private void RenderRubyMesh() {
-			var wrapping = m_TextWrappingMode;
-			var overflow = m_overflowMode;
-			var autoSize = m_enableAutoSizing;
-			var size = m_fontSize;
-			var first = m_firstVisibleCharacter;
-			var characters = m_maxVisibleCharacters;
-			var words = m_maxVisibleWords;
-			var lines = m_maxVisibleLines;
-			try {
-				m_TextWrappingMode = TextWrappingModes.NoWrap;
-				m_overflowMode = TextOverflowModes.Overflow;
-				m_enableAutoSizing = false;
-				m_fontSize = m_rubyMesh.BodyFontSize;
-				m_firstVisibleCharacter = 0;
-				m_maxVisibleCharacters = m_maxVisibleWords = m_maxVisibleLines = int.MaxValue;
-				base.GenerateTextMesh();
-				// DontRender / inactive ForceMeshUpdateも本文のメタデータを返す。
-				if(m_renderMode != TextRenderFlags.Render || !IsActive())
-					m_rubyMesh.Apply(textInfo, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
-				m_characterCount = textInfo.characterCount;
+			m_savedRenderSettings = new RubyRenderSettings {
+				Overflow = m_overflowMode, AutoSize = m_enableAutoSizing, FontSize = m_fontSize,
+				First = m_firstVisibleCharacter, Characters = m_maxVisibleCharacters,
+				Words = m_maxVisibleWords, Lines = m_maxVisibleLines,
+			};
+			m_restoreRenderSettings = true;
+			m_TextWrappingMode = TextWrappingModes.NoWrap;
+			m_overflowMode = TextOverflowModes.Overflow;
+			m_enableAutoSizing = false;
+			m_fontSize = m_rubyMesh.BodyFontSize;
+			m_firstVisibleCharacter = 0;
+			m_maxVisibleCharacters = m_maxVisibleWords = m_maxVisibleLines = int.MaxValue;
+			base.GenerateTextMesh();
+			// DontRender / inactive ForceMeshUpdateでは描画イベントが呼ばれない。
+			if(m_restoreRenderSettings)
+				m_rubyMesh.Apply(textInfo, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
+			m_characterCount = textInfo.characterCount;
+		}
+
+		private void RestoreRubySettings() {
+			if(m_restoreRenderSettings) {
+				m_restoreRenderSettings = false;
+				m_overflowMode = m_savedRenderSettings.Overflow;
+				m_enableAutoSizing = m_savedRenderSettings.AutoSize;
+				m_fontSize = m_savedRenderSettings.AutoSize ? m_rubyMesh.BodyFontSize : m_savedRenderSettings.FontSize;
+				m_firstVisibleCharacter = m_savedRenderSettings.First;
+				m_maxVisibleCharacters = m_savedRenderSettings.Characters;
+				m_maxVisibleWords = m_savedRenderSettings.Words;
+				m_maxVisibleLines = m_savedRenderSettings.Lines;
 				m_isTextTruncated = m_bodyTruncated;
 				m_firstOverflowCharacterIndex = m_bodyOverflowIndex;
-			} finally {
-				m_TextWrappingMode = wrapping;
-				m_overflowMode = overflow;
-				m_enableAutoSizing = autoSize;
-				m_fontSize = autoSize ? m_rubyMesh.BodyFontSize : size;
-				m_firstVisibleCharacter = first;
-				m_maxVisibleCharacters = characters;
-				m_maxVisibleWords = words;
-				m_maxVisibleLines = lines;
+			}
+			if(m_restoreLayoutSettings) {
+				m_restoreLayoutSettings = false;
+				m_renderMode = m_savedRenderMode;
+				m_TextWrappingMode = m_savedWrapping;
 			}
 		}
 
 		private void ApplyRubyMesh(TMP_TextInfo info) {
 			if(m_rubyPreprocessor.ParsedMesh) m_rubyMesh.Apply(info, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
+			// 公開イベントには元の設定を見せる。その後の変更をfinallyで上書きしない。
+			RestoreRubySettings();
+			OnPreRenderText?.Invoke(info);
 		}
 
 		protected override Vector2 CalculatePreferredValues(ref float fontSize, Vector2 marginSize, bool isTextAutoSizingEnabled, TextWrappingModes textWrapMode) {

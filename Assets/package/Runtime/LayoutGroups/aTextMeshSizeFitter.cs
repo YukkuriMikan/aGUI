@@ -113,15 +113,8 @@ namespace ANest.UI {
 
 			var deltaSize = targetSize - currentSize;
 
-			// パディングの非対称分だけテキストの配置を補正
-			var textRect = m_targetText.rectTransform;
-			if(textRect != rectTransform) {
-				textRect.offsetMin = new Vector2(m_padding.left, m_padding.bottom);
-				textRect.offsetMax = new Vector2(-m_padding.right, -m_padding.top);
-			}
-
 			KillTweens();
-			if(deltaSize == Vector2.zero) return;
+			if(deltaSize == Vector2.zero) { ApplyTextPadding(); return; }
 
 			// 現在のピボットと基準ピボットの差分で位置を補正
 			var pivot = rectTransform.pivot;
@@ -131,14 +124,10 @@ namespace ANest.UI {
 				);
 
 			if(m_useAnimation && Application.isPlaying) {
+				ApplyTextPadding();
 				StartFittingTweens(rectTransform, targetSize, posOffset);
 			} else {
-				if(m_fitWidth) {
-					rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetSize.x);
-				}
-				if(m_fitHeight) {
-					rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, targetSize.y);
-				}
+				ApplySize(targetSize);
 				rectTransform.anchoredPosition += posOffset;
 			}
 		}
@@ -164,6 +153,23 @@ namespace ANest.UI {
 		private void ApplySize(Vector2 size) {
 			if(m_fitWidth) RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, size.x);
 			if(m_fitHeight) RectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, size.y);
+			ApplyTextPadding();
+		}
+
+		private void ApplyTextPadding() {
+			if(m_targetText == null) return;
+			var textRect = m_targetText.rectTransform;
+			if(textRect == RectTransform || !(textRect.parent is RectTransform parent)) return;
+			var bounds = parent.rect;
+			float width = Mathf.Max(0f, bounds.width - m_padding.horizontal);
+			float height = Mathf.Max(0f, bounds.height - m_padding.vertical);
+			// アンカーを維持し、ストレッチ以外でも親の内側へ収める。
+			textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+			textRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+			var position = textRect.localPosition;
+			position.x = bounds.xMin + m_padding.left + width * textRect.pivot.x;
+			position.y = bounds.yMin + m_padding.bottom + height * textRect.pivot.y;
+			textRect.localPosition = position;
 		}
 
 		/// <summary>実行中のTweenを停止する</summary>

@@ -14,6 +14,159 @@ using UniRx;
 using Object = UnityEngine.Object;
 
 public class aGuiLifecycleRegressionTests {
+    private sealed class HeldShortcut : IShortCut {
+        public bool IsPressed { get; set; }
+    }
+
+    private static void UpdateShortcut(aButton button) => typeof(aButton)
+        .GetMethod("UpdateShortCutState", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(button, null);
+
+    [UnityTest]
+    public IEnumerator ReenablingSubOnInactiveObjectResumesPendingSync() {
+        var root = Rect("Hidden sub recovery");
+        try {
+            var main = InactiveContainer<aStaticContainer>(root, true);
+            main.gameObject.SetActive(true);
+            var sub = InactiveContainer<aSubContainer>(root, true, main);
+            sub.gameObject.SetActive(true);
+            main.Hide();
+            sub.enabled = false;
+            main.Show();
+            yield return null;
+            Assert.That(sub.gameObject.activeSelf, Is.False);
+            sub.enabled = true; // 非アクティブなGameObjectなのでOnEnableは発火しない。
+            yield return null;
+            yield return null;
+            Assert.That(sub.gameObject.activeSelf, Is.True);
+            Assert.That(sub.IsVisible, Is.True);
+            Assert.That(typeof(aSubContainer).GetField("m_pendingEnabledSync", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(sub), Is.Null);
+            main.Hide(); main.Show();
+            Assert.That(sub.gameObject.activeSelf, Is.True);
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [UnityTest]
+    public IEnumerator DestroyingSubDisposesPendingSync() {
+        var root = Rect("Pending sync cleanup");
+        var main = InactiveContainer<aStaticContainer>(root, true);
+        main.gameObject.SetActive(true);
+        var sub = InactiveContainer<aSubContainer>(root, true, main);
+        sub.gameObject.SetActive(true);
+        sub.enabled = false;
+        var field = typeof(aSubContainer).GetField("m_pendingEnabledSync", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field.GetValue(sub), Is.Not.Null);
+        Object.DestroyImmediate(root.gameObject);
+        Assert.That(field.GetValue(sub), Is.Null);
+        yield return null;
+    }
+
+    [TestCase(270f, false, false)]
+    [TestCase(360f, false, false)]
+    [TestCase(-360f, false, false)]
+    [TestCase(720f, false, true)]
+    [TestCase(270f, true, false)]
+    [TestCase(360f, true, false)]
+    [TestCase(-360f, true, false)]
+    [TestCase(720f, true, true)]
+    public void RotationPreservesAngleTravelAndBaseRotation(float angle, bool targetMode, bool yoyo) {
+        var rect = Rect("Rotation travel");
+        Tween tween = null;
+        try {
+            var baseRotation = Quaternion.Euler(20f, 30f, 40f);
+            rect.localRotation = baseRotation;
+            var info = rect.gameObject.AddComponent<aGuiInfo>();
+            Set(info, "m_rectTransform", rect); info.Refresh();
+            IUiAnimation animation = targetMode ? new RotateTarget() : new Rotate();
+            if(targetMode) Set(animation, "m_target", info);
+            var start = new Vector3(5f, 10f, -20f);
+            var end = new Vector3(5f, 10f, angle - 20f);
+            Set(animation, "m_startValue", start); Set(animation, "m_endValue", end);
+            Set(animation, "m_duration", 1f); Set(animation, "m_ease", Ease.Linear); Set(animation, "m_isYoYo", yoyo);
+            tween = animation.DoAnimate(null, rect, info.OriginalRectTransformValues);
+            for(int i = 0; i <= 8; i++) {
+                float time = i / 8f;
+                tween.Goto(time);
+                float progress = yoyo ? (time <= .5f ? time * 2 : (1 - time) * 2) : time;
+                var expected = baseRotation * Quaternion.Euler(Vector3.Lerp(start, end, progress));
+                Assert.That(Quaternion.Angle(expected, rect.localRotation), Is.LessThan(.1f), "Incorrect angle at " + time);
+            }
+            tween = animation.DoAnimate(null, rect, info.OriginalRectTransformValues);
+            Assert.That(Quaternion.Angle(baseRotation * Quaternion.Euler(start), rect.localRotation), Is.LessThan(.1f), "Retrigger must not accumulate rotation.");
+        } finally { tween?.Kill(); Object.DestroyImmediate(rect.gameObject); }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void RightClickDoesNotConsumeHeldLeftClick(bool useGuard) {
+        var rect = Rect("Mouse overlap");
+        try {
+            var button = rect.gameObject.AddComponent<aButton>();
+            Set(button, "useMultipleInputGuard", useGuard);
+            int leftClicks = 0, rightClicks = 0;
+            button.onClick.AddListener(() => leftClicks++);
+            ((UnityEngine.Events.UnityEvent)typeof(aButton).GetField("onRightClick", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(button)).AddListener(() => rightClicks++);
+            var left = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            var right = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Right };
+            button.OnPointerDown(left);
+            button.OnPointerDown(right); button.OnPointerUp(right); button.OnPointerClick(right);
+            Assert.That(leftClicks, Is.Zero);
+            button.OnPointerUp(left); button.OnPointerClick(left);
+            Assert.That(leftClicks, Is.EqualTo(1));
+            Assert.That(rightClicks, Is.EqualTo(useGuard ? 0 : 1));
+        } finally { Object.DestroyImmediate(rect.gameObject); }
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ReleasingShortcutCannotClickForHeldMouse(bool useGuard) {
+        var rect = Rect("Shortcut overlap");
+        try {
+            var button = rect.gameObject.AddComponent<aButton>();
+            Set(button, "useMultipleInputGuard", useGuard);
+            var shortcut = new HeldShortcut(); Set(button, "shortCut", shortcut);
+            int clicks = 0; button.onClick.AddListener(() => clicks++);
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            button.OnPointerDown(pointer);
+            shortcut.IsPressed = true; UpdateShortcut(button);
+            shortcut.IsPressed = false; UpdateShortcut(button);
+            Assert.That(clicks, Is.Zero);
+            button.OnPointerUp(pointer); button.OnPointerClick(pointer);
+            Assert.That(clicks, Is.EqualTo(1));
+        } finally { Object.DestroyImmediate(rect.gameObject); }
+    }
+
+    [Test]
+    public void MouseEventsCannotReleaseHeldShortcut() {
+        var rect = Rect("Held shortcut");
+        try {
+            var button = rect.gameObject.AddComponent<aButton>(); Set(button, "useMultipleInputGuard", false);
+            var shortcut = new HeldShortcut(); Set(button, "shortCut", shortcut);
+            int clicks = 0; button.onClick.AddListener(() => clicks++);
+            shortcut.IsPressed = true; UpdateShortcut(button);
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            button.OnPointerDown(pointer); button.OnPointerUp(pointer); button.OnPointerClick(pointer);
+            Assert.That(clicks, Is.Zero);
+            shortcut.IsPressed = false; UpdateShortcut(button);
+            Assert.That(clicks, Is.EqualTo(1));
+        } finally { Object.DestroyImmediate(rect.gameObject); }
+    }
+
+    [Test]
+    public void SecondPointerCannotConsumeFirstPointerClick() {
+        var rect = Rect("Two pointers");
+        try {
+            var button = rect.gameObject.AddComponent<aButton>(); Set(button, "useMultipleInputGuard", false);
+            int clicks = 0; button.onClick.AddListener(() => clicks++);
+            var first = new PointerEventData(EventSystem.current) { pointerId = 1, button = PointerEventData.InputButton.Left };
+            var second = new PointerEventData(EventSystem.current) { pointerId = 2, button = PointerEventData.InputButton.Left };
+            button.OnPointerDown(first);
+            button.OnPointerDown(second); button.OnPointerUp(second); button.OnPointerClick(second);
+            Assert.That(clicks, Is.Zero);
+            button.OnPointerUp(first); button.OnPointerClick(first);
+            Assert.That(clicks, Is.EqualTo(1));
+        } finally { Object.DestroyImmediate(rect.gameObject); }
+    }
+
     private static T InactiveContainer<T>(Transform parent, bool visible, aContainerBase main = null) where T : aContainerBase {
         var rect = Rect(typeof(T).Name, parent);
         rect.gameObject.SetActive(false);

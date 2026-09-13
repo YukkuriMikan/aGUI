@@ -1,7 +1,7 @@
 {
   "name": "com.anest.agui",
   "displayName": "aGUI",
-  "version": "0.7.18",
+  "version": "0.7.19",
   "unity": "6000.0",
   "description": "ANest GUI library",
   "author": {

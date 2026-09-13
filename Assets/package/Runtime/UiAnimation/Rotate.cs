@@ -62,12 +62,14 @@ namespace ANest.UI {
 			}
 
 			// 初期回転を設定（基準回転に相対オフセットを適用）
-			Quaternion startRotation = m_baseRotation * Quaternion.Euler(m_startValue);
-			Quaternion endRotation = m_baseRotation * Quaternion.Euler(m_endValue);
-			callerRect.localRotation = startRotation;
+			var baseRotation = m_baseRotation;
+			var startAngles = m_startValue;
+			callerRect.localRotation = baseRotation * Quaternion.Euler(startAngles);
 
-			m_tween = callerRect
-				.DOLocalRotate(endRotation.eulerAngles, IsYoYo ? m_duration / 2f : m_duration) // ヨーヨー時は2ループ合計でm_durationになるよう半分にする
+			// Quaternionへ変換する前の角度を補間し、回転方向と360度以上の回転量を保つ。
+			m_tween = DOTween.To(() => startAngles,
+				angles => callerRect.localRotation = baseRotation * Quaternion.Euler(angles),
+				m_endValue, IsYoYo ? m_duration / 2f : m_duration)
 				.SetDelay(Delay)
 				.SetTarget(callerRect); // 呼び出し元Rect単位のDOKillで中断できるようターゲットを設定
 

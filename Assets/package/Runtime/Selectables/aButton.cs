@@ -75,6 +75,11 @@ using TMPro;
 		#endregion
 
 		#region Private Fields
+		private enum PressSource { None, Pointer, ShortCut, Submit }
+		private PressSource _pressSource;
+		private int _leftPointerId;
+		private bool _rightPressAccepted;
+		private int _rightPointerId;
 		private float _lastAcceptedClickTime = -999f;             // 最後に受理した入力時刻
 		private bool _pressAccepted;                              // 現在の押下を処理対象にするか
 		private bool _isPointerDown;                              // ポインタ押下中か
@@ -202,6 +207,18 @@ using TMPro;
 		public override void OnPointerDown(PointerEventData eventData) {
 			// 対象外のボタンは入力ガードや進行中の押下状態にも影響させない。
 			if(eventData.button != PointerEventData.InputButton.Left && eventData.button != PointerEventData.InputButton.Right) return;
+			if(eventData.button == PointerEventData.InputButton.Right) {
+				_rightPressAccepted = false;
+				if(!IsActive() || !IsInteractable() || InitialGuardActive) return;
+				float rightNow = Time.unscaledTime;
+				if(IsGuardActive(rightNow)) return;
+				StartGuard(rightNow);
+				_rightPointerId = eventData.pointerId;
+				_rightPressAccepted = true;
+				return;
+			}
+			// 別の入力元や別の指で、進行中の押下を上書きしない。
+			if(_pressAccepted && _isPointerDown && (_pressSource != PressSource.Pointer || _leftPointerId != eventData.pointerId)) return;
 			ApplyPreventFocusNavigation();
 			base.OnPointerDown(eventData);
 
@@ -217,14 +234,8 @@ using TMPro;
 
 			StartGuard(now);
 
-			// 右クリックはそのまま受理のみ（解放時のイベントはなし）
-			if(eventData.button == PointerEventData.InputButton.Right) {
-				_pressAccepted = true;
-				return;
-			}
-
-			if(eventData.button != PointerEventData.InputButton.Left) return;
-
+			_pressSource = PressSource.Pointer;
+			_leftPointerId = eventData.pointerId;
 			_pressAccepted = true;
 			_isPointerDown = true;
 			_longPressTriggered = false;
@@ -235,6 +246,8 @@ using TMPro;
 
 		/// <summary> ポインタ解放時の処理。長押しキャンセル判定を行う </summary>
 		public override void OnPointerUp(PointerEventData eventData) {
+			if(eventData.button == PointerEventData.InputButton.Left && _pressAccepted
+				&& (_pressSource != PressSource.Pointer || _leftPointerId != eventData.pointerId)) return;
 			base.OnPointerUp(eventData);
 			if(eventData.button != PointerEventData.InputButton.Left) return;
 
@@ -252,15 +265,15 @@ using TMPro;
 			if(!IsActive() || !IsInteractable()) return;
 			if(InitialGuardActive) return;
 
-			if(!_pressAccepted) return;
-
 			if(eventData.button == PointerEventData.InputButton.Right) {
+				if(!_rightPressAccepted || _rightPointerId != eventData.pointerId) return;
+				_rightPressAccepted = false;
 				onRightClick?.Invoke();
-				_pressAccepted = false;
 				return;
 			}
 
 			if(eventData.button != PointerEventData.InputButton.Left) return;
+			if(!_pressAccepted || _pressSource != PressSource.Pointer || _leftPointerId != eventData.pointerId) return;
 
 			// 長押しが成立していた場合はクリック系を発火しない
 			if(_longPressTriggered) {
@@ -291,6 +304,7 @@ using TMPro;
 
 		/// <summary> Submit入力時にガードを適用 </summary>
 		public override void OnSubmit(BaseEventData eventData) {
+			if(_pressAccepted && _isPointerDown) return;
 			if(!IsActive() || !IsInteractable()) return;
 			if(InitialGuardActive) return;
 
@@ -306,6 +320,7 @@ using TMPro;
 			}
 
 			// Submit入力でも長押しを開始できるようにポインタ押下と同等の状態をセット
+			_pressSource = PressSource.Submit;
 			_pressAccepted = true;
 			_isPointerDown = true;
 			_longPressTriggered = false;
@@ -453,6 +468,8 @@ using TMPro;
 
 		/// <summary> 押下状態などの入力フラグを初期化 </summary>
 		private void ResetPressState() {
+			_pressSource = PressSource.None;
+			_rightPressAccepted = false;
 			_pressAccepted = false;
 			_isPointerDown = false;
 			_longPressTriggered = false;
@@ -508,6 +525,7 @@ using TMPro;
 
 		/// <summary> ショートカット押下開始時の処理 </summary>
 		private void HandleShortCutPress() {
+			if(_pressAccepted && _isPointerDown) return;
 			if(!IsActive() || !IsInteractable()) return;
 			if(InitialGuardActive) return;
 
@@ -515,6 +533,7 @@ using TMPro;
 			if(IsGuardActive(now)) return;
 
 			StartGuard(now);
+			_pressSource = PressSource.ShortCut;
 			_pressAccepted = true;
 			_isPointerDown = true;
 			_longPressTriggered = false;
@@ -525,7 +544,7 @@ using TMPro;
 
 		/// <summary> ショートカット押下終了時の処理 </summary>
 		private void HandleShortCutRelease() {
-			if(!_pressAccepted) {
+			if(!_pressAccepted || _pressSource != PressSource.ShortCut) {
 				_shortCutPressed = false;
 				return;
 			}
@@ -587,6 +606,7 @@ using TMPro;
 
 		/// <summary> Submit解放時の後処理とクリック発火 </summary>
 		private void ReleaseSubmitPress(bool triggerClick) {
+			if(!_pressAccepted || _pressSource != PressSource.Submit) return;
 			TryInvokeLongPressCancel();
 
 			_isPointerDown = false;

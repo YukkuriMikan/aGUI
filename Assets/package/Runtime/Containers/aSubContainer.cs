@@ -1,4 +1,5 @@
 using UnityEngine;
+using UniRx;
 
 namespace ANest.UI {
 	/// <summary>メインコンテナに従属するサブコンテナ</summary>
@@ -7,6 +8,7 @@ namespace ANest.UI {
 		[Tooltip("紐付けるメインコンテナ")]
 		[SerializeField] private aContainerBase m_mainContainer; // メインコンテナ参照
 		private aContainerBase m_subscribedMainContainer;
+		private System.IDisposable m_pendingEnabledSync;
 #if UNITY_EDITOR
 		private bool m_refreshConnectionQueued;
 #endif
@@ -34,11 +36,18 @@ namespace ANest.UI {
 
 		protected override void OnEnable() {
 			base.OnEnable();
+			StopWaitingForEnable();
 			RefreshMainConnection();
+		}
+
+		protected override void OnDisable() {
+			base.OnDisable();
+			if(!enabled) WaitForEnable();
 		}
 
 		/// <summary>破棄時にメインコンテナの購読を解除する</summary>
 		protected override void OnDestroy() {
+			StopWaitingForEnable();
 			UnsubscribeFromMainContainer();
 
 			base.OnDestroy();
@@ -87,7 +96,9 @@ namespace ANest.UI {
 		private void SyncWithMainVisibility() {
 			// Hideで自身のGameObjectを非表示にした後もMainのShowは受け取る。
 			// コンポーネントのチェックをOFFにした場合は同期を止める。
-			if(!enabled || IsStandalone) return;
+			if(IsStandalone) { StopWaitingForEnable(); return; }
+			if(!enabled) { WaitForEnable(); return; }
+			StopWaitingForEnable();
 
 			if(IsMainContainerHidden()) {
 				Hide();
@@ -130,6 +141,22 @@ namespace ANest.UI {
 			// OnValidateではSetActiveせず、Inspectorからの参照変更をメインスレッドで適用する。
 			m_refreshConnectionQueued = true;
 			UnityEditor.EditorApplication.delayCall += RefreshMainConnectionInEditor;
+		}
+
+		private void WaitForEnable() {
+			if(!Application.isPlaying || IsStandalone || m_pendingEnabledSync != null) return;
+			// 非アクティブなGameObjectではenabledをONにしてもOnEnableが来ない。
+			// 同期を保留している間だけ、GameObjectに依存しない更新で復帰を検出する。
+			m_pendingEnabledSync = Observable.EveryUpdate().Subscribe(_ => {
+				if(this == null || !enabled) return;
+				StopWaitingForEnable();
+				RefreshMainConnection();
+			});
+		}
+
+		private void StopWaitingForEnable() {
+			m_pendingEnabledSync?.Dispose();
+			m_pendingEnabledSync = null;
 		}
 
 		private void RefreshMainConnectionInEditor() {

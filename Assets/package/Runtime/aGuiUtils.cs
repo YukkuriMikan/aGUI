@@ -51,54 +51,40 @@ namespace ANest.UI {
 				return;
 			}
 
-			IUiAnimation lastEndAnim = null;
-			float maxDuration = 0f;
+			Tween lastEndTween = null;
+			float maxDuration = -1f;
 
-			if(completeCallback != null) {
-				// 最後に終わるアニメーションを取得
-				for (int i = 0; i < animations.Length; i++) {
-					var anim = animations[i];
-
-					if(anim != null) {
-						var animDuration = anim.Delay + anim.Duration;
-
-						if(maxDuration < animDuration) {
-							maxDuration = animDuration;
-							lastEndAnim = anim;
-						}
-					}
-				}
-			}
-
-			// それぞれのアニメーションを個別に起動
-			bool callbackInvoked = false;
-			bool callbackAttached = false;
-			for (int i = 0; i < animations.Length; i++) {
+			// 実際に生成できたTweenの中から最後に終わるものを選ぶ。
+			for(var i = 0; i < animations.Length; i++) {
 				var anim = animations[i];
+				if(anim == null) continue;
+				var tween = anim.DoAnimate(targetGraphic, targetRect, originalValues);
+				if(tween == null || !tween.IsActive()) continue;
+				if(completeCallback == null && killCallback == null) continue;
 
-				if(anim != null) {
-					var tween = anim.DoAnimate(targetGraphic, targetRect, originalValues);
-
-					if(lastEndAnim == anim && completeCallback != null && tween != null) {
-						callbackAttached = true;
-						tween.OnKill(() => {
-							if(callbackInvoked) return;
-							callbackInvoked = true;
-							killCallback?.Invoke();
-						});
-						tween.OnComplete(() => {
-							if(callbackInvoked) return;
-							callbackInvoked = true;
-							completeCallback();
-						});
-					}
+				var duration = tween.Delay() + tween.Duration(true);
+				if(lastEndTween == null || !lastEndTween.IsActive() || duration >= maxDuration) {
+					maxDuration = duration;
+					lastEndTween = tween;
 				}
 			}
 
-			// 対象のTweenが生成されなかった（全てnull、またはlastEndAnimのDoAnimateがnullを返した）場合のフォールバック
-			if(completeCallback != null && !callbackAttached) {
-				completeCallback();
+			if(lastEndTween == null || !lastEndTween.IsActive()) {
+				completeCallback?.Invoke();
+				return;
 			}
+
+			bool callbackInvoked = false;
+			lastEndTween.onKill += () => {
+				if(callbackInvoked) return;
+				callbackInvoked = true;
+				killCallback?.Invoke();
+			};
+			lastEndTween.onComplete += () => {
+				if(callbackInvoked) return;
+				callbackInvoked = true;
+				completeCallback?.Invoke();
+			};
 		}
 
 		/// <summary>ステートに応じてテキストカラー遷移を適用する</summary>

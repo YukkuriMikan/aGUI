@@ -207,6 +207,7 @@ using TMPro;
 			_pressAccepted = false;
 
 			if(!IsActive() || !IsInteractable()) return;
+			if(InitialGuardActive) return;
 
 			float now = Time.unscaledTime;
 

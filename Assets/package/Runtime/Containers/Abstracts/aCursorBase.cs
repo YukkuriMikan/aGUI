@@ -144,7 +144,7 @@ namespace ANest.UI {
 			TextMeshProUGUI textComponent = null;
 			if(m_sizeMode == SizeMode.MatchText) {
 				textComponent = GetCachedTextComponent(targetRect);
-				textComponent?.ForceMeshUpdate();
+				if(textComponent != null) textComponent.ForceMeshUpdate();
 			}
 
 			// カーソルの位置は CurrentSelectable の位置に移動する
@@ -217,12 +217,16 @@ namespace ANest.UI {
 		private TextMeshProUGUI GetCachedTextComponent(RectTransform targetRect) {
 			if(targetRect == null) return null;
 
-			if(m_targetTextCache.TryGetValue(targetRect, out TextMeshProUGUI cachedText)) {
+			if(m_targetTextCache.TryGetValue(targetRect, out TextMeshProUGUI cachedText)
+				&& cachedText != null && cachedText.transform.IsChildOf(targetRect)) {
 				return cachedText;
 			}
 
+			// 未取得・破棄済み・別の親へ移動した参照は再検索する。
+			// テキストが存在しないという結果を固定すると、後からの追加を検出できない。
 			TextMeshProUGUI textComponent = targetRect.GetComponentInChildren<TextMeshProUGUI>(true);
-			m_targetTextCache[targetRect] = textComponent;
+			if(textComponent != null) m_targetTextCache[targetRect] = textComponent;
+			else m_targetTextCache.Remove(targetRect);
 			return textComponent;
 		}
 		#endregion

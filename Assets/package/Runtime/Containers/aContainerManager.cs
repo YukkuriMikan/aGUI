@@ -51,6 +51,7 @@ namespace ANest.UI {
 			foreach(var pair in m_addTimeDictionary) {
 				var candidate = pair.Key;
 				if(candidate == null) continue;
+				if(!candidate.isActiveAndEnabled) continue;
 				if(!candidate.IsVisible) continue;
 				if(candidate is not IDisallowNullSelectionContainer { DisallowNullSelection: true }) continue;
 				if(pair.Value > latestTime) {
@@ -69,8 +70,26 @@ namespace ANest.UI {
 			if(m_containers.IndexOf(container) >= 0) {
 				m_containers.Remove(container);
 			}
-			m_containerNameDictionary.Remove(container.name);
 			m_addTimeDictionary.Remove(container);
+			// 別の同名コンテナが登録されている場合は、その登録を維持する。
+			if(m_containerNameDictionary.TryGetValue(container.name, out var registered) && registered == container) {
+				RestoreContainerName(container.name);
+			}
+		}
+
+		private static void RestoreContainerName(string containerName) {
+			aContainerBase latest = null;
+			double latestTime = double.NegativeInfinity;
+			foreach(var pair in m_addTimeDictionary) {
+				var candidate = pair.Key;
+				if(candidate == null || candidate.name != containerName) continue;
+				if(pair.Value >= latestTime) {
+					latestTime = pair.Value;
+					latest = candidate;
+				}
+			}
+			if(latest != null) m_containerNameDictionary[containerName] = latest;
+			else m_containerNameDictionary.Remove(containerName);
 		}
 
 		/// <summary>コンテナ名から管理対象のコンテナを取得する</summary>

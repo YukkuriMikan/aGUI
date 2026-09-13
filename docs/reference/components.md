@@ -12,3 +12,18 @@
 | `aScrollStop.UpdateTiming` | 補正タイミング。 | `Update`, `LateUpdate` | [aScrollStop.cs](../../Assets/package/Runtime/Components/aScrollStop.cs) |
 | `RectSync` | 別 `RectTransform` の Anchor/Pivot/Position/Size を同期。 | `Sync()` | [RectSync.cs](../../Assets/package/Runtime/Utility/RectSync.cs) |
 | `aImage` | `UnityEngine.UI.Image` の aGUI版(開発中)。 | (Image API を利用) | [aImage.cs](../../Assets/package/Runtime/Components/aImage.cs) |
+
+## aTextMeshProUgui のルビ
+
+`<ruby="かんじ">漢字</ruby>` と、従来の `<link="ruby:かんじ">漢字</link>` を使用できます。
+Inspector の Text と `text` プロパティには入力したタグが残り、実行中の編集も反映されます。
+本文が空のルビは表示しません。ルビ本文内の明示改行は無効化し、自動改行では本文全体を一単位として扱います。
+本文だけで行幅を超える場合は警告を出し、分割せず横にはみ出して表示します。
+
+0.7.14 から、TMP が生成したルビ文字の頂点を `OnPreRenderText` で本文の上へ配置します。
+ルビごとの GameObject / TextMeshProUGUI は生成しません。フォールバックフォントなどで別マテリアルが必要な場合は、TMP 標準の `TMP_SubMeshUI` が生成されることがあります。
+旧方式の生成物は、有効化時に `Ruby_` で始まる名前・`NotEditable`・`TextMeshProUGUI` を確認して除去します。
+
+本文レイアウトの変更時は、本文を計算してからルビを含むメッシュを生成します。
+通常の再描画では本文の計算結果と頂点バッファを再利用します。文字列変更やバッファ拡張時の割り当てはありますが、安定した再描画では GC Alloc が発生しないことをテストしています。
+`textInfo` の文字・リンク・行情報と preferred size は本文を対象とし、`meshInfo` には本文とルビの両方の頂点が含まれます。

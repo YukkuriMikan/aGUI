@@ -26,7 +26,187 @@ public class aGuiRubyRegressionTests {
 
     [TearDown] public void TearDown() => Object.DestroyImmediate(root);
 
-    private TextMeshProUGUI Ruby() => text.transform.Find("Ruby_0")?.GetComponent<TextMeshProUGUI>();
+    private aGuiRubyMeshTestUtility.Reading Ruby() => aGuiRubyMeshTestUtility.Get(text);
+
+    [TestCase(TextAlignmentOptions.TopLeft)]
+    [TestCase(TextAlignmentOptions.Center)]
+    [TestCase(TextAlignmentOptions.BottomRight)]
+    [TestCase(TextAlignmentOptions.Justified)]
+    public void RubyMeshPreservesBodyGeometryAndLayoutAcrossAlignmentAndResize(TextAlignmentOptions alignment) {
+        var control = CreateControl();
+        text.alignment = control.alignment = alignment;
+        text.text = "<u>AAAA</u> <ruby=abc><b>BC</b> <color=red>DE</color></ruby> ZZ";
+        control.text = "<u>AAAA</u> \u200B<nobr><link=ordinary><b>BC</b> <color=red>DE</color></link></nobr>\u200B ZZ";
+        foreach(float width in new[] { 150f, 500f, 170f }) {
+            text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            control.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            text.ForceMeshUpdate();
+            control.ForceMeshUpdate();
+            AssertBodyMatches(control);
+            Assert.That(text.textInfo.meshInfo[0].vertexCount, Is.GreaterThan(control.textInfo.meshInfo[0].vertexCount));
+            Assert.That(Ruby().bounds.size.x, Is.GreaterThan(0));
+            Assert.That(text.transform.childCount, Is.Zero);
+            Assert.That(text.preferredHeight, Is.EqualTo(control.preferredHeight).Within(.01f));
+            Assert.That(text.GetPreferredValues(150, 500).y, Is.EqualTo(control.GetPreferredValues(150, 500).y).Within(.01f));
+        }
+    }
+
+    [TestCase(RubySizeMode.Auto)]
+    [TestCase(RubySizeMode.Scale)]
+    [TestCase(RubySizeMode.Size)]
+    public void RubyModesAndOffsetChangeActualMeshWithoutMovingBody(RubySizeMode mode) {
+        text.text = "<ruby=abc>ABC</ruby>";
+        text.RubySizeMode = mode;
+        text.RubyScale = .4f;
+        text.RubySize = 12;
+        text.ForceMeshUpdate();
+        var before = (Vector3[])text.textInfo.meshInfo[0].vertices.Clone();
+        var reading = Ruby();
+        Assert.That(reading.fontSize, Is.GreaterThan(0));
+        text.RubyOffset += 15;
+        for(int i = 0; i < 12; i++) Assert.That(text.textInfo.meshInfo[0].vertices[i], Is.EqualTo(before[i]));
+        for(int i = 12; i < 24; i++) Assert.That(Vector3.Distance(text.textInfo.meshInfo[0].vertices[i], before[i] + Vector3.up * 15), Is.LessThan(.001f));
+        Assert.That(Ruby().bounds.center.y, Is.EqualTo(reading.bounds.center.y + 15).Within(.001f));
+        Assert.That(text.mesh.vertexCount, Is.GreaterThanOrEqualTo(24));
+    }
+
+    [Test] public void RubyDoesNotInfluenceAutoSizeAndScaleChangesRefreshSdfData() {
+        var control = CreateControl();
+        text.enableAutoSizing = control.enableAutoSizing = true;
+        text.fontSizeMin = control.fontSizeMin = 8;
+        text.fontSizeMax = control.fontSizeMax = 40;
+        text.text = "AAAA <ruby=abcdefghijk>BC DE</ruby> ZZ";
+        control.text = "AAAA \u200B<nobr><link=ordinary>BC DE</link></nobr>\u200B ZZ";
+        text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 35);
+        control.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 35);
+        foreach(float scale in new[] { 1f, 2f, .5f }) {
+            root.transform.localScale = Vector3.one * scale;
+            text.ForceMeshUpdate();
+            control.ForceMeshUpdate();
+            Assert.That(text.fontSize, Is.EqualTo(control.fontSize).Within(.01f));
+            AssertBodyMatches(control);
+        }
+    }
+
+    [Test] public void MaxVisibleCharactersHidesRubyUntilBodyIsVisibleAndRemovalClearsVertices() {
+        text.text = "<ruby=abc>ABC</ruby>";
+        text.maxVisibleCharacters = 2;
+        text.ForceMeshUpdate();
+        Assert.That(Ruby().bounds.size, Is.EqualTo(Vector3.zero));
+        text.maxVisibleCharacters = int.MaxValue;
+        text.ForceMeshUpdate();
+        Assert.That(Ruby().bounds.size.x, Is.GreaterThan(0));
+        text.text = "ABC";
+        text.ForceMeshUpdate();
+        Assert.That(Ruby(), Is.Null);
+        Assert.That(text.textInfo.meshInfo[0].vertexCount, Is.EqualTo(12));
+        for(int i = 12; i < text.textInfo.meshInfo[0].vertices.Length; i++)
+            Assert.That(text.textInfo.meshInfo[0].vertices[i], Is.EqualTo(Vector3.zero));
+    }
+
+    [TestCase(TextOverflowModes.Ellipsis)]
+    [TestCase(TextOverflowModes.Truncate)]
+    [TestCase(TextOverflowModes.Page)]
+    public void RubyKeepsBodyOverflowAndPageMetadata(TextOverflowModes mode) {
+        var control = CreateControl();
+        text.overflowMode = control.overflowMode = mode;
+        text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 35);
+        control.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 35);
+        text.text = "AAAA <ruby=abc>BC DE</ruby> ZZ";
+        control.text = "AAAA \u200B<nobr><link=ordinary>BC DE</link></nobr>\u200B ZZ";
+        text.ForceMeshUpdate();
+        control.ForceMeshUpdate();
+        AssertBodyMatches(control);
+        Assert.That(text.isTextTruncated, Is.EqualTo(control.isTextTruncated));
+        Assert.That(text.firstOverflowCharacterIndex, Is.EqualTo(control.firstOverflowCharacterIndex));
+        Assert.That(text.textInfo.pageCount, Is.EqualTo(control.textInfo.pageCount));
+    }
+
+    [Test] public void RubyFallbackUsesTmpMaterialAndDoesNotCreateRubyObjects() {
+        var primary = Object.Instantiate(text.font);
+        var material = Object.Instantiate(text.font.material);
+        primary.material = material;
+        primary.characterTable.RemoveAll(character => character.unicode == 'x');
+        primary.atlasPopulationMode = AtlasPopulationMode.Static;
+        primary.ReadFontAssetDefinition();
+        primary.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset> { text.font };
+        try {
+            text.font = primary;
+            text.text = "<ruby=xxx>ABC</ruby>";
+            text.ForceMeshUpdate();
+            Assert.That(text.textInfo.materialCount, Is.GreaterThan(1));
+            Assert.That(text.textInfo.meshInfo[1].vertexCount, Is.EqualTo(12));
+            Assert.That(Ruby().bounds.size.x, Is.GreaterThan(0));
+            foreach(Transform child in text.transform) Assert.That(child.GetComponent<TMP_SubMeshUI>(), Is.Not.Null);
+            text.text = "ABC";
+            text.ForceMeshUpdate();
+            Assert.That(Ruby(), Is.Null);
+        } finally {
+            // 複製したFontAssetが共有アトラスを所有しているわけではない。
+            primary.atlasTextures = Array.Empty<Texture2D>();
+            Object.DestroyImmediate(primary);
+            Object.DestroyImmediate(material);
+        }
+    }
+
+    private TextMeshProUGUI CreateControl() {
+        var go = new GameObject("Control", typeof(RectTransform));
+        go.transform.SetParent(root.transform, false);
+        var control = go.AddComponent<TextMeshProUGUI>();
+        control.font = text.font;
+        control.fontSize = 30;
+        control.textWrappingMode = TextWrappingModes.Normal;
+        control.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 150);
+        control.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 500);
+        return control;
+    }
+
+    [UnityTest] public IEnumerator RubyUsesParentRectMaskWithoutChildGraphics() {
+        var mask = new GameObject("Clip", typeof(RectTransform), typeof(UnityEngine.UI.RectMask2D));
+        mask.transform.SetParent(root.transform, false);
+        var rect = mask.GetComponent<RectTransform>();
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 100);
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 60);
+        text.transform.SetParent(mask.transform, false);
+        text.alignment = TextAlignmentOptions.Center;
+        text.text = "<ruby=abc>ABC</ruby>";
+        yield return null;
+        Canvas.ForceUpdateCanvases();
+        Assert.That(text.canvasRenderer.hasRectClipping, Is.True);
+        Assert.That(text.transform.childCount, Is.Zero);
+        Assert.That(Ruby().bounds.size.x, Is.GreaterThan(0));
+    }
+
+    [UnityTest] public IEnumerator LegacyGeneratedRubyIsRemovedWithoutDeletingAuthoredChildren() {
+        text.enabled = false;
+        var legacy = new GameObject("Ruby_0", typeof(RectTransform), typeof(TextMeshProUGUI));
+        legacy.transform.SetParent(text.transform, false);
+        legacy.hideFlags = HideFlags.NotEditable;
+        var authored = new GameObject("Ruby_Decoration", typeof(RectTransform), typeof(TextMeshProUGUI));
+        authored.transform.SetParent(text.transform, false);
+        text.text = "<ruby=abc>ABC</ruby>";
+        text.enabled = true;
+        yield return null;
+        Assert.That(legacy == null, Is.True);
+        Assert.That(authored != null, Is.True);
+        Assert.That(text.transform.childCount, Is.EqualTo(1));
+        Assert.That(Ruby().bounds.size.x, Is.GreaterThan(0));
+    }
+
+    private void AssertBodyMatches(TextMeshProUGUI control) {
+        Assert.That(text.textInfo.characterCount, Is.EqualTo(control.textInfo.characterCount));
+        Assert.That(text.textInfo.lineCount, Is.EqualTo(control.textInfo.lineCount));
+        for(int i = 0; i < control.textInfo.characterCount; i++) {
+            Assert.That(text.textInfo.characterInfo[i].character, Is.EqualTo(control.textInfo.characterInfo[i].character));
+            Assert.That(text.textInfo.characterInfo[i].lineNumber, Is.EqualTo(control.textInfo.characterInfo[i].lineNumber));
+        }
+        for(int i = 0; i < control.textInfo.meshInfo[0].vertexCount; i++) {
+            Assert.That(Vector3.Distance(text.textInfo.meshInfo[0].vertices[i], control.textInfo.meshInfo[0].vertices[i]), Is.LessThan(.001f), "Body vertex " + i);
+            Assert.That(text.textInfo.meshInfo[0].uvs0[i].w, Is.EqualTo(control.textInfo.meshInfo[0].uvs0[i].w).Within(.001f));
+            if(control.textInfo.meshInfo[0].vertices[i] != Vector3.zero)
+                Assert.That(text.textInfo.meshInfo[0].colors32[i], Is.EqualTo(control.textInfo.meshInfo[0].colors32[i]));
+        }
+    }
 
     [TestCase("<ruby=\"abc\">ABC</ruby>")]
     [TestCase("<ruby='abc'>ABC</ruby>")]
@@ -82,7 +262,7 @@ public class aGuiRubyRegressionTests {
         var source = text.text;
         text.ForceMeshUpdate();
         Assert.That(Ruby().text, Is.EqualTo("abc"));
-        Assert.That(text.transform.Find("Ruby_1").GetComponent<TextMeshProUGUI>().text, Is.EqualTo("xyz"));
+        Assert.That(aGuiRubyMeshTestUtility.Get(text, 1).text, Is.EqualTo("xyz"));
         Assert.That(text.textInfo.linkInfo[1].linkTextLength, Is.EqualTo(3));
         Assert.That(text.text, Is.EqualTo(source));
         const string literal = "<noparse><ruby=\"abc\">ABC</ruby></noparse>";
@@ -146,7 +326,7 @@ public class aGuiRubyRegressionTests {
             var instance = clone.GetComponentInChildren<aTextMeshProUgui>();
             instance.ForceMeshUpdate();
             Assert.That(instance.text, Is.EqualTo(source));
-            Assert.That(instance.transform.Find("Ruby_0").GetComponent<TextMeshProUGUI>().text, Is.EqualTo("abc"));
+            Assert.That(aGuiRubyMeshTestUtility.Get(instance).text, Is.EqualTo("abc"));
         } finally {
             if(clone != null) Object.DestroyImmediate(clone);
             UnityEditor.AssetDatabase.DeleteAsset(path);
@@ -169,15 +349,15 @@ public class aGuiRubyRegressionTests {
         Assert.That(Ruby().text, Is.EqualTo("xyz"), "Empty links must not consume a ruby slot.");
     }
 
-    [UnityTest] public IEnumerator DisableAndEnableWithinFrameDoesNotReuseDestroyedRuby() {
+    [UnityTest] public IEnumerator DisableAndEnableWithinFrameKeepsRubyWithoutCreatingObjects() {
         text.text = "<link=\"ruby:abc\">ABC</link>";
         text.ForceMeshUpdate();
-        var first = Ruby();
+        Assert.That(text.transform.childCount, Is.Zero);
         text.enabled = false;
         text.enabled = true;
-        Assert.That(Ruby(), Is.Not.SameAs(first));
+        Assert.That(text.transform.childCount, Is.Zero);
         yield return null;
-        Assert.That(first == null, Is.True);
+        Assert.That(text.transform.childCount, Is.Zero);
         Assert.DoesNotThrow(() => text.ForceMeshUpdate());
         Assert.That(Ruby().text, Is.EqualTo("abc"));
         text.gameObject.SetActive(false);
@@ -312,5 +492,30 @@ public class aGuiRubyRegressionTests {
         if(expectedLine.HasValue) Assert.That(line, Is.EqualTo(expectedLine.Value));
         for(var i = first; i < first + link.linkTextLength; i++)
             Assert.That(text.textInfo.characterInfo[i].lineNumber, Is.EqualTo(line));
+    }
+}
+
+// 生成物を実際の合成済みメッシュと照合するためのテスト専用アクセス。
+internal static class aGuiRubyMeshTestUtility {
+    internal sealed class Reading {
+        internal string text;
+        internal float fontSize;
+        internal Bounds bounds;
+        internal bool isActiveAndEnabled;
+    }
+    private const System.Reflection.BindingFlags Flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+    internal static Reading Get(aTextMeshProUgui text, int index = 0) {
+        var layout = typeof(aTextMeshProUgui).GetField("m_rubyMesh", Flags).GetValue(text);
+        int count = (int)layout.GetType().GetProperty("Count", Flags).GetValue(layout);
+        if(index >= count) return null;
+        var runs = (System.Collections.IList)layout.GetType().GetField("m_runs", Flags).GetValue(layout);
+        var run = runs[index];
+        var type = run.GetType();
+        return new Reading {
+            text = (string)type.GetField("Text", Flags).GetValue(run),
+            fontSize = (float)type.GetField("FontSize", Flags).GetValue(run),
+            bounds = (Bounds)type.GetField("Bounds", Flags).GetValue(run),
+            isActiveAndEnabled = text.isActiveAndEnabled,
+        };
     }
 }

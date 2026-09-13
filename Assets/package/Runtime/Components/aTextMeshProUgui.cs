@@ -16,7 +16,6 @@ namespace ANest.UI {
 	public class aTextMeshProUgui : TextMeshProUGUI {
 		#region Constants
 		private const string RubyPrefix = "ruby:";    // linkタグのルビ識別プレフィックス
-		private const float RubyFontSizeRatio = 0.5f; // デフォルトのルビフォントサイズ比率
 		#endregion
 
 		#region SerializeField
@@ -36,7 +35,7 @@ namespace ANest.UI {
 
 		#region Fields
 		private StringTable m_currentTable;                                       // 現在のStringTable
-		private readonly List<GameObject> m_rubyObjects = new List<GameObject>(); // ルビ用子オブジェクト
+		private aRubyMeshLayout m_rubyMesh;
 		private readonly List<string> m_rubyTextByLink = new();
 		private string m_rubySource;
 		private bool m_hasRubySource;
@@ -101,7 +100,8 @@ namespace ANest.UI {
 			EnsureRubyPreprocessor();
 			base.OnEnable();
 			// シーン再読み込み時に残存するルビオブジェクトを回収
-			CollectExistingRubyObjects();
+			RemoveLegacyRubyObjects();
+			OnPreRenderText += ApplyRubyMesh;
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
 			if(m_stringTable != null) {
 				m_stringTable.TableChanged += OnStringTableChanged;
@@ -110,10 +110,11 @@ namespace ANest.UI {
 			ForceMeshUpdate();
 		}
 
-		/// <summary>無効化時にイベント解除とルビオブジェクト破棄を行う</summary>
+		/// <summary>無効化時にイベント購読とレイアウトキャッシュを解除する</summary>
 		protected override void OnDisable() {
 			TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
-			ClearRubyObjects();
+			OnPreRenderText -= ApplyRubyMesh;
+			m_rubyPreprocessor?.InvalidateLayout();
 			if(m_stringTable != null) {
 				m_stringTable.TableChanged -= OnStringTableChanged;
 			}
@@ -124,6 +125,7 @@ namespace ANest.UI {
 		#region Private Methods
 		private void EnsureRubyPreprocessor() {
 			m_rubyPreprocessor ??= new aRubyTextPreprocessor(this);
+			m_rubyMesh ??= new aRubyMeshLayout();
 			if(ReferenceEquals(m_TextPreprocessor, m_rubyPreprocessor)) return;
 			m_rubyPreprocessor.Input = m_TextPreprocessor;
 			m_TextPreprocessor = m_rubyPreprocessor;
@@ -131,7 +133,7 @@ namespace ANest.UI {
 
 		public override void SetVerticesDirty() {
 			EnsureRubyPreprocessor();
-			if(!m_preparingRubyInput && !m_isUpdatingRuby) {
+			if(!m_preparingRubyInput && !m_isUpdatingRuby && !m_generatingRuby) {
 				m_rubyPreprocessor.InvalidateLayout();
 				// 配列・数値書式のSetTextはTMPのプリプロセッサを通らないため、ルビ入力のみ文字列経路へ戻す。
 				var source = base.text;
@@ -154,11 +156,96 @@ namespace ANest.UI {
 			base.Rebuild(update);
 		}
 
+		internal bool CalculatingRubyPreferredValues => m_isCalculatingPreferredValues;
+		private bool m_generatingRuby;
+		private float m_rubyLossyScale;
+		private bool m_bodyTruncated;
+		private int m_bodyOverflowIndex;
+
 		protected override void GenerateTextMesh() {
+			if(m_generatingRuby) { base.GenerateTextMesh(); return; }
+			EnsureRubyPreprocessor();
+			if(m_rubyPreprocessor.ParsedMesh && m_rubyLossyScale != transform.lossyScale.y) {
+				m_rubyPreprocessor.InvalidateLayout();
+				ParseInputText();
+			}
 			var wrapping = m_TextWrappingMode;
-			if(m_rubyPreprocessor != null && m_rubyPreprocessor.UseManualWrapping) m_TextWrappingMode = TextWrappingModes.NoWrap;
-			try { base.GenerateTextMesh(); }
-			finally { m_TextWrappingMode = wrapping; }
+			var mode = m_renderMode;
+			m_generatingRuby = true;
+			try {
+				if(!m_rubyPreprocessor.ParsedMesh) {
+					if(m_rubyPreprocessor.UseManualWrapping) m_TextWrappingMode = TextWrappingModes.NoWrap;
+					// 本文は通常のTMPレイアウトで計算する。描画用の追記文字は折り返し・AutoSizeに参加させない。
+					bool mayHaveRuby = richText && aRubyTextPreprocessor.MayContainRuby(m_rubyPreprocessor.Output);
+					if(mayHaveRuby) m_renderMode = TextRenderFlags.DontRender;
+					base.GenerateTextMesh();
+					if(!mayHaveRuby) { m_rubyMesh.Clear(); return; }
+					UpdateRubyTextCache(textInfo);
+					if(m_rubyPreprocessor.TryCreateOverflowLayout(textInfo, m_rubyTextByLink)) {
+						Debug.LogWarning("[aTextMeshProUgui] ルビ本文が1行の幅を超えるため、途中で分割せず横にはみ出して表示します。", this);
+						m_TextWrappingMode = TextWrappingModes.NoWrap;
+						ParseInputText();
+						base.GenerateTextMesh();
+					}
+					m_rubyMesh.Capture(textInfo, m_rubyTextByLink, m_rubyPreprocessor.Output, m_fontSize);
+					m_rubyLossyScale = transform.lossyScale.y;
+					m_bodyTruncated = m_isTextTruncated;
+					m_bodyOverflowIndex = m_firstOverflowCharacterIndex;
+					m_renderMode = mode;
+					if(m_rubyMesh.Count == 0) {
+						// Ellipsis / Truncateは生成中に解析バッファを書き換えるため、元の本文から再解析する。
+						ParseInputText();
+						base.GenerateTextMesh();
+						return;
+					}
+					m_rubyPreprocessor.MeshOutput = m_rubyMesh.Output;
+					ParseInputText();
+				}
+				RenderRubyMesh();
+			} finally {
+				m_renderMode = mode;
+				m_TextWrappingMode = wrapping;
+				m_generatingRuby = false;
+			}
+		}
+
+		private void RenderRubyMesh() {
+			var wrapping = m_TextWrappingMode;
+			var overflow = m_overflowMode;
+			var autoSize = m_enableAutoSizing;
+			var size = m_fontSize;
+			var first = m_firstVisibleCharacter;
+			var characters = m_maxVisibleCharacters;
+			var words = m_maxVisibleWords;
+			var lines = m_maxVisibleLines;
+			try {
+				m_TextWrappingMode = TextWrappingModes.NoWrap;
+				m_overflowMode = TextOverflowModes.Overflow;
+				m_enableAutoSizing = false;
+				m_fontSize = m_rubyMesh.BodyFontSize;
+				m_firstVisibleCharacter = 0;
+				m_maxVisibleCharacters = m_maxVisibleWords = m_maxVisibleLines = int.MaxValue;
+				base.GenerateTextMesh();
+				// DontRender / inactive ForceMeshUpdateも本文のメタデータを返す。
+				if(m_renderMode != TextRenderFlags.Render || !IsActive())
+					m_rubyMesh.Apply(textInfo, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
+				m_characterCount = textInfo.characterCount;
+				m_isTextTruncated = m_bodyTruncated;
+				m_firstOverflowCharacterIndex = m_bodyOverflowIndex;
+			} finally {
+				m_TextWrappingMode = wrapping;
+				m_overflowMode = overflow;
+				m_enableAutoSizing = autoSize;
+				m_fontSize = autoSize ? m_rubyMesh.BodyFontSize : size;
+				m_firstVisibleCharacter = first;
+				m_maxVisibleCharacters = characters;
+				m_maxVisibleWords = words;
+				m_maxVisibleLines = lines;
+			}
+		}
+
+		private void ApplyRubyMesh(TMP_TextInfo info) {
+			if(m_rubyPreprocessor.ParsedMesh) m_rubyMesh.Apply(info, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
 		}
 
 		protected override Vector2 CalculatePreferredValues(ref float fontSize, Vector2 marginSize, bool isTextAutoSizingEnabled, TextWrappingModes textWrapMode) {
@@ -168,21 +255,10 @@ namespace ANest.UI {
 
 		/// <summary>テキスト変更イベントのコールバック</summary>
 		private void OnTextChanged(Object obj) {
-			if(obj != this) return;
-			if(m_isUpdatingRuby) return;
+			if(obj != this || m_generatingRuby || m_isUpdatingRuby || !havePropertiesChanged) return;
 			m_isUpdatingRuby = true;
-			try {
-				// TMP自身の通知はメッシュ生成完了後。外部からの未反映通知だけ更新する。
-				if(havePropertiesChanged) ForceMeshUpdate();
-				UpdateRubyTextCache(textInfo);
-				if(m_rubyPreprocessor.TryCreateOverflowLayout(textInfo, m_rubyTextByLink)) {
-					Debug.LogWarning("[aTextMeshProUgui] ルビ本文が1行の幅を超えるため、途中で分割せず横にはみ出して表示します。", this);
-					ForceMeshUpdate();
-				}
-				UpdateRubyObjects();
-			} finally {
-				m_isUpdatingRuby = false;
-			}
+			try { ForceMeshUpdate(); }
+			finally { m_isUpdatingRuby = false; }
 		}
 
 		/// <summary>Localizationテーブル変更時のコールバック</summary>
@@ -190,7 +266,6 @@ namespace ANest.UI {
 			m_currentTable = table;
 			ApplyLocalization();
 			ForceMeshUpdate();
-			UpdateRubyObjects();
 		}
 
 		/// <summary>現在のLocalization設定からテキストを適用する</summary>
@@ -206,122 +281,6 @@ namespace ANest.UI {
 			}
 		}
 
-		/// <summary>linkInfoからルビ情報を解析し、ルビオブジェクトを更新する</summary>
-		private void UpdateRubyObjects() {
-			var info = textInfo;
-			if(info == null) {
-				ClearRubyObjects();
-				return;
-			}
-
-			UpdateRubyTextCache(info);
-
-			// ルビ用linkの数を集計
-			int rubyCount = 0;
-			for (int i = 0; i < info.linkCount; i++) {
-				if(m_rubyTextByLink[i] != null && HasRubyBody(info, info.linkInfo[i])) rubyCount++;
-			}
-
-			// 不要なルビオブジェクトを破棄
-			while (m_rubyObjects.Count > rubyCount) {
-				int last = m_rubyObjects.Count - 1;
-				var obj = m_rubyObjects[last];
-				m_rubyObjects.RemoveAt(last);
-				DestroyRubyObject(obj);
-			}
-
-			int rubyIndex = 0;
-			for (int i = 0; i < info.linkCount; i++) {
-				var linkInfo = info.linkInfo[i];
-				var rubyText = m_rubyTextByLink[i];
-				if(rubyText == null || !HasRubyBody(info, linkInfo)) continue;
-
-				// ルビオブジェクトの取得または生成
-				GameObject rubyObj;
-				if(rubyIndex < m_rubyObjects.Count && m_rubyObjects[rubyIndex] != null) {
-					rubyObj = m_rubyObjects[rubyIndex];
-				} else {
-					rubyObj = new GameObject($"Ruby_{rubyIndex}", typeof(RectTransform), typeof(TextMeshProUGUI));
-					rubyObj.transform.SetParent(transform, false);
-					rubyObj.hideFlags = HideFlags.NotEditable;
-					var rubyRect = rubyObj.GetComponent<RectTransform>();
-					rubyRect.anchorMin = new Vector2(0.5f, 0.5f);
-					rubyRect.anchorMax = new Vector2(0.5f, 0.5f);
-					rubyRect.pivot = new Vector2(0.5f, 0.5f);
-					rubyRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 0f);
-					rubyRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 0f);
-					var rubyTmp = rubyObj.GetComponent<TextMeshProUGUI>();
-					rubyTmp.textWrappingMode = TextWrappingModes.NoWrap;
-					rubyTmp.overflowMode = TextOverflowModes.Overflow;
-					rubyTmp.raycastTarget = false;
-					if(rubyIndex < m_rubyObjects.Count) m_rubyObjects[rubyIndex] = rubyObj;
-					else m_rubyObjects.Add(rubyObj);
-				}
-
-				// ルビテキストの設定
-				var rubyTmpComponent = rubyObj.GetComponent<TextMeshProUGUI>();
-				rubyTmpComponent.font = font;
-				rubyTmpComponent.color = color;
-				rubyTmpComponent.alignment = TextAlignmentOptions.Center;
-				rubyTmpComponent.text = rubyText;
-
-				// ベーステキストの文字位置からルビの配置位置を計算
-				int firstCharIdx = linkInfo.linkTextfirstCharacterIndex;
-				int lastCharIdx = firstCharIdx + linkInfo.linkTextLength - 1;
-				if(firstCharIdx >= info.characterInfo.Length || lastCharIdx >= info.characterInfo.Length) {
-					rubyObj.SetActive(false);
-					rubyIndex++;
-					continue;
-				}
-
-				var firstCharInfo = info.characterInfo[firstCharIdx];
-				var lastCharInfo = info.characterInfo[lastCharIdx];
-				if(!firstCharInfo.isVisible || !lastCharInfo.isVisible) {
-					rubyObj.SetActive(false);
-					rubyIndex++;
-					continue;
-				}
-				rubyObj.SetActive(true);
-
-				// characterInfoの座標は親RectTransformのpivot基準ローカル座標
-				float left = firstCharInfo.topLeft.x;
-				float right = lastCharInfo.topRight.x;
-				float top = firstCharInfo.topLeft.y;
-				float baseWidth = right - left;
-
-				// ルビサイズモードに応じたフォントサイズ計算
-				float rubyFontSize;
-				switch(m_rubySizeMode) {
-					case RubySizeMode.Auto:
-						// ルビ文字数と本文幅から、ルビが本文幅に収まるサイズを算出
-						rubyFontSize = rubyText.Length > 0 ? baseWidth / rubyText.Length : fontSize * RubyFontSizeRatio;
-						break;
-					case RubySizeMode.Scale:
-						// 本文フォントサイズに対する割合で算出
-						rubyFontSize = fontSize * m_rubyScale;
-						break;
-					case RubySizeMode.Size:
-						// 直接指定
-						rubyFontSize = m_rubySize;
-						break;
-					default:
-						rubyFontSize = fontSize * RubyFontSizeRatio;
-						break;
-				}
-				rubyTmpComponent.fontSize = rubyFontSize;
-
-				// ベーステキストの上にルビを配置
-				float centerX = (left + right) * 0.5f;
-				float rubyY = top + rubyFontSize * 0.6f + m_rubyOffset;
-				var rt = rubyObj.GetComponent<RectTransform>();
-				rt.localPosition = new Vector3(centerX, rubyY, 0f);
-				rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, baseWidth + fontSize);
-				rt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, rubyFontSize * 1.2f);
-				rubyIndex++;
-			}
-		}
-
-
 		private void UpdateRubyTextCache(TMP_TextInfo info) {
 			var source = m_rubyPreprocessor?.Output ?? text;
 			// 外部プリプロセッサの結果も含め、実際に解析された文字列で判定する。
@@ -336,44 +295,18 @@ namespace ANest.UI {
 		}
 
 
-		private static bool HasRubyBody(TMP_TextInfo info, TMP_LinkInfo link) {
-			return link.linkTextLength > 0 && link.linkTextfirstCharacterIndex >= 0
-				&& link.linkTextfirstCharacterIndex < info.characterCount
-				&& link.linkTextLength <= info.characterCount - link.linkTextfirstCharacterIndex;
-		}
-
-		private void DestroyRubyObject(GameObject obj) {
-			if(obj == null) return;
-			if(Application.isPlaying) {
-				// Destroyはフレーム末まで遅延する。再有効化時の回収対象から即座に外す。
-				obj.name = "Retired ruby";
-				obj.SetActive(false);
-				Destroy(obj);
-			} else DestroyImmediate(obj);
-		}
-
-		/// <summary>シーン再読み込み時に残存するルビ子オブジェクトをリストに回収する</summary>
-		private void CollectExistingRubyObjects() {
-			m_rubyObjects.Clear();
-			// Ruby_Nの連番と再利用時の対応が崩れないよう、子の並び順のまま回収する
-			for (int i = 0; i < transform.childCount; i++) {
-				var child = transform.GetChild(i);
-				if(child.name.StartsWith("Ruby_")) {
-					// 名前がRuby_で始まる子オブジェクトをルビとして回収
-					m_rubyObjects.Add(child.gameObject);
-				}
+		// 旧版がシーンに保存した生成物だけを除去する。新方式はルビ用GameObjectを生成しない。
+		private void RemoveLegacyRubyObjects() {
+			for(var i = transform.childCount - 1; i >= 0; i--) {
+				var child = transform.GetChild(i).gameObject;
+				if(!child.name.StartsWith("Ruby_", System.StringComparison.Ordinal)
+					|| (child.hideFlags & HideFlags.NotEditable) == 0 || !child.TryGetComponent<TextMeshProUGUI>(out _)) continue;
+				if(Application.isPlaying) {
+					child.name = "Retired ruby";
+					child.SetActive(false);
+					Destroy(child);
+				} else DestroyImmediate(child);
 			}
-		}
-
-		/// <summary>全ルビオブジェクトを破棄する</summary>
-		private void ClearRubyObjects() {
-			m_rubyTextByLink.Clear();
-			m_rubySource = null;
-			m_hasRubySource = false;
-			for (int i = 0; i < m_rubyObjects.Count; i++) {
-				DestroyRubyObject(m_rubyObjects[i]);
-			}
-			m_rubyObjects.Clear();
 		}
 		#endregion
 	}

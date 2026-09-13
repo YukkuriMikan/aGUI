@@ -183,8 +183,21 @@ public class aGuiPerformanceRegressionTests {
             Assert.That(events, Is.EqualTo(1));
             text.SetText(customTag ? "<ruby=\"xyz\">ABC</ruby>" : "<link=\"ruby:xyz\">ABC</link>");
             text.ForceMeshUpdate();
-            Assert.That(text.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text, Is.EqualTo("xyz"));
+            Assert.That(aGuiRubyMeshTestUtility.Get(text).text, Is.EqualTo("xyz"));
         } finally { TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(onText); }
+    }
+
+    [Test]
+    public void ManyRubyRunsReuseMeshBuffersWithoutGameObjects() {
+        var text = Rect("Many ruby", root).gameObject.AddComponent<aTextMeshProUgui>();
+        text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 1200);
+        var source = new System.Text.StringBuilder();
+        for(int i = 0; i < 20; i++) source.Append("<ruby=abc>ABC</ruby> ");
+        text.text = source.ToString();
+        text.ForceMeshUpdate();
+        Assert.That(text.transform.childCount, Is.Zero);
+        AssertNoAlloc(() => text.ForceMeshUpdate());
+        Assert.That(text.textInfo.meshInfo[0].vertexCount, Is.EqualTo(20 * 6 * 4));
     }
 
     [Test]

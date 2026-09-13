@@ -16,6 +16,8 @@ namespace ANest.UI {
 		internal ITextPreprocessor Input;
 		internal string Output { get; private set; }
 		internal bool UseManualWrapping { get; private set; }
+		internal bool ParsedMesh { get; private set; }
+		internal string MeshOutput;
 
 		internal aRubyTextPreprocessor(aTextMeshProUgui owner) => m_owner = owner;
 
@@ -25,6 +27,7 @@ namespace ANest.UI {
 		internal void InvalidateLayout() {
 			m_hasSource = false;
 			UseManualWrapping = false;
+			MeshOutput = null;
 		}
 
 		// TMPはnobrでも長すぎる単語を分割する。その場合のみ、決定済みの改行位置を固定し、
@@ -93,9 +96,16 @@ namespace ANest.UI {
 		}
 
 		public string PreprocessText(string text) {
+			var body = PreprocessBody(text);
+			ParsedMesh = !m_owner.CalculatingRubyPreferredValues && MeshOutput != null;
+			return ParsedMesh ? MeshOutput : body;
+		}
+
+		private string PreprocessBody(string text) {
 			var source = Input != null ? Input.PreprocessText(text) : text;
 			if(m_hasSource && source == m_source && m_richText == m_owner.richText && m_parseEscapes == m_owner.parseCtrlCharacters) return Output;
 			m_hasSource = true;
+			MeshOutput = null;
 			UseManualWrapping = false;
 			m_source = source;
 			m_richText = m_owner.richText;

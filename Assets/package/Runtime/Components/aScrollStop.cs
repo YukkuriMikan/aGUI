@@ -30,8 +30,33 @@ namespace ANest.UI {
 		#endregion
 
 		#region Fields
+
+		private struct ChildState {
+			public RectTransform Node;
+			public Rect Rect;
+			public Matrix4x4 Matrix;
+			public static ChildState Capture(RectTransform node, Vector3 origin) {
+				var matrix = node.localToWorldMatrix;
+				// Targetの平行移動だけでは子の領域は変わらない。
+				matrix.m03 -= origin.x;
+				matrix.m13 -= origin.y;
+				matrix.m23 -= origin.z;
+				return new ChildState {
+					Node = node, Rect = node.rect, Matrix = matrix
+				};
+			}
+			public bool SameGeometry(ChildState other) => ReferenceEquals(Node, other.Node)
+				&& Rect.Equals(other.Rect) && Matrix.Equals(other.Matrix);
+		}
+
+		private readonly List<RectTransform> m_childNodes = new();
+		private readonly List<ChildState> m_childStates = new();
+		private RectTransform m_cachedTarget;
+		private bool m_geometryValid, m_polygonValid, m_childRectValid;
+		private Vector2 m_polygonPadding, m_childRectPadding;
+		private Rect m_cachedChildRect;
+		private static readonly System.Comparison<Vector2> s_comparePoints = CompareVector2;
 		private readonly List<Vector2> m_childPoints = new(64);         // 子要素のローカル頂点
-		private readonly List<RectTransform> m_childRectBuffer = new(32); // 子RectTransform取得用バッファ（毎フレームのGC Alloc回避）
 		private readonly List<Vector2> m_polygonPoints = new(16);       // 可視化用ポリゴン
 		private readonly List<Vector2> m_polygonWorkPoints = new(64);   // ポリゴン計算用
 		private readonly Vector3[] m_worldCorners = new Vector3[4];     // 角取得用
@@ -295,28 +320,60 @@ namespace ANest.UI {
 
 		/// <summary>子要素のローカル頂点を収集する</summary>
 		private bool TryCollectChildPoints() {
-			// 前回の結果をクリア
-			m_childPoints.Clear();
-			if(m_targetRect == null) return false;
-			m_targetRect.GetComponentsInChildren(false, m_childRectBuffer);
-			if(m_childRectBuffer.Count == 0) return false;
-
-			foreach (var child in m_childRectBuffer) {
-				// 自身は除外し、子要素の角を収集
-				if(child == m_targetRect) continue;
-				child.GetWorldCorners(m_worldCorners);
-				for (int i = 0; i < 4; i++) {
-					// TargetRectローカルに変換して保存
-					var localCorner = m_targetRect.InverseTransformPoint(m_worldCorners[i]);
-					m_childPoints.Add(new Vector2(localCorner.x, localCorner.y));
+			if(m_targetRect == null) {
+				ClearGeometryCache();
+				return false;
+			}
+			var origin = m_targetRect.position;
+			// 一括収集は個々の親・子数・有効状態を問い合わせるより軽く、
+			// 深い階層への追加や非アクティブ化もその呼び出し中に検出できる。
+			m_targetRect.GetComponentsInChildren(false, m_childNodes);
+			var geometryChanged = m_cachedTarget != m_targetRect || !m_geometryValid
+				|| m_childNodes.Count != m_childStates.Count;
+			for(var i = 0; i < m_childNodes.Count; i++) {
+				var state = ChildState.Capture(m_childNodes[i], origin);
+				if(i >= m_childStates.Count) m_childStates.Add(state);
+				else {
+					if(!m_childStates[i].SameGeometry(state)) geometryChanged = true;
+					m_childStates[i] = state;
 				}
 			}
-
+			if(m_childStates.Count > m_childNodes.Count)
+				m_childStates.RemoveRange(m_childNodes.Count, m_childStates.Count - m_childNodes.Count);
+			if(!geometryChanged) return m_childPoints.Count > 0;
+			m_cachedTarget = m_targetRect;
+			m_childPoints.Clear();
+			m_geometryValid = true;
+			m_polygonValid = m_childRectValid = false;
+			for(var n = 0; n < m_childNodes.Count; n++) {
+				var child = m_childNodes[n];
+				if(child == m_targetRect) continue;
+				child.GetWorldCorners(m_worldCorners);
+				for(var i = 0; i < 4; i++) {
+					var corner = m_targetRect.InverseTransformPoint(m_worldCorners[i]);
+					m_childPoints.Add(new Vector2(corner.x, corner.y));
+				}
+			}
 			return m_childPoints.Count > 0;
+		}
+
+
+		private void OnDisable() => ClearGeometryCache();
+
+		private void ClearGeometryCache() {
+			m_cachedTarget = null;
+			m_geometryValid = m_polygonValid = m_childRectValid = false;
+			m_childNodes.Clear();
+			m_childStates.Clear();
+			m_childPoints.Clear();
+			m_polygonPoints.Clear();
 		}
 
 		/// <summary>子要素頂点からポリゴンを構築する</summary>
 		private void BuildPolygonFromChildPoints() {
+			if(m_polygonValid && m_polygonPadding.Equals(m_padding)) return;
+			m_polygonPadding = m_padding;
+			m_polygonValid = true;
 			// 作業用リストと投影値を初期化
 			m_polygonPoints.Clear();
 			m_polygonWorkPoints.Clear();
@@ -352,7 +409,7 @@ namespace ANest.UI {
 			}
 
 			// 凸包作成のため座標をソート
-			m_polygonWorkPoints.Sort(CompareVector2);
+			m_polygonWorkPoints.Sort(s_comparePoints);
 
 			for (int i = 0; i < m_polygonWorkPoints.Count; i++) {
 				var point = m_polygonWorkPoints[i];
@@ -401,6 +458,10 @@ namespace ANest.UI {
 
 		/// <summary>子要素頂点から矩形領域を構築する</summary>
 		private bool TryBuildChildRect(out Rect rect) {
+			if(m_childRectValid && m_childRectPadding.Equals(m_padding)) {
+				rect = m_cachedChildRect;
+				return rect.width > 0f || rect.height > 0f;
+			}
 			rect = default;
 			if(m_childPoints.Count == 0) return false;
 
@@ -426,6 +487,9 @@ namespace ANest.UI {
 
 			// 最小/最大で矩形を生成
 			rect = Rect.MinMaxRect(minX, minY, maxX, maxY);
+			m_cachedChildRect = rect;
+			m_childRectPadding = m_padding;
+			m_childRectValid = true;
 			return rect.width > 0f || rect.height > 0f;
 		}
 

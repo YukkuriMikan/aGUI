@@ -37,6 +37,9 @@ namespace ANest.UI {
 		#region Fields
 		private StringTable m_currentTable;                                       // 現在のStringTable
 		private readonly List<GameObject> m_rubyObjects = new List<GameObject>(); // ルビ用子オブジェクト
+		private readonly List<string> m_rubyTextByLink = new();
+		private string m_rubySource;
+		private bool m_hasRubySource;
 		private bool m_isUpdatingRuby;                                            // ルビ更新中の再帰防止フラグ
 		#endregion
 
@@ -122,9 +125,8 @@ namespace ANest.UI {
 			if(m_isUpdatingRuby) return;
 			m_isUpdatingRuby = true;
 			try {
-				// TEXT_CHANGED_EVENT時点ではtextInfoがまだ古い場合があるため、
-				// メッシュを強制再生成してからルビを更新する
-				ForceMeshUpdate();
+				// TMP自身の通知はメッシュ生成完了後。外部からの未反映通知だけ更新する。
+				if(havePropertiesChanged) ForceMeshUpdate();
 				UpdateRubyObjects();
 			} finally {
 				m_isUpdatingRuby = false;
@@ -160,13 +162,12 @@ namespace ANest.UI {
 				return;
 			}
 
+			UpdateRubyTextCache(info);
+
 			// ルビ用linkの数を集計
 			int rubyCount = 0;
 			for (int i = 0; i < info.linkCount; i++) {
-				var linkInfo = info.linkInfo[i];
-				var linkId = linkInfo.GetLinkID();
-				if(!linkId.StartsWith(RubyPrefix)) continue;
-				rubyCount++;
+				if(m_rubyTextByLink[i] != null) rubyCount++;
 			}
 
 			// 不要なルビオブジェクトを破棄
@@ -183,9 +184,8 @@ namespace ANest.UI {
 			int rubyIndex = 0;
 			for (int i = 0; i < info.linkCount; i++) {
 				var linkInfo = info.linkInfo[i];
-				var linkId = linkInfo.GetLinkID();
-				if(!linkId.StartsWith(RubyPrefix)) continue;
-				var rubyText = linkId.Substring(RubyPrefix.Length);
+				var rubyText = m_rubyTextByLink[i];
+				if(rubyText == null) continue;
 
 				// ルビオブジェクトの取得または生成
 				GameObject rubyObj;
@@ -271,6 +271,20 @@ namespace ANest.UI {
 			}
 		}
 
+
+		private void UpdateRubyTextCache(TMP_TextInfo info) {
+			var source = text;
+			// 独自プリプロセッサは同じ入力から別のリンクを生成できるため再解析する。
+			if(m_hasRubySource && m_rubySource == source && m_rubyTextByLink.Count == info.linkCount && textPreprocessor == null) return;
+			m_rubySource = source;
+			m_hasRubySource = true;
+			m_rubyTextByLink.Clear();
+			for(var i = 0; i < info.linkCount; i++) {
+				var id = info.linkInfo[i].GetLinkID();
+				m_rubyTextByLink.Add(id.StartsWith(RubyPrefix, System.StringComparison.Ordinal) ? id.Substring(RubyPrefix.Length) : null);
+			}
+		}
+
 		/// <summary>シーン再読み込み時に残存するルビ子オブジェクトをリストに回収する</summary>
 		private void CollectExistingRubyObjects() {
 			m_rubyObjects.Clear();
@@ -286,6 +300,9 @@ namespace ANest.UI {
 
 		/// <summary>全ルビオブジェクトを破棄する</summary>
 		private void ClearRubyObjects() {
+			m_rubyTextByLink.Clear();
+			m_rubySource = null;
+			m_hasRubySource = false;
 			for (int i = 0; i < m_rubyObjects.Count; i++) {
 				if(m_rubyObjects[i] != null) {
 					if(Application.isPlaying) Destroy(m_rubyObjects[i]);

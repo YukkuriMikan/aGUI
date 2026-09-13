@@ -107,13 +107,13 @@ namespace ANest.UI {
 					// 破棄済みチェックを最初に行ってから他の判定に進む
 					if(this == null || !isActiveAndEnabled) return;
 					if(!m_disallowNullSelection) return;
-					if(!aContainerManager.IsHighestPriorityDisallowNullSelectionContainer(this)) return;
 
 					var es = aGuiManager.EventSystem;
 
 					// EventSystemの選択が空の時だけ復帰処理を行う
 					if(es == null) return;
 					if(es.currentSelectedGameObject != null) return;
+					if(!IsVisible || !aContainerManager.IsHighestPriorityDisallowNullSelectionContainer(this)) return;
 
 					if(CanRestoreSelection(LastSelected)) {
 						// 直近の選択を優先して復帰する

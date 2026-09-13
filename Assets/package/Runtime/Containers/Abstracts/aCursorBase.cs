@@ -144,7 +144,7 @@ namespace ANest.UI {
 			TextMeshProUGUI textComponent = null;
 			if(m_sizeMode == SizeMode.MatchText) {
 				textComponent = GetCachedTextComponent(targetRect);
-				if(textComponent != null) textComponent.ForceMeshUpdate();
+				if(textComponent != null && textComponent.havePropertiesChanged) textComponent.ForceMeshUpdate();
 			}
 
 			// カーソルの位置は CurrentSelectable の位置に移動する

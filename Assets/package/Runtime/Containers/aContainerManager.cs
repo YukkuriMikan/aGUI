@@ -15,6 +15,7 @@ namespace ANest.UI {
 
 		#region Fields
 		private static List<aContainerBase> m_containers = new();
+		private static readonly List<aContainerBase> m_selectionPriority = new();
 		private static Dictionary<string, aContainerBase> m_containerNameDictionary = new();
 		private static Dictionary<aContainerBase, double> m_addTimeDictionary = new(); // コンテナと登録時間を保持する辞書
 		#endregion
@@ -38,6 +39,8 @@ namespace ANest.UI {
 			}
 			m_containerNameDictionary[container.name] = container;
 			m_addTimeDictionary[container] = Time.realtimeSinceStartupAsDouble;
+			m_selectionPriority.Remove(container);
+			m_selectionPriority.Add(container);
 		}
 
 		/// <summary>Null選択防止が有効なコンテナの中で、優先対象かどうか</summary>
@@ -45,22 +48,16 @@ namespace ANest.UI {
 			if(container == null) return false;
 			if(!m_addTimeDictionary.ContainsKey(container)) return false;
 
-			//時間が最新のコンテナを取得（毎フレーム呼ばれるためLINQを使わずに走査）
-			aContainerBase latest = null;
-			double latestTime = double.NegativeInfinity;
-			foreach(var pair in m_addTimeDictionary) {
-				var candidate = pair.Key;
-				if(candidate == null) continue;
-				if(!candidate.isActiveAndEnabled) continue;
-				if(!candidate.IsVisible) continue;
-				if(candidate is not IDisallowNullSelectionContainer { DisallowNullSelection: true }) continue;
-				if(pair.Value > latestTime) {
-					latestTime = pair.Value;
-					latest = candidate;
-				}
-			}
 
-			return latest == container;
+			// 最新の登録から調べ、有効な対象が見つかった時点で終える。
+			// 有効状態は都度確認し、同一フレームの無効化・再有効化にも追従する。
+			for(var i = m_selectionPriority.Count - 1; i >= 0; i--) {
+				var candidate = m_selectionPriority[i];
+				if(candidate == null || !candidate.isActiveAndEnabled || !candidate.IsVisible) continue;
+				if(candidate is not IDisallowNullSelectionContainer { DisallowNullSelection: true }) continue;
+				return candidate == container;
+			}
+			return false;
 		}
 
 		/// <summary>管理対象からコンテナを削除する</summary>
@@ -71,6 +68,7 @@ namespace ANest.UI {
 				m_containers.Remove(container);
 			}
 			m_addTimeDictionary.Remove(container);
+			m_selectionPriority.Remove(container);
 			// 別の同名コンテナが登録されている場合は、その登録を維持する。
 			if(m_containerNameDictionary.TryGetValue(container.name, out var registered) && registered == container) {
 				RestoreContainerName(container.name);
@@ -117,6 +115,7 @@ namespace ANest.UI {
 		/// <summary>全てのコンテナを管理対象から除外する</summary>
 		public static void Clear() {
 			m_containers.Clear();
+			m_selectionPriority.Clear();
 			m_containerNameDictionary.Clear();
 			m_addTimeDictionary.Clear();
 		}
@@ -131,6 +130,7 @@ namespace ANest.UI {
 		/// <summary>破棄済みのコンテナを管理対象から取り除く</summary>
 		private static void RemoveDestroyedContainers() {
 			m_containers.RemoveAll(c => c == null);
+			m_selectionPriority.RemoveAll(c => c == null);
 
 			List<string> staleNames = null;
 			foreach(var pair in m_containerNameDictionary) {

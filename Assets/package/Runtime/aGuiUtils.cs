@@ -74,6 +74,10 @@ namespace ANest.UI {
 				return;
 			}
 
+			AttachAnimationCallbacks(lastEndTween, completeCallback, killCallback);
+		}
+
+		private static void AttachAnimationCallbacks(Tween lastEndTween, Action completeCallback, Action killCallback) {
 			bool callbackInvoked = false;
 			lastEndTween.onKill += () => {
 				if(callbackInvoked) return;
@@ -111,15 +115,14 @@ namespace ANest.UI {
 
 			var destroyToken = owner.GetCancellationTokenOnDestroy();
 			runningCts = CancellationTokenSource.CreateLinkedTokenSource(destroyToken);
-			var token = runningCts.Token;
-
-			FadeTextColorAsync(targetText, targetColor, duration, token, onComplete).Forget();
+			FadeTextColorAsync(targetText, targetColor, duration, runningCts, onComplete).Forget();
 		}
 
 		/// <summary>進行中のテキストカラー遷移を停止する</summary>
 		public static void StopTextColorTransition(ref CancellationTokenSource runningCts) {
 			if(runningCts == null) return;
-			runningCts.Cancel();
+			try { runningCts.Cancel(); }
+			catch(ObjectDisposedException) { /* 完了側で既に解放されている場合も停止を許容する。 */ }
 			runningCts.Dispose();
 			runningCts = null;
 		}
@@ -196,32 +199,38 @@ namespace ANest.UI {
 
 		#region Private Method
 		/// <summary>テキストカラーを非同期でフェードさせる</summary>
-		private static async UniTask FadeTextColorAsync(TMP_Text targetText, Color targetColor, float duration, CancellationToken ct, Action onComplete) {
-			if(targetText == null) {
-				onComplete?.Invoke();
-				return;
-			}
-
-			Color startColor = targetText.color;
-			float elapsed = 0f;
-
-			while (elapsed < duration) {
+		private static async UniTask FadeTextColorAsync(TMP_Text targetText, Color targetColor, float duration, CancellationTokenSource source, Action onComplete) {
+			var ct = source.Token;
+			try {
 				if(targetText == null) {
 					onComplete?.Invoke();
 					return;
 				}
 
-				elapsed += Time.unscaledDeltaTime;
-				float t = Mathf.Clamp01(elapsed / duration);
-				SetTextColorImmediate(targetText, Color.Lerp(startColor, targetColor, t));
-				await UniTask.Yield(PlayerLoopTiming.Update, ct);
-			}
+				Color startColor = targetText.color;
+				float elapsed = 0f;
 
-			if(targetText != null) {
-				SetTextColorImmediate(targetText, targetColor);
-			}
+				while (elapsed < duration) {
+					if(targetText == null) {
+						onComplete?.Invoke();
+						return;
+					}
 
-			onComplete?.Invoke();
+					elapsed += Time.unscaledDeltaTime;
+					float t = Mathf.Clamp01(elapsed / duration);
+					SetTextColorImmediate(targetText, Color.Lerp(startColor, targetColor, t));
+					await UniTask.Yield(PlayerLoopTiming.Update, ct);
+				}
+
+				if(targetText != null) {
+					SetTextColorImmediate(targetText, targetColor);
+				}
+
+				onComplete?.Invoke();
+			} finally {
+				// 正常完了でも破棄トークンへの登録を解除する。
+				source.Dispose();
+			}
 		}
 
 		/// <summary>指定されたトリガー名でアニメーションを再生する</summary>

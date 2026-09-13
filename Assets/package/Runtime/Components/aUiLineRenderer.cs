@@ -328,11 +328,18 @@ namespace ANest.UI {
 		private CornerType EffectiveCornerType => m_enableCornerInterpolation ? CornerType.Default : m_cornerType;
 
 		/// <summary>ストリップメッシュを構築する</summary>
+		private readonly List<Vector2> m_localPointsBuffer = new();
+		private readonly List<Vector2> m_drawablePointsBuffer = new();
+		private readonly List<Vector2> m_normalsBuffer = new();
+		private float[] m_lengthsBuffer = System.Array.Empty<float>();
+
 		private void BuildStripMesh(VertexHelper vh, IReadOnlyList<Vector2> points) {
 			var baseCount = points.Count;
 			var isLoop = m_loop && baseCount > 2;
 
-			var lengths = new float[baseCount];
+			if(m_lengthsBuffer.Length < baseCount) m_lengthsBuffer = new float[Mathf.NextPowerOfTwo(baseCount)];
+			var lengths = m_lengthsBuffer;
+			lengths[0] = 0f;
 			for (var i = 1; i < baseCount; i++) {
 				lengths[i] = lengths[i - 1] + Vector2.Distance(points[i - 1], points[i]);
 			}
@@ -343,10 +350,10 @@ namespace ANest.UI {
 
 			var cornerType = EffectiveCornerType;
 			if(cornerType != CornerType.Default) {
-				var normalsForCaps = CalculateNormals(points, isLoop);
 				BuildSegmentedStrip(vh, points, lengths, totalLength, isLoop);
 				AddCornerMeshes(vh, points, lengths, totalLength, isLoop, cornerType);
 				if(!isLoop) {
+					var normalsForCaps = CalculateNormals(points, false);
 					AddCaps(vh, points, normalsForCaps, lengths, totalLength);
 				}
 				return;
@@ -754,7 +761,8 @@ namespace ANest.UI {
 
 		/// <summary>渡されたポイント群をローカル座標へ変換する</summary>
 		private List<Vector2> ConvertToLocalPoints(IReadOnlyList<Vector2> source) {
-			var result = new List<Vector2>(source.Count);
+			var result = m_localPointsBuffer;
+			result.Clear();
 			for (var i = 0; i < source.Count; i++) {
 				AddDistinctPoint(result, ToLocalPoint(source[i]));
 			}
@@ -766,16 +774,17 @@ namespace ANest.UI {
 		}
 
 		/// <summary>角の設定に応じて描画用ポイント列を生成する</summary>
-		private List<Vector2> BuildDrawablePoints(IReadOnlyList<Vector2> localPoints) {
-			if(localPoints.Count < 2) return new List<Vector2>(localPoints);
+		private IReadOnlyList<Vector2> BuildDrawablePoints(IReadOnlyList<Vector2> localPoints) {
+			if(localPoints.Count < 2) return localPoints;
 
 			// CornerType が指定されている場合はポイント列を加工せず、そのまま角メッシュで処理する
-			if(EffectiveCornerType != CornerType.Default) return new List<Vector2>(localPoints);
+			if(EffectiveCornerType != CornerType.Default) return localPoints;
 
 			// 補間が無効の場合はそのまま返す
-			if(!m_enableCornerInterpolation || m_cornerVertices <= 0) return new List<Vector2>(localPoints);
+			if(!m_enableCornerInterpolation || m_cornerVertices <= 0) return localPoints;
 
-			var result = new List<Vector2>();
+			var result = m_drawablePointsBuffer;
+			result.Clear();
 			var count = localPoints.Count;
 
 			if(!m_loop) {
@@ -863,7 +872,8 @@ namespace ANest.UI {
 		/// <summary>各ポイントに対応する法線を計算する</summary>
 		private List<Vector2> CalculateNormals(IReadOnlyList<Vector2> points, bool isLoop) {
 			var count = points.Count;
-			var normals = new List<Vector2>(count);
+			var normals = m_normalsBuffer;
+			normals.Clear();
 
 			// CornerType が指定されている場合は、各頂点をセグメント法線でオフセットし、角メッシュ側で処理する
 			if(EffectiveCornerType != CornerType.Default) {

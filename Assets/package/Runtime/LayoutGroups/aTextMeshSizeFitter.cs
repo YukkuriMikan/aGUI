@@ -131,20 +131,7 @@ namespace ANest.UI {
 				);
 
 			if(m_useAnimation && Application.isPlaying) {
-				var startPos = rectTransform.anchoredPosition;
-				m_sizeTween = DOTween.To(
-					() => rectTransform.rect.size,
-					ApplySize,
-					targetSize,
-					m_animationDuration
-					).SetEase(m_ease).SetTarget(rectTransform);
-
-				m_posTween = DOTween.To(
-					() => startPos,
-					x => rectTransform.anchoredPosition = x,
-					startPos + posOffset,
-					m_animationDuration
-					).SetEase(m_ease).SetTarget(rectTransform);
+				StartFittingTweens(rectTransform, targetSize, posOffset);
 			} else {
 				if(m_fitWidth) {
 					rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, targetSize.x);
@@ -154,6 +141,23 @@ namespace ANest.UI {
 				}
 				rectTransform.anchoredPosition += posOffset;
 			}
+		}
+
+		private void StartFittingTweens(RectTransform rectTransform, Vector2 targetSize, Vector2 posOffset) {
+			var startPos = rectTransform.anchoredPosition;
+			m_sizeTween = DOTween.To(
+				() => rectTransform.rect.size,
+				ApplySize,
+				targetSize,
+				m_animationDuration
+				).SetEase(m_ease).SetTarget(rectTransform);
+
+			m_posTween = DOTween.To(
+				() => startPos,
+				x => rectTransform.anchoredPosition = x,
+				startPos + posOffset,
+				m_animationDuration
+				).SetEase(m_ease).SetTarget(rectTransform);
 		}
 
 		/// <summary>フィット対象の軸だけ実サイズを設定する</summary>

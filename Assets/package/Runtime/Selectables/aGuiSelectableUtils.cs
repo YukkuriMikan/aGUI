@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine.Pool;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -6,6 +7,28 @@ using UnityEngine.UI;
 namespace ANest.UI {
 	/// <summary>aButton・aToggle共通のSelectable探索ユーティリティ</summary>
 	public static class aGuiSelectableUtils {
+		// 探索中に独自Selectableから再入されても、作業データを共有しない。
+		private sealed class SearchBuffer {
+			public readonly HashSet<Selectable> Visited = new();
+			public Selectable[] Selectables = System.Array.Empty<Selectable>();
+			public int Count = -1;
+			public void Collect() {
+				// フォーカス判定中の追加・有効化も、次の探索から反映する。
+				var count = Selectable.allSelectableCount;
+				if(Selectables.Length < count) Selectables = new Selectable[Mathf.NextPowerOfTwo(count)];
+				var previousCount = Count;
+				Count = Selectable.AllSelectablesNoAlloc(Selectables);
+				if(previousCount > Count) System.Array.Clear(Selectables, Count, previousCount - Count);
+			}
+			public void Clear() {
+				Visited.Clear();
+				if(Count > 0) System.Array.Clear(Selectables, 0, Count);
+				Count = -1;
+			}
+		}
+		private static readonly ObjectPool<SearchBuffer> s_searchBuffers = new(
+			() => new SearchBuffer(), actionOnRelease: buffer => buffer.Clear());
+
 		/// <summary>指定したSelectableがフォーカスを取得できるかどうか</summary>
 		public static bool CanReceiveFocus(Selectable selectable) {
 			if(selectable == null) return false;
@@ -16,25 +39,35 @@ namespace ANest.UI {
 		public static Selectable FindInteractableSelectable(Selectable origin, MoveDirection direction) {
 			if(direction == MoveDirection.None) return null;
 
-			var visited = new HashSet<Selectable> { origin };
-			var current = origin;
+			var buffer = s_searchBuffers.Get();
+			try {
+				var visited = buffer.Visited;
+				visited.Add(origin);
+				var current = origin;
 
-			while(true) {
-				var next = FindSelectableInDirection(current, direction);
+				while(true) {
+					var next = FindSelectableInDirection(current, direction, buffer);
 
-				if(next == null) return null;
-				if(!visited.Add(next)) return null;
+					if(next == null) return null;
+					if(!visited.Add(next)) return null;
 
-				if(next.IsActive() && next.IsInteractable() && CanReceiveFocus(next)) {
-					return next;
+					if(next.IsActive() && next.IsInteractable() && CanReceiveFocus(next)) {
+						return next;
+					}
+
+					current = next;
 				}
-
-				current = next;
-			}
+			} finally { s_searchBuffers.Release(buffer); }
 		}
 
 		/// <summary>方向に応じて次のSelectableを取得する（非Interactableも対象）</summary>
 		public static Selectable FindSelectableInDirection(Selectable current, MoveDirection direction) {
+			var buffer = s_searchBuffers.Get();
+			try { return FindSelectableInDirection(current, direction, buffer); }
+			finally { s_searchBuffers.Release(buffer); }
+		}
+
+		private static Selectable FindSelectableInDirection(Selectable current, MoveDirection direction, SearchBuffer buffer) {
 			if(current == null) return null;
 			var navigation = current.navigation;
 
@@ -49,16 +82,22 @@ namespace ANest.UI {
 			}
 
 			return direction switch {
-				MoveDirection.Left when (navigation.mode & Navigation.Mode.Horizontal) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.left),
-				MoveDirection.Right when (navigation.mode & Navigation.Mode.Horizontal) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.right),
-				MoveDirection.Up when (navigation.mode & Navigation.Mode.Vertical) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.up),
-				MoveDirection.Down when (navigation.mode & Navigation.Mode.Vertical) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.down),
+				MoveDirection.Left when (navigation.mode & Navigation.Mode.Horizontal) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.left, buffer),
+				MoveDirection.Right when (navigation.mode & Navigation.Mode.Horizontal) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.right, buffer),
+				MoveDirection.Up when (navigation.mode & Navigation.Mode.Vertical) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.up, buffer),
+				MoveDirection.Down when (navigation.mode & Navigation.Mode.Vertical) != 0 => FindSelectableWithoutInteractableFilter(current, current.transform.rotation * Vector3.down, buffer),
 				_ => null
 			};
 		}
 
 		/// <summary>Interactable判定を除外したSelectable探索</summary>
 		public static Selectable FindSelectableWithoutInteractableFilter(Selectable current, Vector3 dir) {
+			var buffer = s_searchBuffers.Get();
+			try { return FindSelectableWithoutInteractableFilter(current, dir, buffer); }
+			finally { s_searchBuffers.Release(buffer); }
+		}
+
+		private static Selectable FindSelectableWithoutInteractableFilter(Selectable current, Vector3 dir, SearchBuffer buffer) {
 			dir = dir.normalized;
 			Vector3 localDir = Quaternion.Inverse(current.transform.rotation) * dir;
 			Vector3 pos = current.transform.TransformPoint(GetPointOnRectEdge(current.transform as RectTransform, localDir));
@@ -71,8 +110,9 @@ namespace ANest.UI {
 			Selectable bestPick = null;
 			Selectable bestFurthestPick = null;
 
-			var selectables = Selectable.allSelectablesArray;
-			for(int i = 0; i < selectables.Length; ++i) {
+			buffer.Collect();
+			var selectables = buffer.Selectables;
+			for(int i = 0; i < buffer.Count; ++i) {
 				Selectable sel = selectables[i];
 				if(sel == null || sel == current) continue;
 				if(sel.navigation.mode == Navigation.Mode.None) continue;

@@ -29,16 +29,37 @@ namespace ANest.UI {
 			base.Initialize();
 		}
 
+		/// <summary>無効化時に自動スクロールを中断する</summary>
+		protected override void OnDisable() {
+			StopAutoScroll();
+			base.OnDisable();
+		}
+
+		/// <summary>非表示アニメーションの開始時点で自動スクロールを中断する</summary>
+		protected override void UpdateStateForHide() {
+			base.UpdateStateForHide();
+			StopAutoScroll();
+		}
+
 		/// <summary>破棄時にスクロールアニメーションをキャンセルする</summary>
 		protected override void OnDestroy() {
+			StopAutoScroll();
 			base.OnDestroy();
-			m_scrollCancelSource?.Cancel();
-			m_scrollCancelSource?.Dispose();
+		}
+
+		private void StopAutoScroll() {
+			var source = m_scrollCancelSource;
+			m_scrollCancelSource = null;
+			source?.Cancel();
+			source?.Dispose();
+			m_previousSelectable = null;
 		}
 
 		/// <summary>選択対象が変わった際にスクロールを開始する</summary>
 		/// <param name="selectable">現在選択されたSelectable</param>
 		private void OnSelectChangedAction(T selectable) {
+			if(!isActiveAndEnabled || !IsVisible) return;
+
 			var item = selectable != null ? selectable.GetComponent<RectTransform>() : null;
 			var previousItem = m_previousSelectable != null ? m_previousSelectable.GetComponent<RectTransform>() : null;
 

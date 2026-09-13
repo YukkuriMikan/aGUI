@@ -104,7 +104,7 @@ namespace ANest.UI {
 
 			StopTextColorTransition(ref runningCts);
 
-			Color targetColor = GetStateColor(colors, selectionState);
+			Color targetColor = GetStateColor(colors, selectionState) * colors.colorMultiplier;
 			float duration = instant ? 0f : colors.fadeDuration;
 
 			if(duration <= 0f || !targetText.gameObject.activeInHierarchy) {

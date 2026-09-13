@@ -14,6 +14,131 @@ using UniRx;
 using Object = UnityEngine.Object;
 
 public class aGuiLifecycleRegressionTests {
+    [UnityTest]
+    public IEnumerator DisablingScrollContainerStopsAutoScroll() => VerifyScrollInterruption(0);
+
+    [UnityTest]
+    public IEnumerator DeactivatingScrollContainerStopsAutoScroll() => VerifyScrollInterruption(1);
+
+    [UnityTest]
+    public IEnumerator HidingScrollContainerStopsAutoScroll() => VerifyScrollInterruption(2);
+
+    [UnityTest]
+    public IEnumerator HideAnimationStopsAutoScrollBeforeDeactivation() => VerifyScrollInterruption(3);
+
+    private static IEnumerator VerifyScrollInterruption(int mode) {
+        var root = Rect("Scroll interruption");
+        var originalTimeScale = Time.timeScale;
+        Time.timeScale = 1f;
+        try {
+            var container = InactiveContainer<aNormalScrollContainer>(root, true);
+            var host = (RectTransform)container.transform;
+            Set(container, "m_initialGuard", false);
+            container.DisallowNullSelection = false;
+            host.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 100);
+            var scroll = host.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = host; scroll.horizontal = false; scroll.inertia = false;
+            var content = Rect("Content", host);
+            content.anchorMin = content.anchorMax = content.pivot = new Vector2(.5f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 1000);
+            scroll.content = content;
+            var item = Rect("Last item", content);
+            item.anchorMin = item.anchorMax = item.pivot = new Vector2(.5f, 1f);
+            item.anchoredPosition = new Vector2(0f, -900f);
+            item.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
+            var selectable = item.gameObject.AddComponent<Button>();
+            Set(container, "m_scrollRect", scroll);
+            Set(container, "m_scrollDuration", 1f);
+            Set(container, "m_scrollPadding", 0f);
+            if(mode == 3) Set(container, "m_hideAnimations", new IUiAnimation[] { new ProbeAnimation { TweenDuration = 10f } });
+            host.gameObject.SetActive(true);
+            yield return null;
+            scroll.verticalNormalizedPosition = 1f;
+            container.OnSelectChanged.Invoke(selectable);
+            yield return new WaitForSecondsRealtime(.05f);
+            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(.999f), "Selection must start scrolling.");
+            if(mode == 0) container.enabled = false;
+            else if(mode == 1) host.gameObject.SetActive(false);
+            else container.Hide();
+            if(mode == 3) Assert.That(host.gameObject.activeSelf, Is.True, "Hide animation is still running.");
+            var stoppedPosition = scroll.verticalNormalizedPosition;
+            Assert.That(stoppedPosition, Is.GreaterThan(.1f), "Interrupt before reaching the destination.");
+            yield return new WaitForSecondsRealtime(.1f);
+            Assert.That(scroll.verticalNormalizedPosition, Is.EqualTo(stoppedPosition).Within(.0001f));
+            container.OnSelectChanged.Invoke(selectable);
+            yield return new WaitForSecondsRealtime(.1f);
+            Assert.That(scroll.verticalNormalizedPosition, Is.EqualTo(stoppedPosition).Within(.0001f), "Ignore selection notifications while stopped.");
+            if(mode == 0) container.enabled = true;
+            else if(mode == 1) host.gameObject.SetActive(true);
+            else container.Show();
+            container.OnSelectChanged.Invoke(selectable);
+            yield return new WaitForSecondsRealtime(.1f);
+            Assert.That(scroll.verticalNormalizedPosition, Is.LessThan(stoppedPosition - .01f), "New selection notifications must work after reactivation.");
+        } finally {
+            foreach(var rect in root.GetComponentsInChildren<RectTransform>(true)) rect.DOKill();
+            Object.DestroyImmediate(root.gameObject);
+            Time.timeScale = originalTimeScale;
+        }
+    }
+
+    [TestCase(false, 0)] [TestCase(false, 1)] [TestCase(false, 2)] [TestCase(false, 3)] [TestCase(false, 4)]
+    [TestCase(true, 0)] [TestCase(true, 1)] [TestCase(true, 2)] [TestCase(true, 3)] [TestCase(true, 4)]
+    public void TextColorMultiplierMatchesGraphic(bool toggle, int state) {
+        var root = Rect("Text multiplier");
+        try {
+            var selectable = CreateTextColorControl(root, toggle, out var text, out var graphic);
+            var colors = selectable.colors;
+            colors.normalColor = new Color(.1f, .2f, .3f, .4f);
+            colors.highlightedColor = new Color(.2f, .1f, .4f, .3f);
+            colors.pressedColor = new Color(.3f, .4f, .1f, .2f);
+            colors.selectedColor = new Color(.4f, .3f, .2f, .1f);
+            colors.disabledColor = new Color(.15f, .25f, .35f, .45f);
+            selectable.colors = colors; Set(selectable, "textColors", colors);
+            TransitionTextColor(selectable, state, true);
+            Assert.That(text.color, Is.EqualTo(aGuiUtils.GetStateColor(colors, state) * 2f));
+            Assert.That(graphic.canvasRenderer.GetColor(), Is.EqualTo(text.color));
+            Assert.That(text.canvasRenderer.GetColor(), Is.EqualTo(Color.white), "Do not multiply the vertex color twice.");
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    [UnityTest]
+    public IEnumerator ButtonTextColorFadeAppliesMultiplier() => VerifyTextColorFade(false);
+
+    [UnityTest]
+    public IEnumerator ToggleTextColorFadeAppliesMultiplier() => VerifyTextColorFade(true);
+
+    private static IEnumerator VerifyTextColorFade(bool toggle) {
+        var root = Rect("Text multiplier fade");
+        try {
+            var selectable = CreateTextColorControl(root, toggle, out var text, out _);
+            text.color = Color.black;
+            TransitionTextColor(selectable, 0, false);
+            yield return new WaitForSecondsRealtime(.15f);
+            Assert.That(text.color, Is.EqualTo(selectable.colors.normalColor * 2f));
+            Assert.That(text.canvasRenderer.GetColor(), Is.EqualTo(Color.white));
+        } finally { Object.DestroyImmediate(root.gameObject); }
+    }
+
+    private static Selectable CreateTextColorControl(RectTransform root, bool toggle, out TMP_Text text, out Image graphic) {
+        root.gameObject.SetActive(false);
+        graphic = root.gameObject.AddComponent<Image>();
+        var selectable = toggle ? (Selectable)root.gameObject.AddComponent<aToggle>() : root.gameObject.AddComponent<aButton>();
+        text = Rect("Text", root).gameObject.AddComponent<TextMeshProUGUI>();
+        var colors = ColorBlock.defaultColorBlock;
+        colors.normalColor = new Color(.2f, .3f, .4f, .25f);
+        colors.colorMultiplier = 2f; colors.fadeDuration = .05f;
+        Set(selectable, "targetText", text); Set(selectable, "textColors", colors);
+        selectable.targetGraphic = graphic; selectable.colors = colors;
+        root.gameObject.SetActive(true);
+        return selectable;
+    }
+
+    private static void TransitionTextColor(Selectable selectable, int state, bool instant) {
+        var method = selectable.GetType().GetMethod("DoStateTransition", BindingFlags.Instance | BindingFlags.NonPublic);
+        method.Invoke(selectable, new object[] { Enum.ToObject(method.GetParameters()[0].ParameterType, state), instant });
+    }
+
     private sealed class HeldShortcut : IShortCut {
         public bool IsPressed { get; set; }
     }

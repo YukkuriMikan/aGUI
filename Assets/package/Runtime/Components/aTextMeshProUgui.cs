@@ -135,7 +135,7 @@ namespace ANest.UI {
 				m_rubyPreprocessor.InvalidateLayout();
 				// 配列・数値書式のSetTextはTMPのプリプロセッサを通らないため、ルビ入力のみ文字列経路へ戻す。
 				var source = base.text;
-				if(source != null && source.IndexOf("ruby:", System.StringComparison.Ordinal) >= 0) {
+				if(aRubyTextPreprocessor.MayContainRuby(source)) {
 					m_preparingRubyInput = true;
 					try { base.SetText(source); }
 					finally { m_preparingRubyInput = false; }

@@ -167,10 +167,11 @@ public class aGuiPerformanceRegressionTests {
         } finally { TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(onText); }
     }
 
-    [Test]
-    public void RubyRebuildIsSingleAndReusesStringsUntilTextChanges() {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RubyRebuildIsSingleAndReusesStringsUntilTextChanges(bool customTag) {
         var text = Rect("Ruby", root).gameObject.AddComponent<aTextMeshProUgui>();
-        text.text = "<link=\"ruby:abc\">ABC</link>";
+        text.text = customTag ? "<ruby=\"abc\">ABC</ruby>" : "<link=\"ruby:abc\">ABC</link>";
         text.ForceMeshUpdate();
         var events = 0;
         Action<Object> onText = obj => { if(obj == text) events++; };
@@ -180,7 +181,7 @@ public class aGuiPerformanceRegressionTests {
             events = 0;
             text.ForceMeshUpdate();
             Assert.That(events, Is.EqualTo(1));
-            text.SetText("<link=\"ruby:xyz\">ABC</link>");
+            text.SetText(customTag ? "<ruby=\"xyz\">ABC</ruby>" : "<link=\"ruby:xyz\">ABC</link>");
             text.ForceMeshUpdate();
             Assert.That(text.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text, Is.EqualTo("xyz"));
         } finally { TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(onText); }

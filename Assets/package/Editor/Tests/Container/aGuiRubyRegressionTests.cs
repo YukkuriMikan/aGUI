@@ -28,6 +28,132 @@ public class aGuiRubyRegressionTests {
 
     private TextMeshProUGUI Ruby() => text.transform.Find("Ruby_0")?.GetComponent<TextMeshProUGUI>();
 
+    [TestCase("<ruby=\"abc\">ABC</ruby>")]
+    [TestCase("<ruby='abc'>ABC</ruby>")]
+    [TestCase("<RUBY=abc>ABC</RUBY>")]
+    public void CustomRubyRendersWithoutChangingAuthoredText(string source) {
+        text.text = source;
+        for(var i = 0; i < 3; i++) {
+            text.ForceMeshUpdate();
+            Assert.That(text.text, Is.EqualTo(source));
+            Assert.That(Ruby().text, Is.EqualTo("abc"));
+        }
+        text.enabled = false;
+        text.enabled = true;
+        Assert.That(text.text, Is.EqualTo(source));
+        Assert.That(Ruby().text, Is.EqualTo("abc"));
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(3)]
+    public void CustomRubyWorksWithEveryTextInput(int input) {
+        const string source = "AAAA <ruby=\"abc\">BC DE</ruby> ZZ";
+        if(input == 0) text.text = source;
+        else if(input == 1) text.SetText(source);
+        else if(input == 2) text.SetText(source.ToCharArray());
+        else text.SetText("AAAA <ruby=\"abc\">BC {0}</ruby> ZZ", 12f);
+        text.ForceMeshUpdate();
+        AssertSingleLine(1);
+        Assert.That(Ruby().text, Is.EqualTo("abc"));
+        Assert.That(text.text, Is.EqualTo(input == 3 ? "AAAA <ruby=\"abc\">BC 12</ruby> ZZ" : source));
+    }
+
+    [Test] public void PartiallyTypedCustomRubyNeverDeletesOrRewritesInput() {
+        const string source = "<ruby=\"abc\">ABC</ruby>";
+        for(var length = 0; length <= source.Length; length++) {
+            var partial = source.Substring(0, length);
+            text.text = partial;
+            Assert.DoesNotThrow(() => text.ForceMeshUpdate());
+            Assert.That(text.text, Is.EqualTo(partial));
+            if(length < source.Length) Assert.That(Ruby(), Is.Null);
+        }
+        Assert.That(Ruby().text, Is.EqualTo("abc"));
+        text.text = source.Substring(0, source.Length - 1);
+        text.ForceMeshUpdate();
+        Assert.That(Ruby(), Is.Null);
+        Assert.That(text.text, Is.EqualTo(source.Substring(0, source.Length - 1)));
+    }
+
+    [Test] public void CustomAndLegacyRubyCoexistAndHonorEmptyBodyAndNoParse() {
+        text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 800);
+        text.text = "<ruby=\"empty\"></ruby><ruby=\"abc\"><b>A</b>\nB<br>C</ruby> <link=\"ruby:xyz\">XYZ</link>";
+        var source = text.text;
+        text.ForceMeshUpdate();
+        Assert.That(Ruby().text, Is.EqualTo("abc"));
+        Assert.That(text.transform.Find("Ruby_1").GetComponent<TextMeshProUGUI>().text, Is.EqualTo("xyz"));
+        Assert.That(text.textInfo.linkInfo[1].linkTextLength, Is.EqualTo(3));
+        Assert.That(text.text, Is.EqualTo(source));
+        const string literal = "<noparse><ruby=\"abc\">ABC</ruby></noparse>";
+        text.text = literal;
+        text.ForceMeshUpdate();
+        Assert.That(Ruby(), Is.Null);
+        Assert.That(text.textPreprocessor.PreprocessText(literal), Is.EqualTo(literal));
+        text.richText = false;
+        text.text = "<ruby=abc>ABC</ruby>";
+        text.ForceMeshUpdate();
+        Assert.That(Ruby(), Is.Null);
+        Assert.That(text.textPreprocessor.PreprocessText(text.text), Is.EqualTo(text.text));
+    }
+
+    [Test] public void LongCustomRubyWarnsAndPreservesOriginalTag() {
+        text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 50);
+        const string source = "<ruby=\"abc\">BC DE</ruby>";
+        text.text = source;
+        LogAssert.Expect(LogType.Warning, "[aTextMeshProUgui] ルビ本文が1行の幅を超えるため、途中で分割せず横にはみ出して表示します。");
+        text.ForceMeshUpdate();
+        AssertSingleLine(0);
+        Assert.That(text.text, Is.EqualTo(source));
+        Assert.That(Ruby().fontSize, Is.GreaterThan(0));
+    }
+
+#if UNITY_EDITOR
+    [UnityTest] public IEnumerator InspectorEditsDuringPlayUpdateWithoutForcingMeshOrReplacingSource() {
+        const string initial = "<ruby=\"abc\">ABC</ruby>";
+        const string changed = "<ruby=\"xyz\">XYZ</ruby>";
+        var serialized = new UnityEditor.SerializedObject(text);
+        serialized.FindProperty("m_text").stringValue = initial;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        yield return null;
+        yield return null;
+        serialized.Update();
+        Assert.That(serialized.FindProperty("m_text").stringValue, Is.EqualTo(initial));
+        Assert.That(Ruby().text, Is.EqualTo("abc"));
+        serialized.FindProperty("m_text").stringValue = changed;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        yield return null;
+        yield return null;
+        serialized.Update();
+        Assert.That(serialized.FindProperty("m_text").stringValue, Is.EqualTo(changed));
+        Assert.That(Ruby().text, Is.EqualTo("xyz"));
+        Assert.That(text.text, Is.EqualTo(changed));
+    }
+
+    [Test] public void PrefabSaveReloadAndInstantiationKeepCustomSource() {
+        const string source = "<ruby=\"abc\">ABC</ruby>";
+        string path = "Assets/aGUI_RubyAudit_" + Guid.NewGuid().ToString("N") + ".prefab";
+        GameObject clone = null;
+        try {
+            text.text = source;
+            text.ForceMeshUpdate();
+            UnityEditor.PrefabUtility.SaveAsPrefabAsset(root, path);
+            UnityEditor.AssetDatabase.ImportAsset(path, UnityEditor.ImportAssetOptions.ForceUpdate);
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            var saved = prefab.GetComponentInChildren<aTextMeshProUgui>();
+            Assert.That(new UnityEditor.SerializedObject(saved).FindProperty("m_text").stringValue, Is.EqualTo(source));
+            clone = Object.Instantiate(prefab);
+            var instance = clone.GetComponentInChildren<aTextMeshProUgui>();
+            instance.ForceMeshUpdate();
+            Assert.That(instance.text, Is.EqualTo(source));
+            Assert.That(instance.transform.Find("Ruby_0").GetComponent<TextMeshProUGUI>().text, Is.EqualTo("abc"));
+        } finally {
+            if(clone != null) Object.DestroyImmediate(clone);
+            UnityEditor.AssetDatabase.DeleteAsset(path);
+        }
+    }
+#endif
+
     [TestCase("")]
     [TestCase("<b></b>")]
     [TestCase("\n<br>\r\n")]

@@ -19,6 +19,9 @@ namespace ANest.UI {
 
 		internal aRubyTextPreprocessor(aTextMeshProUgui owner) => m_owner = owner;
 
+		internal static bool MayContainRuby(string source) => source != null
+			&& (source.IndexOf("ruby:", StringComparison.Ordinal) >= 0 || source.IndexOf("<ruby=", StringComparison.OrdinalIgnoreCase) >= 0);
+
 		internal void InvalidateLayout() {
 			m_hasSource = false;
 			UseManualWrapping = false;
@@ -97,10 +100,11 @@ namespace ANest.UI {
 			m_source = source;
 			m_richText = m_owner.richText;
 			m_parseEscapes = m_owner.parseCtrlCharacters;
-			if(!m_richText || string.IsNullOrEmpty(source) || source.IndexOf("ruby:", StringComparison.Ordinal) < 0) return Output = source;
+			if(!m_richText || !MayContainRuby(source)) return Output = source;
 
 			m_buffer.Clear();
 			bool noParse = false, noBreak = false, ruby = false, addedNoBreak = false;
+			int customRubyEnd = -1;
 			for(var i = 0; i < source.Length; i++) {
 				if(source[i] == '<') {
 					var end = TagEnd(source, i);
@@ -110,14 +114,26 @@ namespace ANest.UI {
 						else if(TagIs(source, i, end, "noparse")) noParse = true;
 						else if(TagIs(source, i, end, "nobr")) noBreak = true;
 						else if(TagIs(source, i, end, "/nobr")) noBreak = false;
+						else if(!ruby && TryReadRubyTag(source, i, end, out var readingStart, out var readingLength, out var closingTag)) {
+							// シリアライズされたTextは触らず、描画へ渡す文字列だけを標準linkへ変換する。
+							ruby = true;
+							customRubyEnd = closingTag;
+							addedNoBreak = !noBreak;
+							if(addedNoBreak) m_buffer.Append('\u200B').Append("<nobr>");
+							m_buffer.Append("<link=\"ruby:").Append(source, readingStart, readingLength).Append("\">");
+							i = end;
+							continue;
+						}
 						else if(IsRubyLink(source, i, end)) {
 							ruby = true;
 							addedNoBreak = !noBreak;
 							if(addedNoBreak) m_buffer.Append('\u200B').Append("<nobr>");
-						} else if(ruby && TagIs(source, i, end, "/link")) {
-							m_buffer.Append(source, i, end - i + 1);
+						} else if(ruby && (i == customRubyEnd || (customRubyEnd < 0 && TagIs(source, i, end, "/link")))) {
+							if(customRubyEnd >= 0) m_buffer.Append("</link>");
+							else m_buffer.Append(source, i, end - i + 1);
 							if(addedNoBreak) m_buffer.Append("</nobr>").Append('\u200B');
 							ruby = false;
+							customRubyEnd = -1;
 							i = end;
 							continue;
 						} else if(ruby && (TagIs(source, i, end, "br") || TagIs(source, i, end, "br/"))) {
@@ -151,6 +167,35 @@ namespace ANest.UI {
 
 		private static bool TagIs(string source, int start, int end, string tag) => end - start - 1 == tag.Length
 			&& string.Compare(source, start + 1, tag, 0, tag.Length, StringComparison.OrdinalIgnoreCase) == 0;
+
+		private static bool TryReadRubyTag(string source, int start, int end, out int readingStart, out int readingLength, out int closingTag) {
+			readingStart = readingLength = 0;
+			closingTag = -1;
+			if(end - start < 6 || string.Compare(source, start + 1, "ruby=", 0, 5, StringComparison.OrdinalIgnoreCase) != 0) return false;
+			readingStart = start + 6;
+			readingLength = end - readingStart;
+			if(readingLength > 0 && (source[readingStart] == '\'' || source[readingStart] == '"')) {
+				if(readingLength < 2 || source[end - 1] != source[readingStart]) return false;
+				readingStart++;
+				readingLength -= 2;
+			}
+			// linkの引用符を壊す入力は変換しない。入力途中の原文もそのまま保持する。
+			for(var i = readingStart; i < readingStart + readingLength; i++) if(source[i] == '"' || source[i] == '<' || source[i] == '\n' || source[i] == '\r') return false;
+			bool noParse = false;
+			for(var i = end + 1; i < source.Length; i++) {
+				if(source[i] != '<') continue;
+				var tagEnd = TagEnd(source, i);
+				if(tagEnd < 0) return false;
+				if(TagIs(source, i, tagEnd, "/noparse")) noParse = false;
+				else if(!noParse) {
+					if(TagIs(source, i, tagEnd, "noparse")) noParse = true;
+					else if(TagIs(source, i, tagEnd, "/ruby")) { closingTag = i; return true; }
+					else if(tagEnd - i >= 6 && string.Compare(source, i + 1, "ruby=", 0, 5, StringComparison.OrdinalIgnoreCase) == 0) return false;
+				}
+				i = tagEnd;
+			}
+			return false;
+		}
 
 		private static bool IsRubyLink(string source, int start, int end) {
 			if(end - start < 11 || string.Compare(source, start + 1, "link=", 0, 5, StringComparison.OrdinalIgnoreCase) != 0) return false;

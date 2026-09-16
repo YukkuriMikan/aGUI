@@ -82,6 +82,60 @@ public class aUiLineRendererTests {
 		} finally { Object.DestroyImmediate(root); }
 	}
 
+	[TestCase(0.1f)]
+	[TestCase(1f)]
+	[TestCase(100f)]
+	public void RoundedInterpolationKeepsFullWidthAtNearOriginMidpoint(float scale) {
+		var root = new GameObject("Near-origin line", typeof(RectTransform), typeof(CanvasRenderer));
+		try {
+			var line = root.AddComponent<aUiLineRenderer>();
+			line.Thickness = 20f * scale;
+			line.EnableCornerInterpolation = true;
+			line.CornerVertices = 8;
+			// K2 の ConnectionLine 4 で線幅が 0 になった実際のポイント列。
+			var points = new[] {
+				new Vector2(-180.541015625f, 65.0556640625f),
+				new Vector2(-110.18545532226563f, 57.848297119140625f),
+				new Vector2(-58.602294921875f, 39.260986328125f),
+				new Vector2(-18.28271484375f, 13.845703125f),
+				new Vector2(18.2825927734375f, -13.845672607421875f),
+				new Vector2(58.602294921875f, -39.261016845703125f),
+				new Vector2(110.1854248046875f, -57.848297119140625f),
+				new Vector2(180.54095458984375f, -65.0556640625f)
+			};
+			for(var i = 0; i < points.Length; i++) points[i] *= scale;
+			line.AddPoints(points);
+			var mesh = BuildMesh(line);
+			var center = (points[3] + points[4]) * 0.5f;
+			var direction = (points[4] - points[3]).normalized;
+			var normal = new Vector2(-direction.y, direction.x);
+			// 中心線だけでなく、欠けの前後で線幅の両側まで面が存在することを確認する。
+			foreach(var along in new[] { -1f, 0f, 1f }) {
+				foreach(var across in new[] { -9f, 0f, 9f }) {
+					var sample = center + (direction * along + normal * across) * scale;
+					Assert.That(Covers(mesh, sample), Is.True, $"Missing stroke at {sample}, scale={scale}");
+				}
+			}
+			AssertClockwise(mesh, $"Near-origin midpoint, scale={scale}");
+		} finally { Object.DestroyImmediate(root); }
+	}
+
+	[TestCase(false)]
+	[TestCase(true)]
+	public void NearlyDuplicateInputPointsDoNotCollapseLineWidth(bool interpolate) {
+		var root = new GameObject("Nearly duplicate input", typeof(RectTransform), typeof(CanvasRenderer));
+		try {
+			var line = root.AddComponent<aUiLineRenderer>();
+			line.Thickness = 20f;
+			line.EnableCornerInterpolation = interpolate;
+			line.AddPoints(new[] { new Vector2(-20f, 0f), Vector2.zero,
+				new Vector2(0.000002f, 0f), new Vector2(20f, 0f) });
+			var mesh = BuildMesh(line);
+			Assert.That(Covers(mesh, new Vector2(1f, 9f)), Is.True);
+			Assert.That(Covers(mesh, new Vector2(1f, -9f)), Is.True);
+		} finally { Object.DestroyImmediate(root); }
+	}
+
 	private static List<UIVertex> BuildMesh(aUiLineRenderer line) {
 		using var vh = new VertexHelper();
 		typeof(aUiLineRenderer).GetMethod("OnPopulateMesh", BindingFlags.Instance | BindingFlags.NonPublic,

@@ -824,8 +824,10 @@ namespace ANest.UI {
 			dirNext /= lenNext;
 
 			var cut = Mathf.Min(lenPrev, lenNext) * 0.5f;
-			var start = current - dirPrev * cut;
-			var end = current + dirNext * cut;
+			// 隣接する丸め区間が接する中点は同じ式で求める。
+			// 正規化した方向から別々に戻すと、原点付近で微小な区間が残る。
+			var start = lenPrev <= lenNext ? (prev + current) * 0.5f : current - dirPrev * cut;
+			var end = lenNext <= lenPrev ? (current + next) * 0.5f : current + dirNext * cut;
 
 			AddDistinctPoint(dst, start);
 
@@ -860,7 +862,8 @@ namespace ANest.UI {
 					Mathf.Max(Mathf.Abs(b.x), Mathf.Abs(b.y))
 				)
 			);
-			var tolerance = maxCoordinate * PointMergeRelativeTolerance;
+			// Normalize がゼロベクトルを返す距離は、座標値にかかわらず統合する。
+			var tolerance = Mathf.Max(Vector2.kEpsilon, maxCoordinate * PointMergeRelativeTolerance);
 			return (a - b).sqrMagnitude <= tolerance * tolerance;
 		}
 

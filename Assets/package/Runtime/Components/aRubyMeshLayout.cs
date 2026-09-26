@@ -143,6 +143,18 @@ namespace ANest.UI {
 
 		internal void RestoreTextInfo(TMP_TextInfo info) => CopyTextInfo(m_body, info);
 
+		internal void TransformBoundsX(float scale, float offset) {
+			for(int i = 0; i < Count; i++) {
+				var run = m_runs[i];
+				if(run.Bounds.size == Vector3.zero) continue;
+				var center = run.Bounds.center;
+				var size = run.Bounds.size;
+				center.x = center.x * scale + offset;
+				size.x *= scale;
+				run.Bounds = new Bounds(center, size);
+			}
+		}
+
 		private static void CopyTextInfo(TMP_TextInfo source, TMP_TextInfo destination) {
 			destination.characterCount = source.characterCount;
 			destination.spriteCount = source.spriteCount;

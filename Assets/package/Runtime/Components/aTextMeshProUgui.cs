@@ -31,6 +31,12 @@ namespace ANest.UI {
 		[SerializeField] private float m_rubySize = 8f; // Sizeモード時のフォントサイズ
 		[Tooltip("ルビと本文の間隔（現在の配置位置からの相対値）")]
 		[SerializeField] private float m_rubyOffset = 0f; // ルビと本文の間隔
+		[Tooltip("横にはみ出す場合、文字の高さを維持して横幅を縮小します。自動折り返しとAuto Sizeは無効になります。")]
+		[SerializeField] private bool m_shrinkWidth;
+		[SerializeField, HideInInspector] private bool m_shrinkSettingsSaved;
+		[SerializeField, HideInInspector] private TextWrappingModes m_beforeShrinkWrapping;
+		[SerializeField, HideInInspector] private TextOverflowModes m_beforeShrinkOverflow;
+		[SerializeField, HideInInspector] private bool m_beforeShrinkAutoSize;
 		#endregion
 
 		#region Fields
@@ -47,6 +53,18 @@ namespace ANest.UI {
 		#region Properties
 		/// <summary>Localization用StringTableCollectionの参照</summary>
 		public LocalizedStringTable StringTable => m_stringTable;
+
+		/// <summary>高さを維持して横幅だけをコンテナに収める。OFF時は元のTMP設定を復元する。</summary>
+		public bool ShrinkWidth {
+			get => m_shrinkWidth;
+			set {
+				if(m_shrinkWidth == value) return;
+				m_shrinkWidth = value;
+				ApplyShrinkSettings();
+				SetVerticesDirty();
+				SetLayoutDirty();
+			}
+		}
 
 		/// <summary>ルビのサイズモード</summary>
 		public RubySizeMode RubySizeMode {
@@ -97,6 +115,7 @@ namespace ANest.UI {
 		#region Unity Methods
 		/// <summary>有効化時にイベント購読とLocalization適用を行う</summary>
 		protected override void OnEnable() {
+			ApplyShrinkSettings();
 			EnsureRubyPreprocessor();
 			base.OnEnable();
 			// シーン再読み込み時に残存するルビオブジェクトを回収
@@ -123,6 +142,34 @@ namespace ANest.UI {
 		#endregion
 
 		#region Private Methods
+		// 保存値もシリアライズし、Prefab・ドメインリロード後もOFF時に元へ戻せるようにする。
+		private void ApplyShrinkSettings() {
+			if(m_shrinkWidth) {
+				if(!m_shrinkSettingsSaved) {
+					m_beforeShrinkWrapping = m_TextWrappingMode;
+					m_beforeShrinkOverflow = m_overflowMode;
+					m_beforeShrinkAutoSize = m_enableAutoSizing;
+					m_shrinkSettingsSaved = true;
+					if(m_enableAutoSizing) m_fontSize = m_fontSizeBase;
+				}
+				m_TextWrappingMode = TextWrappingModes.NoWrap;
+				m_overflowMode = TextOverflowModes.Overflow;
+				m_enableAutoSizing = false;
+			} else if(m_shrinkSettingsSaved) {
+				m_TextWrappingMode = m_beforeShrinkWrapping;
+				m_overflowMode = m_beforeShrinkOverflow;
+				m_enableAutoSizing = m_beforeShrinkAutoSize;
+				m_shrinkSettingsSaved = false;
+			}
+		}
+
+#if UNITY_EDITOR
+		protected override void OnValidate() {
+			ApplyShrinkSettings();
+			base.OnValidate();
+		}
+#endif
+
 		private void EnsureRubyPreprocessor() {
 			m_rubyPreprocessor ??= new aRubyTextPreprocessor(this);
 			m_rubyMesh ??= new aRubyMeshLayout();
@@ -132,6 +179,7 @@ namespace ANest.UI {
 		}
 
 		public override void SetVerticesDirty() {
+			if(!m_generatingRuby) ApplyShrinkSettings();
 			EnsureRubyPreprocessor();
 			if(m_generatingRuby) m_rubyInputDirty = true;
 			if(!m_preparingRubyInput && !m_isUpdatingRuby && !m_generatingRuby) {
@@ -148,6 +196,7 @@ namespace ANest.UI {
 		}
 
 		public override void ForceMeshUpdate(bool ignoreActiveState = false, bool forceTextReparsing = false) {
+			if(!m_generatingRuby) ApplyShrinkSettings();
 			EnsureRubyPreprocessor();
 			if(m_generatingRuby) { m_rubyInputDirty = m_havePropertiesChanged = true; return; }
 			base.ForceMeshUpdate(ignoreActiveState, forceTextReparsing);
@@ -164,6 +213,7 @@ namespace ANest.UI {
 		private bool m_bodyTruncated;
 		private int m_bodyOverflowIndex;
 		private bool m_rubyInputDirty;
+		private bool m_widthApplied;
 		private bool m_restoreLayoutSettings, m_restoreRenderSettings;
 		private TextWrappingModes m_savedWrapping;
 		private TextRenderFlags m_savedRenderMode;
@@ -188,6 +238,7 @@ namespace ANest.UI {
 			m_savedRenderMode = m_renderMode;
 			m_restoreLayoutSettings = true;
 			m_rubyInputDirty = false;
+			m_widthApplied = false;
 			m_generatingRuby = true;
 			try {
 				if(!m_rubyPreprocessor.ParsedMesh) {
@@ -220,6 +271,8 @@ namespace ANest.UI {
 				}
 				RenderRubyMesh();
 			} finally {
+				// 非アクティブ / DontRenderでも、公開textInfoには縮小済みの座標を返す。
+				ApplyWidth(textInfo);
 				RestoreRubySettings();
 				m_generatingRuby = false;
 				// コールバックによる変更を次の本文計算へ反映する。生成途中のキャッシュは壊さない。
@@ -269,9 +322,17 @@ namespace ANest.UI {
 
 		private void ApplyRubyMesh(TMP_TextInfo info) {
 			if(m_rubyPreprocessor.ParsedMesh) m_rubyMesh.Apply(info, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
+			ApplyWidth(info);
 			// 公開イベントには元の設定を見せる。その後の変更をfinallyで上書きしない。
 			RestoreRubySettings();
 			OnPreRenderText?.Invoke(info);
+		}
+
+		private void ApplyWidth(TMP_TextInfo info) {
+			if(!m_shrinkWidth || m_widthApplied) return;
+			m_widthApplied = true;
+			aTextWidthLayout.Apply(info, rectTransform.rect, margin, horizontalAlignment, out float scale, out float offset);
+			if(m_rubyPreprocessor.ParsedMesh) m_rubyMesh.TransformBoundsX(scale, offset);
 		}
 
 		protected override Vector2 CalculatePreferredValues(ref float fontSize, Vector2 marginSize, bool isTextAutoSizingEnabled, TextWrappingModes textWrapMode) {

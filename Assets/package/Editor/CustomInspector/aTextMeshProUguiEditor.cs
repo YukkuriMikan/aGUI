@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -23,10 +22,10 @@ namespace ANest.UI {
 		private SerializedProperty m_rubyScaleProp;         // ルビスケール
 		private SerializedProperty m_rubySizeProp;          // ルビサイズ
 		private SerializedProperty m_rubyOffsetProp;        // ルビオフセット
+		private SerializedProperty m_shrinkWidthProp;
 		private SerializedProperty m_textProp;              // TMP m_text プロパティ
 		private string m_previousText;                      // 前回のテキスト値
 		private UnityEditor.Editor m_tmpEditor;             // TMP標準エディタ
-		private static Type s_tmpEditorType;                // TMP_EditorPanelUI型キャッシュ
 		#endregion
 		#region Unity Methods
 		private void OnEnable() {
@@ -40,6 +39,7 @@ namespace ANest.UI {
 			m_rubyScaleProp = serializedObject.FindProperty("m_rubyScale");
 			m_rubySizeProp = serializedObject.FindProperty("m_rubySize");
 			m_rubyOffsetProp = serializedObject.FindProperty("m_rubyOffset");
+			m_shrinkWidthProp = serializedObject.FindProperty("m_shrinkWidth");
 			CreateTmpEditor();
 			m_textProp = serializedObject.FindProperty("m_text");
 			m_previousText = m_textProp != null ? m_textProp.stringValue : "";
@@ -66,6 +66,10 @@ namespace ANest.UI {
 				EditorGUILayout.PropertyField(m_rubySizeProp, new GUIContent("Font Size"));
 			}
 			EditorGUILayout.PropertyField(m_rubyOffsetProp, new GUIContent("Offset"));
+			EditorGUILayout.Space();
+			EditorGUILayout.PropertyField(m_shrinkWidthProp, new GUIContent("Shrink Width"));
+			if(m_shrinkWidthProp.boolValue)
+				EditorGUILayout.HelpBox("横にはみ出す場合、本文とルビの高さを維持して横幅を縮小します。明示改行は維持します。OFFにすると元のWrap Mode・Overflow・Auto Size設定に戻ります。", MessageType.Info);
 			if(serializedObject.ApplyModifiedProperties()) {
 				foreach(var t in targets) {
 					var tmp = (aTextMeshProUgui)t;
@@ -94,12 +98,7 @@ namespace ANest.UI {
 		#region Private Methods
 		/// <summary>TMP標準エディタを生成する。</summary>
 		private void CreateTmpEditor() {
-			if(s_tmpEditorType == null) {
-				s_tmpEditorType = Type.GetType("TMPro.EditorUtilities.TMP_EditorPanelUI, Unity.TextMeshPro.Editor");
-			}
-			if(s_tmpEditorType != null) {
-				m_tmpEditor = CreateEditor(targets, s_tmpEditorType);
-			}
+			m_tmpEditor = CreateEditor(targets, typeof(aShrinkWidthTmpEditor));
 		}
 		/// <summary>StringTableCollectionの一覧を取得する。</summary>
 		private void RefreshTableCollections() {

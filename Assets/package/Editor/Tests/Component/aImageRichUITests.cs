@@ -19,6 +19,7 @@ public class aImageRichUITests {
 	private readonly List<Object> _objects = new List<Object>();
 	private Material _material;
 	private Canvas _canvas;
+	private Camera _pixelCamera;
 	private aImage _image;
 	private string _assetFolder;
 	private static readonly MethodInfo Populate = typeof(aImage).GetMethod("OnPopulateMesh", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
@@ -35,6 +36,14 @@ public class aImageRichUITests {
 		_canvas = Track(new GameObject("RichUI test canvas", typeof(RectTransform), typeof(Canvas))).GetComponent<Canvas>();
 		_canvas.renderMode = RenderMode.WorldSpace;
 		SetSize((RectTransform)_canvas.transform, 256, 256);
+		_pixelCamera = Track(new GameObject("One UI unit per pixel", typeof(Camera))).GetComponent<Camera>();
+		_pixelCamera.enabled = false;
+		_pixelCamera.transform.position = new Vector3(0, 0, -10);
+		_pixelCamera.orthographic = true;
+		_pixelCamera.orthographicSize = 128;
+		_pixelCamera.pixelRect = new Rect(0, 0, 256, 256);
+		_pixelCamera.aspect = 1;
+		_canvas.worldCamera = _pixelCamera;
 		_image = CreateImage("RichUI image", _canvas.transform);
 		_image.sprite = CreateSprite(new Rect(0, 0, 32, 32), Vector4.zero);
 		_image.material = _material;
@@ -117,7 +126,7 @@ public class aImageRichUITests {
 		serialized.ApplyModifiedPropertiesWithoutUndo();
 		Canvas.ForceUpdateCanvases();
 		Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
-		using(var expanded = Build()) Assert.That(Bounds(expanded).width, Is.EqualTo(80).Within(0.001));
+		using(var expanded = Build()) Assert.That(Bounds(expanded).width, Is.EqualTo(81).Within(0.001));
 		serialized.Update();
 		serialized.FindProperty("m_Material").objectReferenceValue = null;
 		serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -138,11 +147,49 @@ public class aImageRichUITests {
 		_image.SetMaterialDirty();
 		Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
 		Canvas.ForceUpdateCanvases();
-		using(var expanded = Build()) Assert.That(Bounds(expanded).width, Is.EqualTo(80).Within(0.001));
+		using(var expanded = Build()) Assert.That(Bounds(expanded).width, Is.EqualTo(81).Within(0.001));
 		source.shader = Shader.Find("UI/Default");
 		Canvas.ForceUpdateCanvases();
 		Assert.That(RenderCallbackCount(_image), Is.Zero, "Leaving RichUI stops its parameter monitor");
 		using(var actual = Build()) using(var expected = Build(false)) AssertSameVertices(actual, expected);
+	}
+
+	[UnityTest]
+	public IEnumerator MaterialInspectorShaderChangesStartRichUIWithoutTogglingImageType() {
+		_assetFolder = AssetDatabase.GenerateUniqueAssetPath("Assets/RichUIMaterialTest");
+		AssetDatabase.CreateFolder("Assets", Path.GetFileName(_assetFolder));
+		var source = new Material(Shader.Find("UI/Default"));
+		AssetDatabase.CreateAsset(source, _assetFolder + "/Material.mat");
+		try {
+			_image.material = source;
+			_image.type = UnityEngine.UI.Image.Type.Simple;
+			Canvas.ForceUpdateCanvases();
+			Assert.That(RenderCallbackCount(_image), Is.Zero);
+			var serialized = new SerializedObject(source);
+			serialized.FindProperty("m_Shader").objectReferenceValue = Shader.Find("aGUI/RichUI");
+			serialized.ApplyModifiedProperties();
+			source.SetFloat("_OutlineEnabled", 1);
+			source.SetFloat("_OutlineWidth", 8);
+			source.SetFloat("_ShadowEnabled", 0);
+			Undo.FlushUndoRecordObjects();
+			yield return null;
+			yield return null;
+			Canvas.ForceUpdateCanvases();
+			Assert.That(RenderCallbackCount(_image), Is.EqualTo(1), "A material Inspector edit must update the cached shader classification");
+			var mesh = _image.canvasRenderer.GetMesh();
+			Assert.That(mesh, Is.Not.Null);
+			Assert.That(mesh.bounds.size.x, Is.EqualTo(81).Within(0.001), "The rendered mesh must expand without changing ImageType");
+			Assert.That(_image.type, Is.EqualTo(UnityEngine.UI.Image.Type.Simple));
+			serialized.Update();
+			serialized.FindProperty("m_Shader").objectReferenceValue = Shader.Find("UI/Default");
+			serialized.ApplyModifiedProperties();
+			Undo.FlushUndoRecordObjects();
+			yield return null;
+			yield return null;
+			Canvas.ForceUpdateCanvases();
+			Assert.That(RenderCallbackCount(_image), Is.Zero);
+			using(var actual = Build()) using(var expected = Build(false)) AssertSameVertices(actual, expected);
+		} finally { Undo.ClearUndo(source); }
 	}
 
 	[TestCase(UnityEngine.UI.Image.Type.Simple)]
@@ -166,10 +213,10 @@ public class aImageRichUITests {
 				Assert.That(expanded.currentVertCount, Is.EqualTo(original.currentVertCount));
 				var originalBounds = Bounds(original);
 				var expandedBounds = Bounds(expanded);
-				Assert.That(expandedBounds.xMin, Is.EqualTo(originalBounds.xMin - 20).Within(0.001));
-				Assert.That(expandedBounds.xMax, Is.EqualTo(originalBounds.xMax + 7).Within(0.001));
-				Assert.That(expandedBounds.yMin, Is.EqualTo(originalBounds.yMin - 7).Within(0.001));
-				Assert.That(expandedBounds.yMax, Is.EqualTo(originalBounds.yMax + 24).Within(0.001));
+				Assert.That(expandedBounds.xMin, Is.EqualTo(originalBounds.xMin - 20.5f).Within(0.001));
+				Assert.That(expandedBounds.xMax, Is.EqualTo(originalBounds.xMax + 7.5f).Within(0.001));
+				Assert.That(expandedBounds.yMin, Is.EqualTo(originalBounds.yMin - 7.5f).Within(0.001));
+				Assert.That(expandedBounds.yMax, Is.EqualTo(originalBounds.yMax + 24.5f).Within(0.001));
 				for(var i = 0; i < original.currentVertCount; i++) {
 					var before = Vertex(original, i);
 					var after = Vertex(expanded, i);
@@ -228,7 +275,7 @@ public class aImageRichUITests {
 		_material.SetFloat("_OutlineWidth", 11);
 		Canvas.ForceUpdateCanvases();
 		Assert.That(dirty, Is.EqualTo(1));
-		using(var mesh = Build()) Assert.That(Bounds(mesh).width, Is.EqualTo(86).Within(0.001));
+		using(var mesh = Build()) Assert.That(Bounds(mesh).width, Is.EqualTo(87).Within(0.001));
 		_image.material = null;
 		using(var actual = Build()) using(var expected = Build(false)) AssertSameVertices(actual, expected);
 	}
@@ -376,6 +423,59 @@ public class aImageRichUITests {
 		Assert.That(Pixel(pixels, 0, 37).g, Is.GreaterThan(0.9));
 		Assert.That(Pixel(pixels, (int)(x + Mathf.Sign(x) * 32), (int)(y + Mathf.Sign(y) * 32)).b, Is.GreaterThan(0.9));
 		Assert.That(Pixel(pixels, 0, 0).r, Is.GreaterThan(0.9));
+	}
+
+	[TestCase(0.25f, 1)]
+	[TestCase(1.25f, 1)]
+	[TestCase(3.25f, 1)]
+	[TestCase(7.25f, 1)]
+	[TestCase(15.25f, 1)]
+	[TestCase(1f, 0.25f)]
+	[TestCase(2.5f, 0.5f)]
+	[TestCase(0.625f, 2)]
+	public void FractionalOutlineWidthsKeepTheEntireFilteredEdge(float width, float scale) {
+		_image.rectTransform.localScale = Vector3.one * scale;
+		_material.SetFloat("_OutlineEnabled", 1);
+		_material.SetFloat("_OutlineWidth", width);
+		_material.SetColor("_OutlineColor", Color.green);
+		var reference = RenderMesh(extraPadding: 2 / scale, scale: scale);
+		var actual = RenderMesh(scale: scale);
+		var edge = Mathf.FloorToInt((32 + width) * scale);
+		foreach(var point in new[] { new Vector2Int(edge, 0), new Vector2Int(-edge - 1, 0), new Vector2Int(0, edge), new Vector2Int(0, -edge - 1) }) {
+			var expectedAlpha = Pixel(reference, point.x, point.y).a;
+			Assert.That(expectedAlpha, Is.GreaterThan(0.1), "The oversized reference contains a visible filtered edge");
+			Assert.That(Pixel(actual, point.x, point.y).a, Is.EqualTo(expectedAlpha).Within(0.01), $"Filtered outline clipped at {point}, width={width}");
+		}
+	}
+
+	[TestCase(30)]
+	[TestCase(45)]
+	[TestCase(75)]
+	public void RotatedOutlineMatchesAnOversizedReference(float rotation) {
+		_image.rectTransform.localRotation = Quaternion.Euler(0, 0, rotation);
+		_material.SetFloat("_OutlineEnabled", 1);
+		_material.SetFloat("_OutlineWidth", 3.25f);
+		_material.SetColor("_OutlineColor", Color.green);
+		var reference = RenderMesh(extraPadding: 2);
+		var actual = RenderMesh();
+		for(var y = -54; y < 54; y++) for(var x = -54; x < 54; x++)
+			Assert.That(Pixel(actual, x, y).a, Is.EqualTo(Pixel(reference, x, y).a).Within(0.01), $"Rotated fringe at {x},{y}, rotation={rotation}");
+	}
+
+	[Test]
+	public void FilteringMarginTracksCameraScaleWithoutDirtyingUnchangedFrames() {
+		_material.SetFloat("_OutlineEnabled", 1);
+		_material.SetFloat("_OutlineWidth", 8);
+		Canvas.ForceUpdateCanvases();
+		Assert.That(_image.canvasRenderer.GetMesh().bounds.size.x, Is.EqualTo(81).Within(0.001));
+		_pixelCamera.orthographicSize = 256;
+		Canvas.ForceUpdateCanvases();
+		Assert.That(_image.canvasRenderer.GetMesh().bounds.size.x, Is.EqualTo(82).Within(0.001), "Zoomed-out pixels need a larger local fringe");
+		var dirty = 0;
+		_image.RegisterDirtyVerticesCallback(() => dirty++);
+		Canvas.ForceUpdateCanvases();
+		Canvas.ForceUpdateCanvases();
+		Assert.That(dirty, Is.Zero);
 	}
 
 	[TestCase(UnityEngine.UI.Image.Type.Simple)]
@@ -652,10 +752,26 @@ public class aImageRichUITests {
 		}
 	}
 
-	private Color[] RenderMesh(bool rich = true) {
+	private Color[] RenderMesh(bool rich = true, float extraPadding = 0, float scale = 1) {
 		Assert.That(SystemInfo.graphicsDeviceType, Is.Not.EqualTo(GraphicsDeviceType.Null), "GPU rendering is required");
 		var mesh = Track(new Mesh());
-		using(var vh = Build(rich)) vh.FillMesh(mesh);
+		using(var vh = Build(rich)) {
+			if(extraPadding > 0) {
+				var bounds = Bounds(vh);
+				for(var i = 0; i < vh.currentVertCount; i++) {
+					var vertex = Vertex(vh, i);
+					var delta = new Vector2(vertex.position.x == bounds.xMin ? -extraPadding : extraPadding,
+						vertex.position.y == bounds.yMin ? -extraPadding : extraPadding);
+					vertex.position += (Vector3)delta;
+					vertex.uv0.x += vertex.uv2.x * delta.x + vertex.uv2.z * delta.y;
+					vertex.uv0.y += vertex.uv2.y * delta.x + vertex.uv2.w * delta.y;
+					vertex.uv0.z += delta.x / _image.rectTransform.rect.width;
+					vertex.uv0.w += delta.y / _image.rectTransform.rect.height;
+					vh.SetUIVertex(vertex, i);
+				}
+			}
+			vh.FillMesh(mesh);
+		}
 		var renderMaterial = rich ? _material : Track(new Material(Shader.Find("UI/Default")));
 		renderMaterial.SetTexture("_MainTex", _image.mainTexture);
 		var target = RenderTexture.GetTemporary(256, 256, 24, RenderTextureFormat.ARGB32);
@@ -666,7 +782,7 @@ public class aImageRichUITests {
 			GL.Clear(true, true, Color.clear);
 			GL.LoadPixelMatrix(-128, 128, -128, 128);
 			renderMaterial.SetPass(0);
-			Graphics.DrawMeshNow(mesh, Matrix4x4.identity);
+			Graphics.DrawMeshNow(mesh, Matrix4x4.TRS(Vector3.zero, _image.rectTransform.localRotation, Vector3.one * scale));
 			var readback = Track(new Texture2D(256, 256, TextureFormat.RGBA32, false));
 			readback.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
 			readback.Apply();
@@ -703,7 +819,7 @@ public class aImageRichUITests {
 			readback.Apply();
 			return readback.GetPixels();
 		} finally {
-			_canvas.worldCamera = null;
+			_canvas.worldCamera = _pixelCamera;
 			camera.targetTexture = null;
 			RenderTexture.active = previous;
 			RenderTexture.ReleaseTemporary(target);

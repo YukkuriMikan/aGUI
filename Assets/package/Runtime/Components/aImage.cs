@@ -159,11 +159,12 @@ namespace ANest.UI {
 			if(changed) base.SetMaterialDirty();
 		}
 
-		private static Vector4 CalculateRichUIPadding(Material source) {
+		private Vector4 CalculateRichUIPadding(Material source) {
 			var outline = source.GetFloat(OutlineEnabled) > 0.5f && source.GetColor(OutlineColor).a > 0
 				? Mathf.Max(0, source.GetFloat(OutlineWidth)) : 0;
 			var padding = Vector4.one * outline;
-			if(source.GetFloat(ShadowEnabled) > 0.5f && source.GetColor(ShadowColor).a > 0) {
+			var shadow = source.GetFloat(ShadowEnabled) > 0.5f && source.GetColor(ShadowColor).a > 0;
+			if(shadow) {
 				var radius = Mathf.Max(0, source.GetFloat(ShadowSoftness)) + Mathf.Max(0, source.GetFloat(ShadowSpread));
 				var x = source.GetFloat(ShadowOffsetX);
 				var y = source.GetFloat(ShadowOffsetY);
@@ -172,7 +173,46 @@ namespace ANest.UI {
 				padding.z = Mathf.Max(outline, radius + x);
 				padding.w = Mathf.Max(outline, radius + y);
 			}
+			if(outline > 0 || shadow) {
+				// SampleSprite's derivative-based gate extends half a screen pixel
+				// beyond the sampled edge. Keep that fringe even for fractional widths.
+				var filter = CalculatePixelPadding(padding);
+				padding += new Vector4(filter.x, filter.y, filter.x, filter.y);
+			}
 			return padding;
+		}
+
+		private Vector2 CalculatePixelPadding(Vector4 padding) {
+			var matrix = rectTransform.localToWorldMatrix;
+			var owner = canvas;
+			var camera = owner && owner.renderMode != RenderMode.ScreenSpaceOverlay ? owner.worldCamera : null;
+			if(owner && owner.renderMode != RenderMode.ScreenSpaceOverlay && !camera) camera = Camera.main;
+			if(!camera) return HalfPixelInLocalUnits(matrix.GetColumn(0), matrix.GetColumn(1));
+
+			var projection = camera.projectionMatrix * camera.worldToCameraMatrix * matrix;
+			var dx = projection.GetColumn(0);
+			var dy = projection.GetColumn(1);
+			var pixels = new Vector2(camera.pixelWidth, camera.pixelHeight) * 0.5f;
+			var rect = rectTransform.rect;
+			var result = Vector2.zero;
+			// Perspective and tilted World Space canvases can have different pixel
+			// sizes at each corner. Use the largest local footprint of the effect.
+			for(var i = 0; i < 4; i++) {
+				var point = projection * new Vector4((i & 1) == 0 ? rect.xMin - padding.x : rect.xMax + padding.z,
+					(i & 2) == 0 ? rect.yMin - padding.y : rect.yMax + padding.w, 0, 1);
+				if(Mathf.Abs(point.w) < 0.000001f) continue;
+				var inverseW2 = 1 / (point.w * point.w);
+				var screenX = Vector2.Scale(new Vector2(dx.x * point.w - point.x * dx.w, dx.y * point.w - point.y * dx.w), pixels) * inverseW2;
+				var screenY = Vector2.Scale(new Vector2(dy.x * point.w - point.x * dy.w, dy.y * point.w - point.y * dy.w), pixels) * inverseW2;
+				result = Vector2.Max(result, HalfPixelInLocalUnits(screenX, screenY));
+			}
+			return result;
+		}
+
+		private static Vector2 HalfPixelInLocalUnits(Vector2 screenX, Vector2 screenY) {
+			var determinant = Mathf.Abs(screenX.x * screenY.y - screenX.y * screenY.x);
+			if(determinant < 0.0000001f) return Vector2.one;
+			return new Vector2(Mathf.Abs(screenY.x) + Mathf.Abs(screenY.y), Mathf.Abs(screenX.x) + Mathf.Abs(screenX.y)) * (0.5f / determinant);
 		}
 
 		public override void SetVerticesDirty() {

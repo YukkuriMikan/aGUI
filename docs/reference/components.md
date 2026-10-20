@@ -13,6 +13,27 @@
 | `RectSync` | 別 `RectTransform` の Anchor/Pivot/Position/Size を同期。 | `Sync()` | [RectSync.cs](../../Assets/package/Runtime/Utility/RectSync.cs) |
 | `aImage` | `UnityEngine.UI.Image` の aGUI版(開発中)。 | (Image API を利用) | [aImage.cs](../../Assets/package/Runtime/Components/aImage.cs) |
 
+## aImage と RichUI
+
+`aImage` の Material に `aGUI/RichUI` を設定すると、縁取り・シャドウの分だけ描画メッシュを拡張します。
+画像本体・RectTransform・レイアウト・クリック範囲は維持し、親の Mask / RectMask2D によるクリップにも従います。
+Simple（Use Sprite Mesh OFF）/ Sliced / Tiled に対応します。Filled / Use Sprite Mesh ON では元のメッシュを維持するため、外側の効果はクリップされます。
+
+**Shadow Blur Mode** で影の計算方式を選択できます。
+
+| モード | 用途 |
+| --- | --- |
+| Fast（既定） | 従来の少数サンプル方式。負荷を抑える用途。大きい Softness / Spread では輪郭の重なりが見える場合があります。 |
+| Gaussian | スプライトのアルファをガウス重みで面積積分し、連続したぼかしを描画します。Spread は積分したカバレッジを外へ広げる近似です。 |
+
+Gaussian の **Shadow Quality** は Fast / Balanced / High の順に、1ピクセルあたり最大64 / 256 / 1024回のテクスチャ参照を行います。
+Spread が0の従来方式と比べると最大サンプル数は8 / 16 / 32倍になるため、既定のモードは Fast のままです。
+追加パスや RenderTexture は使用しません。Switch 向けでは必要な画像だけ Gaussian にし、Quality = Fast から実機で負荷と画質を確認してください。
+Switch 実機での計測は未実施です。描画面積・重なり・画像の細かさでも負荷と必要な品質が変わります。
+
+モード変更は編集時・実行時ともマスク用マテリアルへ反映され、モードだけの変更ではメッシュを再生成しません。
+RichUI 以外のマテリアルでは影の監視処理を登録しません。
+
 ## aTextMeshProUgui のルビ
 
 `<ruby="かんじ">漢字</ruby>` と、従来の `<link="ruby:かんじ">漢字</link>` を使用できます。

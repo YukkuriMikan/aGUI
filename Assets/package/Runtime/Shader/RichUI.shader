@@ -19,6 +19,7 @@ Shader "aGUI/RichUI"
 
         [Header(Shadow)]
         [ToggleUI] _ShadowEnabled ("Shadow Enabled", Float) = 1
+        [Enum(Fast,0,Gaussian,1)] _ShadowBlurMode ("Shadow Blur Mode", Float) = 0
         _ShadowColor ("Shadow Color", Color) = (0,0,0,0.45)
         _ShadowOffsetX ("Shadow Offset X (UI Units)", Float) = 3
         _ShadowOffsetY ("Shadow Offset Y (UI Units)", Float) = -3
@@ -84,7 +85,7 @@ Shader "aGUI/RichUI"
             half4 _RecolorColor;
             float _Brightness, _RecolorAmount;
             float _OutlineEnabled, _OutlineWidth, _UseOutlineTexture;
-            float _ShadowEnabled, _ShadowOffsetX, _ShadowOffsetY;
+            float _ShadowEnabled, _ShadowBlurMode, _ShadowOffsetX, _ShadowOffsetY;
             float _ShadowSoftness, _ShadowSpread, _ShadowSamples;
             float4 _ClipRect;
             float _UIMaskSoftnessX, _UIMaskSoftnessY;
@@ -232,13 +233,100 @@ Shader "aGUI/RichUI"
                 return alpha;
             }
 
+            float GaussianCdf(float value)
+            {
+                // Integral of the standard normal distribution (maximum error < 1e-6).
+                float x = abs(value) * 0.70710678118;
+                float t = rcp(1 + 0.3275911 * x);
+                float erf = 1 - (((((1.061405429 * t - 1.453152027) * t +
+                    1.421413741) * t - 0.284496736) * t + 0.254829592) * t) * exp(-x * x);
+                return 0.5 + 0.5 * sign(value) * erf;
+            }
+
+            float GaussianQuantile(float coverage)
+            {
+                // Approximate inverse CDF for coverage-based spread. No extra texture taps.
+                float v = 2 * clamp(coverage, 0.000001, 0.999999) - 1;
+                float logarithm = log(max(1 - v * v, 0.000001));
+                float t = 4.330746751 + 0.5 * logarithm;
+                return sign(v) * sqrt(max(sqrt(t * t - logarithm / 0.147) - t, 0)) * 1.41421356237;
+            }
+
+            half GaussianShadowAlpha(float2 center, float spread, float softness,
+                float4 bounds, float4 axes, float2 uvDx, float2 uvDy)
+            {
+                float radius = softness + spread;
+                // Supported Image quads have axis-aligned, positive sprite UVs.
+                float2 uvPerUnit = max(float2(axes.x, axes.w), float2(0.000001, 0.000001));
+                float2 position = (center - bounds.xy) / uvPerUnit;
+                float2 sourceSize = (bounds.zw - bounds.xy) / uvPerUnit;
+                float sigma = radius / 3;
+                int count = (int)clamp(_ShadowSamples, 8, 32);
+                float cellSize = 4 * radius / (count - 2);
+                float2 firstCell = floor((position - 2 * radius) / cellSize) * cellSize;
+                float2 inset = min(abs(_MainTex_TexelSize.xy) * 0.5, (bounds.zw - bounds.xy) * 0.49);
+                float total = 0;
+                float secondMoment = 0;
+
+                // Integrate Gaussian mass over source-aligned cells, rather than
+                // moving a sparse collection of silhouettes with each output pixel.
+                // The grid is fixed to the sprite; cell clipping integrates its edge
+                // continuously. Quality bounds work to 8x8 / 16x16 / 32x32 taps.
+                [loop] for (int y = 0; y < 32; ++y)
+                {
+                    if (y >= count) break;
+                    float lowY = max(firstCell.y + y * cellSize, 0);
+                    float highY = min(firstCell.y + (y + 1) * cellSize, sourceSize.y);
+                    if (highY <= lowY) continue;
+                    float weightY = GaussianCdf((highY - position.y) / sigma) -
+                                    GaussianCdf((lowY - position.y) / sigma);
+                    [loop] for (int x = 0; x < 32; ++x)
+                    {
+                        if (x >= count) break;
+                        float lowX = max(firstCell.x + x * cellSize, 0);
+                        float highX = min(firstCell.x + (x + 1) * cellSize, sourceSize.x);
+                        if (highX <= lowX) continue;
+                        float weightX = GaussianCdf((highX - position.x) / sigma) -
+                                        GaussianCdf((lowX - position.x) / sigma);
+                        float2 sampleUV = bounds.xy + float2(lowX + highX, lowY + highY) * 0.5 * uvPerUnit;
+                        sampleUV = clamp(sampleUV, bounds.xy + inset, bounds.zw - inset);
+                        // Area clipping above supplies the boundary coverage. Mip 0
+                        // and the half-texel inset isolate every tap from atlas neighbours.
+                        float alpha = saturate((tex2Dlod(_MainTex, float4(sampleUV, 0, 0)) + _TextureSampleAdd).a);
+                        float weight = weightX * weightY;
+                        total += alpha * weight;
+                        secondMoment += alpha * alpha * weight;
+                    }
+                }
+
+                // Expand the integrated coverage, then restore the requested softness.
+                // This approximates rounded spread without a nested dilation loop or
+                // discrete translated copies. Moments retain semi-transparent opacity.
+                float result = total;
+                [branch] if (spread >= 0.001 && total >= 0.000001)
+                {
+                    float opacity = secondMoment / max(total, 0.000001);
+                    float edgeDistance = sigma * GaussianQuantile(total / max(opacity, 0.000001)) + spread;
+                    [branch] if (softness > 0.001)
+                        result = opacity * GaussianCdf(edgeDistance / (softness / 3));
+                    else
+                    {
+                        float2 footprint = (abs(uvDx) + abs(uvDy)) / uvPerUnit;
+                        result = opacity * saturate(0.5 + edgeDistance / max(max(footprint.x, footprint.y), 0.000001));
+                    }
+                }
+                return (half)result;
+            }
+
             half ShadowAlpha(float2 uv, float4 bounds, float4 axes, float2 uvDx, float2 uvDy)
             {
                 float2 center = uv - axes.xy * _ShadowOffsetX - axes.zw * _ShadowOffsetY;
                 float spread = max(_ShadowSpread, 0);
                 float softness = max(_ShadowSoftness, 0);
                 half alpha = 0;
-                [branch] if (softness < 0.001)
+                [branch] if (_ShadowBlurMode > 0.5 && softness + spread >= 0.001)
+                    alpha = GaussianShadowAlpha(center, spread, softness, bounds, axes, uvDx, uvDy);
+                else if (softness < 0.001)
                 {
                     alpha = DilatedAlpha(center, spread, bounds, axes, uvDx, uvDy, false);
                 }

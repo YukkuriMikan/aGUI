@@ -425,6 +425,133 @@ public class aImageRichUITests {
 		Assert.That(Pixel(pixels, 0, 0).r, Is.GreaterThan(0.9));
 	}
 
+	[TestCase(8)]
+	[TestCase(16)]
+	[TestCase(32)]
+	public void GaussianShadowHasAContinuousGaussianEdgeInsteadOfRepeatedSilhouettes(int quality) {
+		ConfigureGaussianShadow(24, 0, quality);
+		var pixels = RenderMesh();
+		var previous = Pixel(pixels, 55, 0).a;
+		for(var x = 56; x <= 109; x++) {
+			var expected = GaussianCdf((80 - x - 0.5f) / 8) - GaussianCdf((16 - x - 0.5f) / 8);
+			var actual = Pixel(pixels, x, 0).a;
+			Assert.That(actual, Is.EqualTo(expected).Within(0.012), $"Gaussian edge at {x}, quality={quality}");
+			Assert.That(previous - actual, Is.LessThan(0.065), "Sparse shifted silhouettes produce visible opacity steps");
+			previous = actual;
+		}
+	}
+
+	[TestCase(0)]
+	[TestCase(4)]
+	[TestCase(12)]
+	public void GaussianSpreadMovesTheEdgeWithoutIntroducingAdditionalShadowCopies(float spread) {
+		ConfigureGaussianShadow(12, spread, 32);
+		var pixels = RenderMesh();
+		for(var offset = -8; offset <= 8; offset++) {
+			var x = 80 + (int)spread + offset;
+			var expected = GaussianCdf((-offset - 0.5f) / 4);
+			Assert.That(Pixel(pixels, x, 0).a, Is.EqualTo(expected).Within(0.02), $"Spread={spread}, edge offset={offset}");
+		}
+	}
+
+	[Test]
+	public void GaussianBlurKeepsThinFeaturesFaintAndPreservesTransparentSpriteOpacity() {
+		_image.sprite = CreateSprite(new Rect(0, 0, 64, 64), Vector4.zero);
+		var texture = _image.sprite.texture;
+		var source = new Color[64 * 64];
+		for(var y = 0; y < 64; y++) for(var x = 30; x < 34; x++) source[y * 64 + x] = Color.white;
+		texture.SetPixels(source);
+		texture.Apply();
+		ConfigureGaussianShadow(18, 0, 32);
+		var pixels = RenderMesh();
+		var expected = GaussianCdf(2f / 6) - GaussianCdf(-2f / 6);
+		Assert.That(Pixel(pixels, 48, 0).a, Is.EqualTo(expected).Within(0.04), "A blurred thin line must lose peak opacity rather than become a solid distance-field shadow");
+		for(var i = 0; i < source.Length; i++) source[i] = new Color(1, 1, 1, 0.3f);
+		texture.SetPixels(source);
+		texture.Apply();
+		ConfigureGaussianShadow(12, 8, 32);
+		pixels = RenderMesh();
+		Assert.That(Pixel(pixels, 48, 0).a, Is.EqualTo(0.3).Within(0.02), "Spread must preserve source opacity");
+		Assert.That(Pixel(pixels, 88, 0).a, Is.EqualTo(0.3 * GaussianCdf(-0.5f / 4)).Within(0.015));
+	}
+
+	[TestCase(30, 0)]
+	[TestCase(-30, 0)]
+	[TestCase(0, 30)]
+	[TestCase(0, -30)]
+	public void GaussianShadowKeepsItsBlurredEdgesInsideExpandedGeometry(float x, float y) {
+		ConfigureGaussianShadow(16, 8, 16);
+		_material.SetFloat("_ShadowOffsetX", x);
+		_material.SetFloat("_ShadowOffsetY", y);
+		var reference = RenderMesh(extraPadding: 4);
+		var actual = RenderMesh();
+		for(var py = -92; py < 92; py += 2) for(var px = -92; px < 92; px += 2)
+			Assert.That(Pixel(actual, px, py).a, Is.EqualTo(Pixel(reference, px, py).a).Within(0.01), $"Blur clipped at {px},{py}, offset={x},{y}");
+	}
+
+	[Test]
+	public void GaussianSpreadWithZeroSoftnessKeepsAHardExpandedEdge() {
+		ConfigureGaussianShadow(0, 8, 16);
+		var pixels = RenderMesh();
+		Assert.That(Pixel(pixels, 86, 0).a, Is.GreaterThan(0.98));
+		Assert.That(Pixel(pixels, 89, 0).a, Is.LessThan(0.01));
+	}
+
+	[TestCase(UnityEngine.UI.Image.Type.Simple)]
+	[TestCase(UnityEngine.UI.Image.Type.Sliced)]
+	[TestCase(UnityEngine.UI.Image.Type.Tiled)]
+	public void GaussianTapsNeverReadOpaqueNeighboursOfATransparentAtlasSprite(UnityEngine.UI.Image.Type type) {
+		_image.type = type;
+		_image.sprite = CreateSprite(new Rect(16, 16, 32, 32), type == UnityEngine.UI.Image.Type.Simple ? Vector4.zero : Vector4.one * 5);
+		ConfigureGaussianShadow(24, 8, 8);
+		Assert.That(Pixel(RenderMesh(), 60, 0).a, Is.GreaterThan(0.05), "Gaussian path must actually draw a shadow");
+		var texture = _image.sprite.texture;
+		for(var y = 16; y < 48; y++) for(var x = 16; x < 48; x++) texture.SetPixel(x, y, Color.clear);
+		texture.Apply();
+		Assert.That(System.Array.ConvertAll(RenderMesh(), color => color.a), Is.All.LessThan(0.005), "Opaque atlas neighbours must not create a shadow");
+	}
+
+	[TestCase(true)]
+	[TestCase(false)]
+	public void GaussianShadowPreservesMaskClippingAndReceivesLiveParameterChanges(bool stencil) {
+		var mask = Track(new GameObject("Gaussian rendering parent mask", typeof(RectTransform)));
+		mask.transform.SetParent(_canvas.transform, false);
+		SetSize((RectTransform)mask.transform, 128, 128);
+		if(stencil) {
+			mask.AddComponent<UnityEngine.UI.Image>();
+			mask.AddComponent<Mask>().showMaskGraphic = false;
+		} else mask.AddComponent<RectMask2D>();
+		_image.transform.SetParent(mask.transform, false);
+		_image.color = new Color(1, 1, 1, 0.5f);
+		_canvas.gameObject.AddComponent<CanvasGroup>().alpha = 0.5f;
+		ConfigureGaussianShadow(12, 4, 8);
+		var pixels = RenderCanvas();
+		Assert.That(Pixel(pixels, 60, 0).a, Is.EqualTo(0.25).Within(0.02));
+		Assert.That(Pixel(pixels, 70, 0).a, Is.LessThan(0.01));
+		_material.SetFloat("_ShadowOffsetX", 20);
+		pixels = RenderCanvas();
+		Assert.That(Pixel(pixels, 60, 0).a, Is.EqualTo(0.25 * GaussianCdf(-4.5f / 4)).Within(0.015));
+		Assert.That(Pixel(pixels, 70, 0).a, Is.LessThan(0.01));
+	}
+
+	[Test]
+	public void SwitchingShadowModesUpdatesStencilWithoutRebuildingGeometry() {
+		var mask = Track(new GameObject("Gaussian parent mask", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image), typeof(Mask)));
+		mask.transform.SetParent(_canvas.transform, false);
+		_image.transform.SetParent(mask.transform, false);
+		Canvas.ForceUpdateCanvases();
+		var dirty = 0;
+		_image.RegisterDirtyVerticesCallback(() => dirty++);
+		_material.SetFloat("_ShadowBlurMode", 1);
+		Canvas.ForceUpdateCanvases();
+		Assert.That(_image.GetModifiedMaterial(_material).GetFloat("_ShadowBlurMode"), Is.EqualTo(1));
+		Assert.That(dirty, Is.Zero);
+		_material.SetFloat("_ShadowBlurMode", 0);
+		Canvas.ForceUpdateCanvases();
+		Assert.That(_image.GetModifiedMaterial(_material).GetFloat("_ShadowBlurMode"), Is.Zero);
+		Assert.That(dirty, Is.Zero);
+	}
+
 	[TestCase(0.25f, 1)]
 	[TestCase(1.25f, 1)]
 	[TestCase(3.25f, 1)]
@@ -646,6 +773,26 @@ public class aImageRichUITests {
 
 	private T Track<T>(T value) where T : Object { _objects.Add(value); return value; }
 
+	private void ConfigureGaussianShadow(float softness, float spread, int quality) {
+		_material.SetFloat("_OutlineEnabled", 0);
+		_material.SetFloat("_ShadowEnabled", 1);
+		_material.SetFloat("_ShadowBlurMode", 1);
+		_material.SetFloat("_ShadowSoftness", softness);
+		_material.SetFloat("_ShadowSpread", spread);
+		_material.SetFloat("_ShadowOffsetX", 48);
+		_material.SetFloat("_ShadowOffsetY", 0);
+		_material.SetFloat("_ShadowSamples", quality);
+		_material.SetColor("_ShadowColor", Color.white);
+	}
+
+	private static float GaussianCdf(float value) {
+		var sign = Mathf.Sign(value);
+		var x = Mathf.Abs(value) * 0.70710678118f;
+		var t = 1 / (1 + 0.3275911f * x);
+		var erf = 1 - (((((1.061405429f * t - 1.453152027f) * t) + 1.421413741f) * t - 0.284496736f) * t + 0.254829592f) * t * Mathf.Exp(-x * x);
+		return 0.5f + 0.5f * sign * erf;
+	}
+
 	private static int RenderCallbackCount(aImage image) {
 		var field = typeof(Canvas).GetField("preWillRenderCanvases", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
 		Assert.That(field, Is.Not.Null);
@@ -776,19 +923,37 @@ public class aImageRichUITests {
 		renderMaterial.SetTexture("_MainTex", _image.mainTexture);
 		var target = RenderTexture.GetTemporary(256, 256, 24, RenderTextureFormat.ARGB32);
 		var previous = RenderTexture.active;
-		GL.PushMatrix();
+		var geometry = new GameObject("RichUI mesh verification", typeof(MeshFilter), typeof(MeshRenderer));
+		geometry.layer = 31;
+		geometry.transform.localRotation = _image.rectTransform.localRotation;
+		geometry.transform.localScale = Vector3.one * scale;
+		geometry.GetComponent<MeshFilter>().sharedMesh = mesh;
+		geometry.GetComponent<MeshRenderer>().sharedMaterial = renderMaterial;
+		var camera = new GameObject("RichUI mesh verification camera", typeof(Camera)).GetComponent<Camera>();
+		camera.enabled = false;
+		camera.allowMSAA = false;
+		camera.allowHDR = false;
+		camera.transform.position = new Vector3(0, 0, -10);
+		camera.orthographic = true;
+		camera.orthographicSize = 128;
+		camera.aspect = 1;
+		camera.clearFlags = CameraClearFlags.SolidColor;
+		camera.backgroundColor = Color.clear;
+		camera.cullingMask = 1 << 31;
+		camera.nearClipPlane = 1;
+		camera.farClipPlane = 20;
 		try {
+			camera.targetTexture = target;
+			camera.Render();
 			RenderTexture.active = target;
-			GL.Clear(true, true, Color.clear);
-			GL.LoadPixelMatrix(-128, 128, -128, 128);
-			renderMaterial.SetPass(0);
-			Graphics.DrawMeshNow(mesh, Matrix4x4.TRS(Vector3.zero, _image.rectTransform.localRotation, Vector3.one * scale));
 			var readback = Track(new Texture2D(256, 256, TextureFormat.RGBA32, false));
 			readback.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
 			readback.Apply();
 			return readback.GetPixels();
 		} finally {
-			GL.PopMatrix();
+			camera.targetTexture = null;
+			Object.DestroyImmediate(camera.gameObject);
+			Object.DestroyImmediate(geometry);
 			RenderTexture.active = previous;
 			RenderTexture.ReleaseTemporary(target);
 		}

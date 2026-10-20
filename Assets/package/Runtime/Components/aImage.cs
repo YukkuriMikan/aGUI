@@ -27,7 +27,7 @@ namespace ANest.UI {
 			Shader.PropertyToID("_Brightness"), Shader.PropertyToID("_RecolorAmount"),
 			OutlineEnabled, OutlineWidth, Shader.PropertyToID("_UseOutlineTexture"),
 			ShadowEnabled, ShadowOffsetX, ShadowOffsetY, ShadowSoftness, ShadowSpread,
-			Shader.PropertyToID("_ShadowSamples")
+			Shader.PropertyToID("_ShadowSamples"), Shader.PropertyToID("_ShadowBlurMode")
 		};
 		private static readonly int[] RichUIColors = {
 			Shader.PropertyToID("_Color"), Shader.PropertyToID("_RecolorColor"),

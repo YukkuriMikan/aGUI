@@ -48,6 +48,103 @@ public class aImageRichUITests {
 		_assetFolder = null;
 	}
 
+	[Test]
+	public void OrdinaryImagesDoNotSubscribeToRenderMonitoringOrAllocateEffectSnapshots() {
+		_image.material = null;
+		var normal = CreateImage("Ordinary Image", _canvas.transform);
+		var channels = _canvas.additionalShaderChannels;
+		foreach(var source in new[] { null, Track(new Material(Shader.Find("UI/Default"))) }) {
+			normal.material = source;
+			Assert.That(RenderCallbackCount(normal), Is.Zero);
+			Canvas.ForceUpdateCanvases();
+			Canvas.ForceUpdateCanvases();
+			Assert.That(RenderCallbackCount(normal), Is.Zero);
+			Assert.That(typeof(aImage).GetField("_observedFloats", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(normal), Is.Null);
+			Assert.That(typeof(aImage).GetField("_observedColors", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(normal), Is.Null);
+			Assert.That(_canvas.additionalShaderChannels, Is.EqualTo(channels));
+		}
+	}
+
+	[Test]
+	public void OrdinaryMaterialReplacementsDoNotRequestGeometryRebuilds() {
+		_image.material = null;
+		Canvas.ForceUpdateCanvases();
+		var dirty = 0;
+		_image.RegisterDirtyVerticesCallback(() => dirty++);
+		_image.material = Track(new Material(Shader.Find("UI/Default")));
+		Canvas.ForceUpdateCanvases();
+		_image.material = null;
+		Canvas.ForceUpdateCanvases();
+		Assert.That(dirty, Is.Zero);
+		Assert.That(RenderCallbackCount(_image), Is.Zero);
+		using(var actual = Build()) using(var expected = Build(false)) AssertSameVertices(actual, expected);
+	}
+
+	[Test]
+	public void RenderMonitoringFollowsMaterialChangesAndEnableStateWithoutDuplicates() {
+		Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
+		for(var i = 0; i < 3; i++) {
+			_image.SetMaterialDirty();
+			_image.material = _material;
+			Canvas.ForceUpdateCanvases();
+			Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
+			_image.enabled = false;
+			Assert.That(RenderCallbackCount(_image), Is.Zero);
+			_image.SetMaterialDirty();
+			Assert.That(RenderCallbackCount(_image), Is.Zero, "A disabled Image must remain unsubscribed");
+			_image.enabled = true;
+			Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
+			_image.material = null;
+			Assert.That(RenderCallbackCount(_image), Is.Zero);
+			_image.enabled = false;
+			_image.material = _material;
+			Assert.That(RenderCallbackCount(_image), Is.Zero);
+			_image.enabled = true;
+			Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
+		}
+		var previous = _image;
+		Object.DestroyImmediate(_image.gameObject);
+		Assert.That(RenderCallbackCount(previous), Is.Zero, "The static Canvas event must not retain destroyed Images");
+	}
+
+	[Test]
+	public void SerializedMaterialAssignmentsEnableAndDisableRichUIInEditMode() {
+		_image.material = null;
+		_material.SetFloat("_OutlineEnabled", 1);
+		_material.SetFloat("_OutlineWidth", 8);
+		var serialized = new SerializedObject(_image);
+		serialized.FindProperty("m_Material").objectReferenceValue = _material;
+		serialized.ApplyModifiedPropertiesWithoutUndo();
+		Canvas.ForceUpdateCanvases();
+		Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
+		using(var expanded = Build()) Assert.That(Bounds(expanded).width, Is.EqualTo(80).Within(0.001));
+		serialized.Update();
+		serialized.FindProperty("m_Material").objectReferenceValue = null;
+		serialized.ApplyModifiedPropertiesWithoutUndo();
+		Canvas.ForceUpdateCanvases();
+		Assert.That(RenderCallbackCount(_image), Is.Zero);
+		using(var actual = Build()) using(var expected = Build(false)) AssertSameVertices(actual, expected);
+	}
+
+	[Test]
+	public void InPlaceShaderReplacementsUseGraphicMaterialDirtyNotification() {
+		var source = Track(new Material(Shader.Find("UI/Default")));
+		_image.material = source;
+		Assert.That(RenderCallbackCount(_image), Is.Zero);
+		source.shader = Shader.Find("aGUI/RichUI");
+		source.SetFloat("_OutlineEnabled", 1);
+		source.SetFloat("_OutlineWidth", 8);
+		source.SetFloat("_ShadowEnabled", 0);
+		_image.SetMaterialDirty();
+		Assert.That(RenderCallbackCount(_image), Is.EqualTo(1));
+		Canvas.ForceUpdateCanvases();
+		using(var expanded = Build()) Assert.That(Bounds(expanded).width, Is.EqualTo(80).Within(0.001));
+		source.shader = Shader.Find("UI/Default");
+		Canvas.ForceUpdateCanvases();
+		Assert.That(RenderCallbackCount(_image), Is.Zero, "Leaving RichUI stops its parameter monitor");
+		using(var actual = Build()) using(var expected = Build(false)) AssertSameVertices(actual, expected);
+	}
+
 	[TestCase(UnityEngine.UI.Image.Type.Simple)]
 	[TestCase(UnityEngine.UI.Image.Type.Sliced)]
 	[TestCase(UnityEngine.UI.Image.Type.Tiled)]
@@ -448,6 +545,16 @@ public class aImageRichUITests {
 	}
 
 	private T Track<T>(T value) where T : Object { _objects.Add(value); return value; }
+
+	private static int RenderCallbackCount(aImage image) {
+		var field = typeof(Canvas).GetField("preWillRenderCanvases", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+		Assert.That(field, Is.Not.Null);
+		var callback = (System.MulticastDelegate)field.GetValue(null);
+		if(callback == null) return 0;
+		var count = 0;
+		foreach(var entry in callback.GetInvocationList()) if(ReferenceEquals(entry.Target, image)) count++;
+		return count;
+	}
 
 	private aImage CreateImage(string name, Transform parent) {
 		var go = Track(new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer)));

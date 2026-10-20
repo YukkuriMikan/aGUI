@@ -8,6 +8,10 @@ namespace ANest.UI {
 	/// 外周拡張は Simple (Use Sprite Mesh OFF) / Sliced / Tiled に対応する。
 	/// Filled / Use Sprite Mesh ON は標準メッシュを維持し、外側の効果はクリップされる。
 	/// </summary>
+	/// <remarks>
+	/// 非 RichUI の Material.shader を実行中に直接差し替えた場合は SetMaterialDirty() で通知する。
+	/// RichUI 未使用時は描画前イベントへ登録せず、マテリアル変更通知で使用状態を更新する。
+	/// </remarks>
 	[ExecuteAlways]
 	public class aImage : Image {
 		private static readonly int OutlineEnabled = Shader.PropertyToID("_OutlineEnabled");
@@ -35,6 +39,9 @@ namespace ANest.UI {
 
 		private Material _observedMaterial;
 		private Shader _observedShader;
+		private bool _usesRichUI;
+		private bool _monitoringRichUI;
+		private bool _richUIMaterialChanged;
 		private float[] _observedFloats;
 		private Color[] _observedColors;
 		private Texture _observedOutlineTexture;
@@ -44,36 +51,36 @@ namespace ANest.UI {
 		private Rect _richUIDrawRect;
 		private bool _hasRichUIDrawRect;
 
-		public override Material material {
-			get => base.material;
-			set {
-				base.material = value;
-				RefreshRichUI();
-			}
+		public override void SetMaterialDirty() {
+			// Image's setter, Inspector changes and animation all notify here.
+			// In-place shader replacements also use this standard Graphic API.
+			UpdateRichUIUsage();
+			base.SetMaterialDirty();
 		}
 
 		protected override void OnEnable() {
 			base.OnEnable();
-			Canvas.preWillRenderCanvases += RefreshRichUI;
 			RefreshRichUI();
 		}
 
 		protected override void OnDisable() {
-			Canvas.preWillRenderCanvases -= RefreshRichUI;
+			SetRichUIMonitoring(false);
+			base.OnDisable();
 			_observedMaterial = null;
 			_observedShader = null;
+			_usesRichUI = false;
+			_richUIMaterialChanged = false;
 			_hasRichUIDrawRect = false;
-			base.OnDisable();
 		}
 
 		protected override void OnCanvasHierarchyChanged() {
 			base.OnCanvasHierarchyChanged();
-			if(IsRichUI(material)) EnableRichUIChannels();
+			if(_usesRichUI) EnableRichUIChannels();
 		}
 
 		protected override void OnTransformParentChanged() {
 			base.OnTransformParentChanged();
-			if(IsRichUI(material)) EnableRichUIChannels();
+			if(_usesRichUI) EnableRichUIChannels();
 		}
 
 		private static bool IsRichUI(Material source) => source && source.shader && source.shader.name == "aGUI/RichUI";
@@ -84,28 +91,47 @@ namespace ANest.UI {
 				owner.additionalShaderChannels |= RichUIChannels;
 		}
 
-		private void RefreshRichUI() {
+		private void SetRichUIMonitoring(bool monitor) {
+			if(_monitoringRichUI == monitor) return;
+			_monitoringRichUI = monitor;
+			if(monitor) Canvas.preWillRenderCanvases += RefreshRichUI;
+			else Canvas.preWillRenderCanvases -= RefreshRichUI;
+		}
+
+		private bool UpdateRichUIUsage() {
 			var source = material;
 			var shader = source ? source.shader : null;
 			var materialChanged = source != _observedMaterial || shader != _observedShader;
+			var wasRichUI = _usesRichUI;
+			// Shader.name crosses into native code and returns a string. Resolve it
+			// only when the shader changes, never in ordinary mesh/culling calls.
+			if(shader != _observedShader) _usesRichUI = shader && shader.name == "aGUI/RichUI";
 			_observedMaterial = source;
 			_observedShader = shader;
-			if(!IsRichUI(source)) {
-				if(materialChanged || _richUIPadding != Vector4.zero) {
-					_richUIPadding = Vector4.zero;
-					_hasRichUIDrawRect = false;
-					SetVerticesDirty();
-					SetMaterialDirty();
-				}
+			SetRichUIMonitoring(_usesRichUI && isActiveAndEnabled);
+			if(materialChanged && (wasRichUI || _usesRichUI)) {
+				_richUIMaterialChanged = true;
+				if(!_usesRichUI) _richUIPadding = Vector4.zero;
+				SetVerticesDirty();
+			}
+			return materialChanged;
+		}
+
+		private void RefreshRichUI() {
+			var materialChanged = UpdateRichUIUsage();
+			if(!_usesRichUI) {
+				if(materialChanged) base.SetMaterialDirty();
 				return;
 			}
 
 			EnableRichUIChannels();
+			var source = _observedMaterial;
 			if(_observedFloats == null) {
 				_observedFloats = new float[RichUIFloats.Length];
 				_observedColors = new Color[RichUIColors.Length];
 			}
-			var changed = materialChanged;
+			var changed = _richUIMaterialChanged;
+			_richUIMaterialChanged = false;
 			for(var i = 0; i < RichUIFloats.Length; i++) {
 				var value = source.GetFloat(RichUIFloats[i]);
 				changed |= !value.Equals(_observedFloats[i]);
@@ -125,12 +151,12 @@ namespace ANest.UI {
 			_observedOutlineOffset = offset;
 
 			var padding = CalculateRichUIPadding(source);
-			if(materialChanged || !padding.Equals(_richUIPadding)) {
+			if(!padding.Equals(_richUIPadding)) {
 				_richUIPadding = padding;
 				_hasRichUIDrawRect = false;
 				SetVerticesDirty();
 			}
-			if(changed) SetMaterialDirty();
+			if(changed) base.SetMaterialDirty();
 		}
 
 		private static Vector4 CalculateRichUIPadding(Material source) {
@@ -158,7 +184,7 @@ namespace ANest.UI {
 
 		public override Material GetModifiedMaterial(Material baseMaterial) {
 			var modified = base.GetModifiedMaterial(baseMaterial);
-			CopyRichUIProperties(baseMaterial, modified);
+			if(_usesRichUI) CopyRichUIProperties(baseMaterial, modified);
 			return modified;
 		}
 
@@ -166,8 +192,8 @@ namespace ANest.UI {
 			base.UpdateMaterial();
 			// A Mask on this Image is another IMaterialModifier, applied after us.
 			// Update its cached stencil and pop materials as well, without owning copies.
+			if(!_usesRichUI) return;
 			var source = material;
-			if(!IsRichUI(source)) return;
 			CopyRichUIProperties(source, canvasRenderer.GetMaterial());
 			for(var i = 0; i < canvasRenderer.popMaterialCount; i++)
 				CopyRichUIProperties(source, canvasRenderer.GetPopMaterial(i));
@@ -187,7 +213,7 @@ namespace ANest.UI {
 		protected override void OnPopulateMesh(VertexHelper vh) {
 			base.OnPopulateMesh(vh);
 			_hasRichUIDrawRect = false;
-			if(!IsRichUI(material) || vh.currentVertCount == 0) return;
+			if(!_usesRichUI || vh.currentVertCount == 0) return;
 			EnableRichUIChannels();
 			var activeSprite = overrideSprite;
 			var uvRect = activeSprite ? DataUtility.GetOuterUV(activeSprite) : new Vector4(0, 0, 1, 1);
@@ -261,7 +287,7 @@ namespace ANest.UI {
 		}
 
 		public override void Cull(Rect clipRect, bool validRect) {
-			if(!IsRichUI(material) || !canvas) {
+			if(!_usesRichUI || !canvas) {
 				base.Cull(clipRect, validRect);
 				return;
 			}

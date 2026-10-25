@@ -8,6 +8,10 @@ namespace ANest.UI {
 	// TMPのDrawFont/DrawWrappingOverflowはprivateのため、ON時のMain Settingsをここで描画する。
 	// Text InputとExtra Settings、OFF時のInspectorはTMP標準の実装を使用する。
 	internal sealed class aShrinkWidthTmpEditor : TMP_EditorPanelUI {
+		private static readonly GUIContent SpacingLabel = new("Spacing Options (em)", "Spacing adjustments between characters, words, lines and paragraphs.");
+		private static readonly GUIContent HorizontalScaleLabel = new("Character Horizontal Scale", "The horizontal scale of characters. A value of 1 is normal width.");
+		private static readonly string[] SpacingProperties = { "m_characterSpacing", "m_wordSpacing", "m_lineSpacing", "m_paragraphSpacing" };
+		private static readonly GUIContent[] SpacingLabels = { new("Character"), new("Word"), new("Line"), new("Paragraph") };
 		private readonly System.Collections.Generic.Dictionary<string, SerializedProperty> m_properties = new();
 		private readonly System.Collections.Generic.Dictionary<string, GUIContent> m_labels = new();
 
@@ -40,11 +44,7 @@ namespace ANest.UI {
 				DrawGradient();
 			}
 			Field("m_overrideHtmlColors", "Override Tags");
-			Field("m_characterSpacing", "Character Spacing");
-			Field("m_wordSpacing", "Word Spacing");
-			Field("m_lineSpacing", "Line Spacing");
-			Field("m_paragraphSpacing", "Paragraph Spacing");
-			Field("m_characterHorizontalScale", "Character Horizontal Scale");
+			DrawSpacing();
 			// TMPのアラインメントenumはFlagsなので、複数選択できないPopupで表示する。
 			DrawAlignment("m_HorizontalAlignment", "Horizontal Alignment", true);
 			DrawAlignment("m_VerticalAlignment", "Vertical Alignment", false);
@@ -64,6 +64,42 @@ namespace ANest.UI {
 				foreach(var item in targets) ((TMP_Text)item).havePropertiesChanged = true;
 				m_HavePropertiesChanged = false;
 			}
+		}
+
+		private void DrawSpacing() {
+			EditorGUILayout.Space();
+			float labelWidth = EditorGUIUtility.labelWidth;
+			int indent = EditorGUI.indentLevel;
+			try {
+				var row = EditorGUILayout.GetControlRect();
+				float shortLabelWidth = EditorStyles.label.CalcSize(SpacingLabels[3]).x + 4;
+				float minCellWidth = shortLabelWidth + 50;
+				bool inlineLabel = row.width >= labelWidth + minCellWidth * 2 + 3;
+				if(inlineLabel) EditorGUI.PrefixLabel(row, SpacingLabel);
+				else {
+					EditorGUI.LabelField(row, SpacingLabel);
+					row = EditorGUILayout.GetControlRect(false);
+				}
+				EditorGUI.indentLevel = 0;
+				EditorGUIUtility.labelWidth = shortLabelWidth;
+				float offset = inlineLabel ? labelWidth : 0;
+				int columns = row.width - offset >= minCellWidth * 2 + 3 ? 2 : 1;
+				for(int i = 0; i < SpacingProperties.Length; i++) {
+					if(i > 0 && i % columns == 0) row = EditorGUILayout.GetControlRect(false);
+					float cellWidth = (row.width - offset - (columns - 1) * 3) / columns;
+					var cell = new Rect(row.x + offset + i % columns * (cellWidth + 3), row.y, cellWidth, row.height);
+					EditorGUI.PropertyField(cell, Property(SpacingProperties[i]), SpacingLabels[i]);
+				}
+				EditorGUI.indentLevel = indent;
+				// 長い横倍率ラベルにも必要な幅を確保し、数値欄はTMP標準と同じコンパクトな幅にする。
+				EditorGUIUtility.labelWidth = Mathf.Max(labelWidth, EditorStyles.label.CalcSize(HorizontalScaleLabel).x + 4);
+				EditorGUILayout.PropertyField(Property("m_characterHorizontalScale"), HorizontalScaleLabel,
+					GUILayout.MaxWidth(EditorGUIUtility.labelWidth + 50));
+			} finally {
+				EditorGUIUtility.labelWidth = labelWidth;
+				EditorGUI.indentLevel = indent;
+			}
+			EditorGUILayout.Space();
 		}
 
 		private void DrawMaterialPreset() {

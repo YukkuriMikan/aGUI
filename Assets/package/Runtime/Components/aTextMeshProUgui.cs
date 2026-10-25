@@ -296,7 +296,7 @@ namespace ANest.UI {
 			base.GenerateTextMesh();
 			// DontRender / inactive ForceMeshUpdateでは描画イベントが呼ばれない。
 			if(m_restoreRenderSettings)
-				m_rubyMesh.Apply(textInfo, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
+				m_rubyMesh.Apply(textInfo, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset, verticalAlignment);
 			m_characterCount = textInfo.characterCount;
 		}
 
@@ -321,7 +321,7 @@ namespace ANest.UI {
 		}
 
 		private void ApplyRubyMesh(TMP_TextInfo info) {
-			if(m_rubyPreprocessor.ParsedMesh) m_rubyMesh.Apply(info, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset);
+			if(m_rubyPreprocessor.ParsedMesh) m_rubyMesh.Apply(info, m_rubySizeMode, m_rubyScale, m_rubySize, m_rubyOffset, verticalAlignment);
 			ApplyWidth(info);
 			// 公開イベントには元の設定を見せる。その後の変更をfinallyで上書きしない。
 			RestoreRubySettings();

@@ -28,6 +28,73 @@ public class aGuiRubyRegressionTests {
 
     private aGuiRubyMeshTestUtility.Reading Ruby() => aGuiRubyMeshTestUtility.Get(text);
 
+    [TestCase(RubySizeMode.Auto)]
+    [TestCase(RubySizeMode.Scale)]
+    [TestCase(RubySizeMode.Size)]
+    public void RubyOnFollowingLineClearsPreviousBody(RubySizeMode mode) {
+        text.RubySizeMode = mode;
+        text.RubyScale = .8f;
+        text.RubySize = 26;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.text = "<ruby=abc>ABC</ruby>\n<ruby=def>DEF</ruby>";
+        text.ForceMeshUpdate();
+        AssertRubyClearsPreviousLine(1);
+    }
+
+    [TestCase("\n")]
+    [TestCase("\r\n")]
+    [TestCase("<br>")]
+    [TestCase(" ")]
+    public void RubyLineSpacingHandlesExplicitAndAutomaticBreaks(string separator) {
+        text.RubySizeMode = RubySizeMode.Size;
+        text.RubySize = 26;
+        text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, separator == " " ? 90 : 500);
+        text.text = "<ruby=first>ABC</ruby>" + separator + "<ruby=second>DEF</ruby>";
+        text.ForceMeshUpdate();
+        Assert.That(text.textInfo.lineCount, Is.EqualTo(2));
+        AssertRubyClearsPreviousLine(1);
+    }
+
+    [TestCase(TextAlignmentOptions.TopLeft)]
+    [TestCase(TextAlignmentOptions.Center)]
+    [TestCase(TextAlignmentOptions.BottomRight)]
+    public void RubyLineSpacingIsStableAcrossOffsetsAlignmentAndShrink(TextAlignmentOptions alignment) {
+        text.alignment = alignment;
+        text.RubySizeMode = RubySizeMode.Size;
+        text.RubySize = 26;
+        text.ShrinkWidth = true;
+        text.text = "<ruby=first>ABC</ruby>\n<ruby=second>DEF</ruby>\n<ruby=third>GHI</ruby>";
+        foreach(float offset in new[] { 0f, 12f, -4f }) {
+            text.RubyOffset = offset;
+            text.ForceMeshUpdate();
+            AssertRubyClearsPreviousLine(1);
+            AssertRubyClearsPreviousLine(2);
+            var bounds = aGuiRubyMeshTestUtility.Get(text, 1).bounds;
+            float baseline = text.textInfo.lineInfo[1].baseline;
+            text.ForceMeshUpdate();
+            Assert.That(aGuiRubyMeshTestUtility.Get(text, 1).bounds, Is.EqualTo(bounds));
+            Assert.That(text.textInfo.lineInfo[1].baseline, Is.EqualTo(baseline));
+        }
+    }
+
+    private void AssertRubyClearsPreviousLine(int readingIndex) {
+        var reading = aGuiRubyMeshTestUtility.Get(text, readingIndex);
+        Assert.That(reading.bounds.size.y, Is.GreaterThan(0));
+        var link = text.textInfo.linkInfo[readingIndex];
+        int line = text.textInfo.characterInfo[link.linkTextfirstCharacterIndex].lineNumber;
+        Assert.That(line, Is.GreaterThan(0));
+        float previousBottom = float.PositiveInfinity;
+        for(int i = 0; i < text.textInfo.characterCount; i++) {
+            var character = text.textInfo.characterInfo[i];
+            if(character.isVisible && character.lineNumber == line - 1)
+                previousBottom = Mathf.Min(previousBottom, Mathf.Min(character.bottomLeft.y, character.bottomRight.y));
+        }
+        Assert.That(float.IsInfinity(previousBottom), Is.False);
+        Assert.That(reading.bounds.max.y, Is.LessThanOrEqualTo(previousBottom + .001f), "Ruby overlaps the preceding line.");
+        Assert.That(text.textInfo.lineInfo[line].ascender,
+            Is.LessThanOrEqualTo(text.textInfo.lineInfo[line - 1].descender + .001f));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void PreRenderChangesSurviveAndInvalidateRubyLayout(bool enableCycle) {
@@ -83,7 +150,7 @@ public class aGuiRubyRegressionTests {
     [TestCase(TextAlignmentOptions.Center)]
     [TestCase(TextAlignmentOptions.BottomRight)]
     [TestCase(TextAlignmentOptions.Justified)]
-    public void RubyMeshPreservesBodyGeometryAndLayoutAcrossAlignmentAndResize(TextAlignmentOptions alignment) {
+    public void RubyMeshPreservesBodyGlyphsAndWrappingAcrossAlignmentAndResize(TextAlignmentOptions alignment) {
         var control = CreateControl();
         text.alignment = control.alignment = alignment;
         text.text = "<u>AAAA</u> <ruby=abc><b>BC</b> <color=red>DE</color></ruby> ZZ";
@@ -248,11 +315,18 @@ public class aGuiRubyRegressionTests {
         Assert.That(text.textInfo.characterCount, Is.EqualTo(control.textInfo.characterCount));
         Assert.That(text.textInfo.lineCount, Is.EqualTo(control.textInfo.lineCount));
         for(int i = 0; i < control.textInfo.characterCount; i++) {
-            Assert.That(text.textInfo.characterInfo[i].character, Is.EqualTo(control.textInfo.characterInfo[i].character));
-            Assert.That(text.textInfo.characterInfo[i].lineNumber, Is.EqualTo(control.textInfo.characterInfo[i].lineNumber));
+            var expected = control.textInfo.characterInfo[i];
+            var actual = text.textInfo.characterInfo[i];
+            Assert.That(actual.character, Is.EqualTo(expected.character));
+            Assert.That(actual.lineNumber, Is.EqualTo(expected.lineNumber));
+            if(!expected.isVisible) continue;
+            // ルビのために行間は増えるが、本文の字形と横方向のレイアウトは維持する。
+            var offset = Vector3.up * (actual.baseLine - expected.baseLine);
+            for(int corner = 0; corner < 4; corner++)
+                Assert.That(Vector3.Distance(text.textInfo.meshInfo[expected.materialReferenceIndex].vertices[actual.vertexIndex + corner],
+                    control.textInfo.meshInfo[expected.materialReferenceIndex].vertices[expected.vertexIndex + corner] + offset), Is.LessThan(.001f));
         }
         for(int i = 0; i < control.textInfo.meshInfo[0].vertexCount; i++) {
-            Assert.That(Vector3.Distance(text.textInfo.meshInfo[0].vertices[i], control.textInfo.meshInfo[0].vertices[i]), Is.LessThan(.001f), "Body vertex " + i);
             Assert.That(text.textInfo.meshInfo[0].uvs0[i].w, Is.EqualTo(control.textInfo.meshInfo[0].uvs0[i].w).Within(.001f));
             if(control.textInfo.meshInfo[0].vertices[i] != Vector3.zero)
                 Assert.That(text.textInfo.meshInfo[0].colors32[i], Is.EqualTo(control.textInfo.meshInfo[0].colors32[i]));

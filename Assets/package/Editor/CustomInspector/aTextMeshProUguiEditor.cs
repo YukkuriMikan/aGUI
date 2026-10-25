@@ -7,6 +7,7 @@ using UnityEngine.Localization.Tables;
 namespace ANest.UI {
 	/// <summary>aTextMeshProUguiのLocalization対応カスタムインスペクタ。</summary>
 	[CustomEditor(typeof(aTextMeshProUgui))]
+	[CanEditMultipleObjects]
 	public class aTextMeshProUguiEditor : UnityEditor.Editor {
 		#region Fields
 		private SerializedProperty m_stringTableProp;    // StringTable 参照プロパティ
@@ -18,13 +19,12 @@ namespace ANest.UI {
 		private int m_selectedKeyIndex;                     // 選択中キーインデックス
 		private string m_keySearchFilter = "";              // キー検索フィルタ
 		private string[] m_filteredKeys;                    // フィルタ済みキー一覧
+		private string[] m_keyNames;                        // 未選択を含むキー表示名
 		private SerializedProperty m_rubySizeModeProp;     // ルビサイズモード
 		private SerializedProperty m_rubyScaleProp;         // ルビスケール
 		private SerializedProperty m_rubySizeProp;          // ルビサイズ
 		private SerializedProperty m_rubyOffsetProp;        // ルビオフセット
 		private SerializedProperty m_shrinkWidthProp;
-		private SerializedProperty m_textProp;              // TMP m_text プロパティ
-		private string m_previousText;                      // 前回のテキスト値
 		private aShrinkWidthTmpEditor m_tmpEditor;          // TMP標準エディタ
 		#endregion
 		#region Unity Methods
@@ -41,8 +41,6 @@ namespace ANest.UI {
 			m_rubyOffsetProp = serializedObject.FindProperty("m_rubyOffset");
 			m_shrinkWidthProp = serializedObject.FindProperty("m_shrinkWidth");
 			CreateTmpEditor();
-			m_textProp = serializedObject.FindProperty("m_text");
-			m_previousText = m_textProp != null ? m_textProp.stringValue : "";
 		}
 		private void OnDisable() {
 			if(m_tmpEditor != null) {
@@ -56,6 +54,10 @@ namespace ANest.UI {
 		}
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
+			int previousTableIndex = m_selectedTableIndex;
+			SyncSelectedTableIndex();
+			if(previousTableIndex != m_selectedTableIndex) RefreshKeys();
+			SyncSelectedKeyIndex();
 			EditorGUILayout.LabelField("Localization", EditorStyles.boldLabel);
 			DrawTableDropdown();
 			DrawKeySearchField();
@@ -64,15 +66,16 @@ namespace ANest.UI {
 			EditorGUILayout.LabelField("Ruby", EditorStyles.boldLabel);
 			EditorGUILayout.PropertyField(m_rubySizeModeProp, new GUIContent("Size Mode"));
 			var mode = (RubySizeMode)m_rubySizeModeProp.enumValueIndex;
-			if(mode == RubySizeMode.Scale) {
+			if(mode == RubySizeMode.Scale || m_rubySizeModeProp.hasMultipleDifferentValues) {
 				EditorGUILayout.PropertyField(m_rubyScaleProp, new GUIContent("Scale"));
-			} else if(mode == RubySizeMode.Size) {
+			}
+			if(mode == RubySizeMode.Size || m_rubySizeModeProp.hasMultipleDifferentValues) {
 				EditorGUILayout.PropertyField(m_rubySizeProp, new GUIContent("Font Size"));
 			}
 			EditorGUILayout.PropertyField(m_rubyOffsetProp, new GUIContent("Offset"));
 			EditorGUILayout.Space();
 			EditorGUILayout.PropertyField(m_shrinkWidthProp, new GUIContent("Shrink Width"));
-			if(m_shrinkWidthProp.boolValue)
+			if(m_shrinkWidthProp.boolValue || m_shrinkWidthProp.hasMultipleDifferentValues)
 				EditorGUILayout.HelpBox("横にはみ出す場合、本文とルビの高さを維持して横幅を縮小します。明示改行は維持します。OFFにすると元のWrap Mode・Overflow・Auto Size設定に戻ります。", MessageType.Info);
 			if(serializedObject.ApplyModifiedProperties()) {
 				foreach(var t in targets) {
@@ -85,17 +88,8 @@ namespace ANest.UI {
 			if(m_tmpEditor != null) {
 				EditorGUI.BeginChangeCheck();
 				m_tmpEditor.OnInspectorGUI();
-				if(EditorGUI.EndChangeCheck() && m_textProp != null) {
-					serializedObject.Update();
-					var currentText = m_textProp.stringValue;
-					if(currentText != m_previousText) {
-						m_previousText = currentText;
-						foreach(var t in targets) {
-							var tmp = (aTextMeshProUgui)t;
-							tmp.text = currentText;
-						}
-					}
-				}
+				if(EditorGUI.EndChangeCheck())
+					foreach(var t in targets) ((aTextMeshProUgui)t).ForceMeshUpdate();
 			}
 		}
 		#endregion
@@ -130,6 +124,7 @@ namespace ANest.UI {
 			if(m_selectedTableIndex <= 0 || m_selectedTableIndex > m_tableCollections.Length) {
 				m_keys = new string[0];
 				m_filteredKeys = new string[0];
+				m_keyNames = new[] { "(None)" };
 				return;
 			}
 			var collection = m_tableCollections[m_selectedTableIndex - 1];
@@ -144,7 +139,7 @@ namespace ANest.UI {
 			if(string.IsNullOrEmpty(currentKey)) return;
 			for(int i = 0; i < m_filteredKeys.Length; i++) {
 				if(m_filteredKeys[i] == currentKey) {
-					m_selectedKeyIndex = i;
+					m_selectedKeyIndex = i + 1;
 					break;
 				}
 			}
@@ -157,17 +152,22 @@ namespace ANest.UI {
 				var lower = m_keySearchFilter.ToLowerInvariant();
 				m_filteredKeys = m_keys.Where(k => k.ToLowerInvariant().Contains(lower)).ToArray();
 			}
+			m_keyNames = new[] { "(None)" }.Concat(m_filteredKeys).ToArray();
 		}
 		/// <summary>StringTableドロップダウンを描画する。</summary>
 		private void DrawTableDropdown() {
+			bool mixed = EditorGUI.showMixedValue;
+			EditorGUI.showMixedValue = m_stringTableProp.hasMultipleDifferentValues;
+			EditorGUI.BeginChangeCheck();
 			var newIndex = EditorGUILayout.Popup("String Table", m_selectedTableIndex, m_tableNames);
-			if(newIndex != m_selectedTableIndex) {
+			if(EditorGUI.EndChangeCheck()) {
 				m_selectedTableIndex = newIndex;
 				ApplySelectedTable();
 				RefreshKeys();
 				m_selectedKeyIndex = 0;
 				m_localizationKeyProp.stringValue = "";
 			}
+			EditorGUI.showMixedValue = mixed;
 		}
 		/// <summary>キー検索フィールドを描画する。</summary>
 		private void DrawKeySearchField() {
@@ -184,11 +184,17 @@ namespace ANest.UI {
 				EditorGUILayout.LabelField("Key", "No keys available");
 				return;
 			}
-			var newKeyIndex = EditorGUILayout.Popup("Key", m_selectedKeyIndex, m_filteredKeys);
-			if(newKeyIndex != m_selectedKeyIndex || m_localizationKeyProp.stringValue != m_filteredKeys[newKeyIndex]) {
-				m_selectedKeyIndex = newKeyIndex;
-				m_localizationKeyProp.stringValue = m_filteredKeys[newKeyIndex];
+			bool mixed = EditorGUI.showMixedValue;
+			EditorGUI.showMixedValue = m_localizationKeyProp.hasMultipleDifferentValues;
+			using(new EditorGUI.DisabledScope(m_stringTableProp.hasMultipleDifferentValues)) {
+				EditorGUI.BeginChangeCheck();
+				var newKeyIndex = EditorGUILayout.Popup("Key", m_selectedKeyIndex, m_keyNames);
+				if(EditorGUI.EndChangeCheck()) {
+					m_selectedKeyIndex = newKeyIndex;
+					m_localizationKeyProp.stringValue = newKeyIndex > 0 ? m_filteredKeys[newKeyIndex - 1] : "";
+				}
 			}
+			EditorGUI.showMixedValue = mixed;
 		}
 		/// <summary>選択されたテーブルをSerializedPropertyに反映する。</summary>
 		private void ApplySelectedTable() {

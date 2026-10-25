@@ -3,6 +3,8 @@
     "rootNamespace": "",
     "references": [
         "aGUI",
+        "aGuiEditor",
+        "Unity.TextMeshPro",
         "UniRx",
         "UniTask",
         "DOTweenPro.Scripts"

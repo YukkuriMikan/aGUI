@@ -10,6 +10,7 @@ namespace ANest.UI {
 	internal sealed class aShrinkWidthTmpEditor : TMP_EditorPanelUI {
 		private static readonly GUIContent SpacingLabel = new("Spacing Options (em)", "Spacing adjustments between characters, words, lines and paragraphs.");
 		private static readonly GUIContent HorizontalScaleLabel = new("Character Horizontal Scale", "The horizontal scale of characters. A value of 1 is normal width.");
+		private static readonly GUIContent AlignmentLabel = new("Alignment", "Horizontal and vertical alignment of the text within its container.");
 		private static readonly string[] SpacingProperties = { "m_characterSpacing", "m_wordSpacing", "m_lineSpacing", "m_paragraphSpacing" };
 		private static readonly GUIContent[] SpacingLabels = { new("Character"), new("Word"), new("Line"), new("Paragraph") };
 		private readonly System.Collections.Generic.Dictionary<string, SerializedProperty> m_properties = new();
@@ -45,13 +46,7 @@ namespace ANest.UI {
 			}
 			Field("m_overrideHtmlColors", "Override Tags");
 			DrawSpacing();
-			// TMPのアラインメントenumはFlagsなので、複数選択できないPopupで表示する。
-			DrawAlignment("m_HorizontalAlignment", "Horizontal Alignment", true);
-			DrawAlignment("m_VerticalAlignment", "Vertical Alignment", false);
-			if(System.Array.Exists(targets, item => {
-				var alignment = ((TMP_Text)item).horizontalAlignment;
-				return alignment == HorizontalAlignmentOptions.Justified || alignment == HorizontalAlignmentOptions.Flush;
-			})) DrawPropertySlider(new GUIContent("Wrap Mix (W <-> C)"), m_WordWrappingRatiosProp);
+			DrawAlignment();
 			using(new EditorGUI.DisabledScope(true)) {
 				Field("m_TextWrappingMode", "Wrap Mode");
 				Field("m_overflowMode", "Overflow");
@@ -74,7 +69,9 @@ namespace ANest.UI {
 				var row = EditorGUILayout.GetControlRect();
 				float shortLabelWidth = EditorStyles.label.CalcSize(SpacingLabels[3]).x + 4;
 				float minCellWidth = shortLabelWidth + 50;
-				bool inlineLabel = row.width >= labelWidth + minCellWidth * 2 + 3;
+				// Layout時のGetControlRectは仮の幅を返す。行数の分岐には両イベントで同じView幅を使う。
+				float availableWidth = EditorGUIUtility.currentViewWidth - 40;
+				bool inlineLabel = availableWidth >= labelWidth + minCellWidth * 2 + 3;
 				if(inlineLabel) EditorGUI.PrefixLabel(row, SpacingLabel);
 				else {
 					EditorGUI.LabelField(row, SpacingLabel);
@@ -83,7 +80,7 @@ namespace ANest.UI {
 				EditorGUI.indentLevel = 0;
 				EditorGUIUtility.labelWidth = shortLabelWidth;
 				float offset = inlineLabel ? labelWidth : 0;
-				int columns = row.width - offset >= minCellWidth * 2 + 3 ? 2 : 1;
+				int columns = availableWidth - offset >= minCellWidth * 2 + 3 ? 2 : 1;
 				for(int i = 0; i < SpacingProperties.Length; i++) {
 					if(i > 0 && i % columns == 0) row = EditorGUILayout.GetControlRect(false);
 					float cellWidth = (row.width - offset - (columns - 1) * 3) / columns;
@@ -198,16 +195,40 @@ namespace ANest.UI {
 			EditorGUILayout.PropertyField(Property(name), content, true);
 		}
 
-		private void DrawAlignment(string name, string label, bool horizontal) {
-			var property = Property(name);
-			bool mixed = EditorGUI.showMixedValue;
-			EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
-			EditorGUI.BeginChangeCheck();
-			int value = horizontal
-				? (int)(HorizontalAlignmentOptions)EditorGUILayout.EnumPopup(label, (HorizontalAlignmentOptions)property.intValue)
-				: (int)(VerticalAlignmentOptions)EditorGUILayout.EnumPopup(label, (VerticalAlignmentOptions)property.intValue);
-			if(EditorGUI.EndChangeCheck()) property.intValue = value;
-			EditorGUI.showMixedValue = mixed;
+		private void DrawAlignment() {
+			// TMP標準Drawerは幅に応じて縦方向のボタンを次の行へ配置する。
+			float height = EditorGUIUtility.currentViewWidth > 504 ? 20 : 43;
+			var rect = EditorGUILayout.GetControlRect(true, height);
+			float labelWidth = EditorGUIUtility.labelWidth;
+			int indent = EditorGUI.indentLevel;
+			EditorGUI.BeginProperty(rect, AlignmentLabel, m_HorizontalAlignmentProp);
+			EditorGUI.BeginProperty(rect, AlignmentLabel, m_VerticalAlignmentProp);
+			try {
+				// TMPの各グループは24px幅の6ボタン。狭いInspectorでも右端を収める。
+				float buttonsWidth = EditorGUIUtility.currentViewWidth > 504 ? 294 : 144;
+				EditorGUIUtility.labelWidth = Mathf.Min(labelWidth,
+					Mathf.Max(EditorStyles.label.CalcSize(AlignmentLabel).x + 4, rect.width - buttonsWidth));
+				rect = EditorGUI.PrefixLabel(rect, AlignmentLabel);
+				EditorGUI.indentLevel = 0;
+				EditorGUI.BeginChangeCheck();
+				EditorGUI.PropertyField(rect, m_HorizontalAlignmentProp, GUIContent.none);
+				EditorGUI.PropertyField(rect, m_VerticalAlignmentProp, GUIContent.none);
+				if(EditorGUI.EndChangeCheck()) m_HavePropertiesChanged = true;
+			} finally {
+				EditorGUI.EndProperty();
+				EditorGUI.EndProperty();
+				EditorGUIUtility.labelWidth = labelWidth;
+				EditorGUI.indentLevel = indent;
+			}
+			var alignment = (HorizontalAlignmentOptions)m_HorizontalAlignmentProp.intValue;
+			bool showWrapMix = alignment == HorizontalAlignmentOptions.Justified || alignment == HorizontalAlignmentOptions.Flush;
+			if(m_HorizontalAlignmentProp.hasMultipleDifferentValues)
+				showWrapMix = System.Array.Exists(targets, item => {
+					var value = ((TMP_Text)item).horizontalAlignment;
+					return value == HorizontalAlignmentOptions.Justified || value == HorizontalAlignmentOptions.Flush;
+				});
+			if(showWrapMix) DrawPropertySlider(new GUIContent("Wrap Mix (W <-> C)"), m_WordWrappingRatiosProp);
+			EditorGUILayout.Space();
 		}
 	}
 }

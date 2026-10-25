@@ -25,7 +25,7 @@ namespace ANest.UI {
 		private SerializedProperty m_shrinkWidthProp;
 		private SerializedProperty m_textProp;              // TMP m_text プロパティ
 		private string m_previousText;                      // 前回のテキスト値
-		private UnityEditor.Editor m_tmpEditor;             // TMP標準エディタ
+		private aShrinkWidthTmpEditor m_tmpEditor;          // TMP標準エディタ
 		#endregion
 		#region Unity Methods
 		private void OnEnable() {
@@ -49,6 +49,10 @@ namespace ANest.UI {
 				DestroyImmediate(m_tmpEditor);
 				m_tmpEditor = null;
 			}
+		}
+		private void OnSceneGUI() {
+			// TMP標準のマージン枠と編集ハンドルも描画する。
+			m_tmpEditor?.OnSceneGUI();
 		}
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
@@ -98,7 +102,7 @@ namespace ANest.UI {
 		#region Private Methods
 		/// <summary>TMP標準エディタを生成する。</summary>
 		private void CreateTmpEditor() {
-			m_tmpEditor = CreateEditor(targets, typeof(aShrinkWidthTmpEditor));
+			m_tmpEditor = (aShrinkWidthTmpEditor)CreateEditor(targets, typeof(aShrinkWidthTmpEditor));
 		}
 		/// <summary>StringTableCollectionの一覧を取得する。</summary>
 		private void RefreshTableCollections() {

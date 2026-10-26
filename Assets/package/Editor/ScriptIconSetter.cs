@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -15,8 +14,15 @@ namespace ANest.UI.Editor {
 		#region Fields
 		private static readonly Dictionary<Type, Texture2D> s_iconMap = new();         // 型とアイコンの対応マップ
 		private static readonly Dictionary<string, Texture2D> s_scriptIconMap = new(); // MonoScriptのGUIDとアイコンの対応マップ
+		private static readonly Dictionary<Type, Texture2D> s_scriptTypeIcons = new();
+		private static readonly Dictionary<string, Texture2D> s_scriptNameIcons = new();
+		private static readonly Dictionary<int, Texture2D> s_hierarchyIcons = new();   // アイコンがない行もキャッシュする
 		private static readonly HashSet<int> s_cursorRectTargetIds = new();            // CursorRect対象GameObjectのインスタンスIDキャッシュ
+		private static readonly HashSet<int> s_nextCursorRectTargetIds = new();
+		private static readonly HashSet<int> s_cursorInstanceIds = new();
 		private static bool s_cursorTargetsDirty = true;                               // CursorRectキャッシュの再構築が必要か
+		private static bool s_cursorRefreshQueued;
+		private static double s_nextPlayModeRefresh;
 		private static Texture2D s_cursorIcon;                                         // aCursorBase用アイコン
 		#endregion
 
@@ -35,6 +41,8 @@ namespace ANest.UI.Editor {
 			RegisterIcon<aCursorBase>("d_scenepicking_pickable_hover", true);
 
 			LoadCursorIcon();
+			// アセット操作は初期化コンストラクタから分離し、全スクリプトを一度だけ列挙する。
+			EditorApplication.delayCall += InitializeScriptIcons;
 
 			EditorApplication.hierarchyWindowItemOnGUI -= OnHierarchyGUI;
 			EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyGUI;
@@ -42,14 +50,16 @@ namespace ANest.UI.Editor {
 			EditorApplication.projectWindowItemOnGUI += OnProjectGUI;
 
 			// CursorRect対象キャッシュの無効化トリガーを登録
-			EditorApplication.hierarchyChanged -= MarkCursorTargetsDirty;
-			EditorApplication.hierarchyChanged += MarkCursorTargetsDirty;
+			EditorApplication.hierarchyChanged -= OnHierarchyChanged;
+			EditorApplication.hierarchyChanged += OnHierarchyChanged;
 			ObjectChangeEvents.changesPublished -= OnObjectChanged;
 			ObjectChangeEvents.changesPublished += OnObjectChanged;
 			PrefabStage.prefabStageOpened -= OnPrefabStageChanged;
 			PrefabStage.prefabStageOpened += OnPrefabStageChanged;
 			PrefabStage.prefabStageClosing -= OnPrefabStageChanged;
 			PrefabStage.prefabStageClosing += OnPrefabStageChanged;
+			EditorApplication.playModeStateChanged -= OnPlayModeChanged;
+			EditorApplication.playModeStateChanged += OnPlayModeChanged;
 		}
 		#endregion
 
@@ -60,11 +70,7 @@ namespace ANest.UI.Editor {
 		private static void RegisterIcon<T>(string builtinIconName, bool includeDescendants = false) where T : MonoBehaviour {
 			var icon = EditorGUIUtility.IconContent(builtinIconName)?.image as Texture2D;
 			if(icon == null) return;
-			s_iconMap[typeof(T)] = icon;
-			if(includeDescendants)
-				SetMonoScriptIconWithDescendants<T>(icon);
-			else
-				SetMonoScriptIcon(typeof(T), icon);
+			RegisterIconType<T>(icon, includeDescendants);
 		}
 
 		/// <summary>アセットGUIDを指定してMonoScriptにアイコンを登録する。</summary>
@@ -75,59 +81,40 @@ namespace ANest.UI.Editor {
 			if(string.IsNullOrEmpty(path)) return;
 			var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
 			if(icon == null) return;
+			RegisterIconType<T>(icon, includeDescendants);
+		}
+
+		/// <summary>Unityの型キャッシュを使い、スクリプト列挙前に型とアイコンの対応を作る。</summary>
+		private static void RegisterIconType<T>(Texture2D icon, bool includeDescendants) where T : MonoBehaviour {
 			s_iconMap[typeof(T)] = icon;
-			if(includeDescendants)
-				SetMonoScriptIconWithDescendants<T>(icon);
-			else
-				SetMonoScriptIcon(typeof(T), icon);
-		}
-
-		/// <summary>指定した型のMonoScriptにアイコンを設定する。</summary>
-		/// <param name="targetType">対象の型</param>
-		/// <param name="icon">設定するアイコン</param>
-		private static void SetMonoScriptIcon(Type targetType, Texture2D icon) {
-			var scripts = MonoImporter.GetAllRuntimeMonoScripts()
-				.Where(s => s.GetClass() == targetType);
-			foreach (var script in scripts) {
-				RegisterScriptGuid(script, icon);
-				var currentIcon = EditorGUIUtility.GetIconForObject(script);
-				if(currentIcon != null && currentIcon.name == icon.name) continue;
-				// SetDirtyはスクリプトの.metaへの書き込み（差分ノイズ）になるため行わない。アイコンはドメインリロード毎に再設定される
-				EditorGUIUtility.SetIconForObject(script, icon);
+			s_scriptTypeIcons[typeof(T)] = icon;
+			if(!includeDescendants) return;
+			RegisterScriptName(typeof(T), icon);
+			foreach(var type in TypeCache.GetTypesDerivedFrom<T>()) {
+				s_scriptTypeIcons[type] = icon;
+				RegisterScriptName(type, icon);
 			}
 		}
 
-		/// <summary>指定した型とその派生クラスのMonoScriptにアイコンを設定する。</summary>
-		/// <param name="icon">設定するアイコン</param>
-		private static void SetMonoScriptIconWithDescendants<T>(Texture2D icon) where T : MonoBehaviour {
-			var baseType = typeof(T);
-			// GetClass()がnullを返すジェネリック型定義も含めて検索するため、全アセンブリから派生型を収集する
-			var descendantTypeNames = new HashSet<string>();
-			foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
-				try {
-					foreach (var type in asm.GetTypes()) {
-						if(baseType.IsAssignableFrom(type)) {
-							descendantTypeNames.Add(type.Name);
-							// ジェネリック型定義の場合、バッククォート以前の名前も登録する
-							int backtickIndex = type.Name.IndexOf('`');
-							if(backtickIndex > 0) {
-								descendantTypeNames.Add(type.Name.Substring(0, backtickIndex));
-							}
-						}
-					}
-				} catch {
-					// ReflectionTypeLoadException等を無視する
-				}
-			}
+		/// <summary>GetClassがnullになるジェネリック型定義もスクリプト名で解決できるようにする。</summary>
+		private static void RegisterScriptName(Type type, Texture2D icon) {
+			s_scriptNameIcons[type.Name] = icon;
+			int backtickIndex = type.Name.IndexOf('`');
+			if(backtickIndex > 0) s_scriptNameIcons[type.Name.Substring(0, backtickIndex)] = icon;
+		}
 
-			var scripts = MonoImporter.GetAllRuntimeMonoScripts()
-				.Where(s => {
-					var c = s.GetClass();
-					if(c != null) return baseType.IsAssignableFrom(c);
-					// GetClass()がnullの場合、スクリプト名で判定する（ジェネリック型定義等）
-					return descendantTypeNames.Contains(s.name);
-				});
-			foreach (var script in scripts) {
+		/// <summary>全スクリプトを一巡してアイコンを設定する。</summary>
+		private static void InitializeScriptIcons() {
+			if(EditorApplication.isCompiling || EditorApplication.isUpdating) {
+				EditorApplication.delayCall += InitializeScriptIcons;
+				return;
+			}
+			foreach(var script in MonoImporter.GetAllRuntimeMonoScripts()) {
+				var type = script.GetClass();
+				Texture2D icon;
+				if(type != null) {
+					if(!s_scriptTypeIcons.TryGetValue(type, out icon)) continue;
+				} else if(!s_scriptNameIcons.TryGetValue(script.name, out icon)) continue;
 				RegisterScriptGuid(script, icon);
 				var currentIcon = EditorGUIUtility.GetIconForObject(script);
 				if(currentIcon != null && currentIcon.name == icon.name) continue;
@@ -157,25 +144,7 @@ namespace ANest.UI.Editor {
 		/// <param name="instanceID">対象オブジェクトのインスタンスID</param>
 		/// <param name="selectionRect">Hierarchy行の描画領域</param>
 		private static void OnHierarchyGUI(int instanceID, Rect selectionRect) {
-			var go = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
-			if(go == null) return;
-
-			if(PrefabUtility.IsAnyPrefabInstanceRoot(go)) return;
-
-			Texture2D icon = null;
-
-			foreach (var pair in s_iconMap) {
-				if(go.TryGetComponent(pair.Key, out _)) {
-					icon = pair.Value;
-					break;
-				}
-			}
-
-			if(icon == null && s_cursorIcon != null) {
-				if(IsCursorRectTarget(go)) {
-					icon = s_cursorIcon;
-				}
-			}
+			var icon = GetHierarchyIcon(instanceID, Event.current.type);
 
 			if(icon != null) {
 				//PADDINGに合わせて位置を自分で微調整する
@@ -189,6 +158,7 @@ namespace ANest.UI.Editor {
 		/// <param name="guid">対象アセットのGUID</param>
 		/// <param name="selectionRect">Project行の描画領域</param>
 		private static void OnProjectGUI(string guid, Rect selectionRect) {
+			if(Event.current.type != EventType.Repaint) return;
 			if(!s_scriptIconMap.TryGetValue(guid, out var icon)) return;
 			if(icon == null) return;
 
@@ -217,49 +187,124 @@ namespace ANest.UI.Editor {
 			GUI.DrawTexture(iconRect, icon);
 		}
 
-		/// <summary>CursorRect対象キャッシュを無効化する。</summary>
-		private static void MarkCursorTargetsDirty() {
-			s_cursorTargetsDirty = true;
+		/// <summary>アイコンがない行も含め、初回だけコンポーネントを検索する。</summary>
+		private static Texture2D GetHierarchyIcon(int instanceID, EventType eventType) {
+			if(eventType != EventType.Repaint) return null;
+			// Play中のUndoを伴わないAddComponent・参照変更も、表示中だけ最大毎秒1回反映する。
+			if(EditorApplication.isPlaying && EditorApplication.timeSinceStartup >= s_nextPlayModeRefresh) {
+				s_nextPlayModeRefresh = EditorApplication.timeSinceStartup + 1d;
+				OnHierarchyChanged();
+			}
+			// Hierarchyが表示されていない間は、変更通知だけではシーンを検索しない。
+			if(s_cursorTargetsDirty) QueueCursorTargetRefresh();
+			if(s_hierarchyIcons.TryGetValue(instanceID, out var icon)) return icon;
+			var go = EditorUtility.InstanceIDToObject(instanceID) as GameObject;
+			if(go != null && !PrefabUtility.IsAnyPrefabInstanceRoot(go)) {
+				foreach(var pair in s_iconMap) {
+					if(!go.TryGetComponent(pair.Key, out _)) continue;
+					icon = pair.Value;
+					break;
+				}
+				if(icon == null && s_cursorRectTargetIds.Contains(instanceID)) icon = s_cursorIcon;
+			}
+			s_hierarchyIcons[instanceID] = icon;
+			return icon;
 		}
 
-		/// <summary>オブジェクト変更時にキャッシュを無効化する（m_cursorRect等のプロパティ変更を拾うため）。</summary>
-		private static void OnObjectChanged(ref ObjectChangeEventStream stream) {
+		/// <summary>構造変更時だけ行とCursorRect対象のキャッシュを無効化する。</summary>
+		private static void OnHierarchyChanged() {
+			s_hierarchyIcons.Clear();
+			MarkCursorTargetsDirty();
+		}
+
+		/// <summary>CursorRect対象を無効化し、表示中のHierarchyに再描画を要求する。</summary>
+		private static void MarkCursorTargetsDirty() {
+			if(s_cursorTargetsDirty) return;
 			s_cursorTargetsDirty = true;
+			EditorApplication.RepaintHierarchyWindow();
+		}
+
+		/// <summary>行描画の外で再検索する。複数行・複数の変更通知を一つの予約にまとめる。</summary>
+		private static void QueueCursorTargetRefresh() {
+			if(s_cursorRefreshQueued) return;
+			s_cursorRefreshQueued = true;
+			EditorApplication.delayCall += RefreshCursorTargets;
+		}
+
+		private static void RefreshCursorTargets() {
+			EditorApplication.delayCall -= RefreshCursorTargets;
+			s_cursorRefreshQueued = false;
+			if(!s_cursorTargetsDirty) return;
+			if(EditorApplication.isCompiling || EditorApplication.isUpdating) {
+				QueueCursorTargetRefresh();
+				return;
+			}
+			RebuildCursorTargetCache();
+			s_cursorTargetsDirty = false;
+		}
+
+		/// <summary>カーソル参照・構造に関係する変更だけを拾い、移動や無関係なアセット変更は無視する。</summary>
+		private static void OnObjectChanged(ref ObjectChangeEventStream stream) {
+			for(var i = 0; i < stream.length; i++) {
+				switch(stream.GetEventType(i)) {
+					case ObjectChangeKind.ChangeGameObjectOrComponentProperties:
+						stream.GetChangeGameObjectOrComponentPropertiesEvent(i, out var properties);
+						// 無関係な変更ではInstanceIDToObjectなどのネイティブ呼び出しも行わない。
+						if(s_cursorInstanceIds.Contains(properties.instanceId)) MarkCursorTargetsDirty();
+						break;
+					case ObjectChangeKind.ChangeGameObjectStructure:
+						stream.GetChangeGameObjectStructureEvent(i, out var structure);
+						s_hierarchyIcons.Remove(structure.instanceId);
+						MarkCursorTargetsDirty();
+						break;
+					case ObjectChangeKind.ChangeScene:
+					case ObjectChangeKind.CreateGameObjectHierarchy:
+					case ObjectChangeKind.ChangeGameObjectStructureHierarchy:
+					case ObjectChangeKind.ChangeGameObjectParent:
+					case ObjectChangeKind.DestroyGameObjectHierarchy:
+					case ObjectChangeKind.UpdatePrefabInstances:
+						OnHierarchyChanged();
+						return;
+				}
+			}
 		}
 
 		/// <summary>プレハブステージの開閉時にキャッシュを無効化する。</summary>
 		private static void OnPrefabStageChanged(PrefabStage stage) {
-			s_cursorTargetsDirty = true;
+			OnHierarchyChanged();
+		}
+
+		private static void OnPlayModeChanged(PlayModeStateChange state) {
+			s_nextPlayModeRefresh = 0;
+			OnHierarchyChanged();
 		}
 
 		/// <summary>CursorRect対象のGameObjectインスタンスIDキャッシュを再構築する。</summary>
 		private static void RebuildCursorTargetCache() {
-			s_cursorRectTargetIds.Clear();
+			s_nextCursorRectTargetIds.Clear();
+			s_cursorInstanceIds.Clear();
 			var prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
 			aCursorBase[] cursors;
 			if(prefabStage != null) {
 				cursors = prefabStage.prefabContentsRoot.GetComponentsInChildren<aCursorBase>(true);
 			} else {
-				cursors = UnityEngine.Object.FindObjectsByType<aCursorBase>(FindObjectsSortMode.None);
+				cursors = UnityEngine.Object.FindObjectsByType<aCursorBase>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 			}
 			foreach (var cursor in cursors) {
-				var so = new SerializedObject((UnityEngine.Object)cursor);
-				var prop = so.FindProperty("m_cursorRect");
+				s_cursorInstanceIds.Add(cursor.GetInstanceID());
+				using var so = new SerializedObject(cursor);
+				using var prop = so.FindProperty("m_cursorRect");
 				if(prop != null && prop.objectReferenceValue is RectTransform rt) {
-					s_cursorRectTargetIds.Add(rt.gameObject.GetInstanceID());
+					s_nextCursorRectTargetIds.Add(rt.gameObject.GetInstanceID());
 				}
 			}
-		}
-
-		/// <summary>指定GameObjectがいずれかのaCursorBase派生コンポーネントのCursorRectの対象かどうかを判定する。</summary>
-		/// <param name="go">判定対象のGameObject</param>
-		private static bool IsCursorRectTarget(GameObject go) {
-			// Hierarchyの行ごとにシーン全体を走査すると重いため、キャッシュを使用する
-			if(s_cursorTargetsDirty) {
-				s_cursorTargetsDirty = false;
-				RebuildCursorTargetCache();
-			}
-			return s_cursorRectTargetIds.Contains(go.GetInstanceID());
+			if(s_cursorRectTargetIds.SetEquals(s_nextCursorRectTargetIds)) return;
+			// 参照変更で影響を受ける行だけ再評価し、他の行のコンポーネント検索結果は残す。
+			foreach(var id in s_cursorRectTargetIds) s_hierarchyIcons.Remove(id);
+			foreach(var id in s_nextCursorRectTargetIds) s_hierarchyIcons.Remove(id);
+			s_cursorRectTargetIds.Clear();
+			s_cursorRectTargetIds.UnionWith(s_nextCursorRectTargetIds);
+			EditorApplication.RepaintHierarchyWindow();
 		}
 		#endregion
 	}
